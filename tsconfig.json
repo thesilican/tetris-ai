@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2017"],
+    "target": "es2017",
+    "module": "commonjs",
+    "outDir": "dist/",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/"]
+}
