@@ -38,15 +38,15 @@ impl Game {
     pub fn append_queue(&mut self, piece: Piece) {
         self.queue_pieces.push_back(piece);
     }
-    pub fn extend_queue(&mut self, pieces: &Vec<Piece>) {
+    pub fn extend_queue(&mut self, pieces: Vec<Piece>) {
         for piece in pieces {
-            self.queue_pieces.push_back(piece.clone());
+            self.queue_pieces.push_back(piece);
         }
     }
     pub fn clear_queue(&mut self) {
         self.queue_pieces.clear();
     }
-    pub fn set_queue(&mut self, pieces: &Vec<Piece>) {
+    pub fn set_queue(&mut self, pieces: Vec<Piece>) {
         self.clear_queue();
         self.extend_queue(pieces);
     }

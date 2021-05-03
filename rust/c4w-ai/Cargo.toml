@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
+ai-api = { path = "../ai-api" }
 
 [dev-dependencies]
 termion = "1.5.6"

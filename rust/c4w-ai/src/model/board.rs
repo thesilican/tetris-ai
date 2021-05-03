@@ -75,6 +75,12 @@ impl Board {
             self.set_col(i, heights[i as usize]);
         }
     }
+    pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT_USIZE]) {
+        self.matrix = matrix;
+        for i in 0..BOARD_WIDTH {
+            self.recalculate_metadata(i);
+        }
+    }
     pub fn intersects_with(&self, piece: &Piece) -> bool {
         let p_y = piece.location.1;
         let shape = piece.get_bit_shape(None, None);

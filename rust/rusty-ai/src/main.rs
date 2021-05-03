@@ -211,7 +211,7 @@ fn write_state(
 
 // Used in embedded CLI
 fn run_api(weight_str: &str, print_eval: bool) -> Result<(), std::io::Error> {
-    eprintln!("Hello, from rust-ai!");
+    eprintln!("Hello, from rusty-ai!");
     let mut game = Game::new();
     let ai = AI::new(&AIWeights::from_string(weight_str).unwrap());
     loop {

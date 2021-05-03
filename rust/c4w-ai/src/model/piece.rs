@@ -613,7 +613,7 @@ impl PieceMove {
         };
         String::from(slice)
     }
-    fn to_game_move(&self) -> GameMove {
+    pub fn to_game_move(&self) -> GameMove {
         match self {
             PieceMove::ShiftLeft => GameMove::ShiftLeft,
             PieceMove::ShiftRight => GameMove::ShiftRight,

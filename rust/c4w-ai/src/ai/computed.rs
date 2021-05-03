@@ -1,7 +1,15 @@
+use crate::ai::consts::CENTER_COL;
+use crate::ai::consts::CENTER_TRANSITION_HEIGHT;
+use crate::ai::consts::CENTER_TRANSITION_WIDTH;
+use crate::ai::consts::LEFT_COL;
+use crate::ai::consts::LR_MAX_DIFF;
+use crate::ai::consts::LR_WIDTH;
+use crate::ai::consts::RIGHT_COL;
 use crate::model::board::Board;
 use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_NUM_ROTATION;
 use crate::model::consts::PIECE_STARTING_COLUMN;
+use crate::model::game::GameMove;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceMove;
 use crate::model::piece::PieceType;
@@ -32,11 +40,15 @@ impl<T> StateTransitionInfo<T> {
 #[derive(Debug)]
 pub struct PieceTransitionInfo<T> {
     pub total: i32,
-    pub transitions: HashMap<T, Vec<PieceMove>>,
+    pub transitions: HashMap<T, Vec<GameMove>>,
 }
-impl<T> PieceTransitionInfo<T> {
+impl<T: Hash + Eq> PieceTransitionInfo<T> {
     fn new(transitions: HashMap<T, Vec<PieceMove>>) -> Self {
         let total = transitions.len() as i32;
+        let transitions = transitions
+            .into_iter()
+            .map(|(state, arr)| (state, arr.into_iter().map(|x| x.to_game_move()).collect()))
+            .collect();
         PieceTransitionInfo { total, transitions }
     }
 }
@@ -176,13 +188,6 @@ fn gen_piece_moves(piece: &Piece) -> Vec<Vec<PieceMove>> {
     ret
 }
 
-pub const CENTER_TRANSITION_WIDTH: i32 = 4;
-pub const CENTER_TRANSITION_HEIGHT: i32 = 4;
-pub const LR_WIDTH: i32 = 3;
-pub const LR_MAX_DIFF: i32 = 2;
-pub const LEFT_COL: i32 = 0;
-pub const RIGHT_COL: i32 = 7;
-
 lazy_static! {
     pub static ref C4W_TRANSITIONS: C4WTransitions = C4WTransitions::new();
 }
@@ -262,10 +267,10 @@ impl C4WTransitions {
         }
         StateTransitionInfo::new(transitions)
     }
-    fn center_get_state(board: &Board) -> u16 {
+    pub fn center_get_state(board: &Board) -> u16 {
         let mut state = 0;
         for j in (0..CENTER_TRANSITION_HEIGHT).rev() {
-            let mut row = board.matrix[j as usize] >> ((BOARD_WIDTH - CENTER_TRANSITION_WIDTH) / 2);
+            let mut row = board.matrix[j as usize] >> CENTER_COL;
             row &= 0b1111;
             state <<= 4;
             state |= row;
@@ -275,12 +280,12 @@ impl C4WTransitions {
     fn center_set_state(board: &mut Board, mut state: u16) {
         board.set_cols([20, 20, 20, 0, 0, 0, 0, 20, 20, 20]);
         for j in 0..CENTER_TRANSITION_HEIGHT {
-            let row = (state & 0b1111) << ((BOARD_WIDTH - CENTER_TRANSITION_WIDTH) / 2);
+            let row = (state & 0b1111) << CENTER_COL;
             state >>= 4;
             board.matrix[j as usize] |= row;
         }
         for i in 0..CENTER_TRANSITION_WIDTH {
-            board.recalculate_metadata(i + ((BOARD_WIDTH - CENTER_TRANSITION_WIDTH) / 2));
+            board.recalculate_metadata(i + CENTER_COL);
         }
     }
 
@@ -346,7 +351,7 @@ impl C4WTransitions {
         }
         StateTransitionInfo::new(transitions)
     }
-    fn lr_get_state(board: &Board, left: bool) -> (i8, i8, i8) {
+    pub fn lr_get_state(board: &Board, left: bool) -> (i8, i8, i8) {
         if left {
             (
                 board.height_map[LEFT_COL as usize] as i8,
