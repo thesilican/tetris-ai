@@ -3,3 +3,7 @@ dist/
 
 **/target/
 **/debug/
+
+# Added by cargo
+
+/target

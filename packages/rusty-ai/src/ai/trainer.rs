@@ -1,7 +1,6 @@
 use crate::ai::ai::AIWeights;
 use crate::ai::ai::AI;
 use crate::ai::ai::NUM_AI_WEIGHTS;
-use crate::model::game::Game;
 use crate::model::game::GameRNGGenerator;
 use rand::distributions::Distribution;
 use rand::distributions::Uniform;
@@ -234,30 +233,29 @@ impl AITrainer {
         seed: u64,
         should_exit: &Arc<AtomicBool>,
     ) -> Result<i32, ()> {
-        let ai = AI::new(weight);
-        let mut game = Game::new();
+        let mut ai = AI::new(weight, false);
         let mut rng = GameRNGGenerator::new(Some(seed));
-        game.extend_queue(rng.gen_7bag());
+        ai.game.extend_queue(rng.gen_7bag());
         for tick in 0..AI_GAME_ROUNDS {
             if tick % 10 == 0 && should_exit.load(Ordering::Relaxed) {
                 return Err(());
             }
-            let eval = ai.evaluate(&mut game, AI_DEPTH);
-            let drop_res = game.drop(&eval.drop);
+            let eval = ai.evaluate_recursive(AI_DEPTH);
+            let drop_res = ai.game.drop(&eval.drop);
             if let Err(_) = drop_res {
                 // Early death
-                return Ok(game.score * SCORE_WEIGHT
-                    + game.board.holes * HOLE_WEIGHT
+                return Ok(ai.game.score * SCORE_WEIGHT
+                    + ai.game.board.holes * HOLE_WEIGHT
                     + (AI_GAME_ROUNDS - tick) * TOP_OUT_WEIGHT);
             }
             if tick % AI_GARBAGE_FREQ == 0 {
-                game.board.add_garbage_line(rng.gen_garbage_line());
+                ai.game.board.add_garbage_line(rng.gen_garbage_line());
             }
-            if game.queue_len < 7 {
-                game.extend_queue(rng.gen_7bag());
+            if ai.game.queue_len < 7 {
+                ai.game.extend_queue(rng.gen_7bag());
             }
         }
-        Ok(game.score * SCORE_WEIGHT + game.board.holes * HOLE_WEIGHT)
+        Ok(ai.game.score * SCORE_WEIGHT + ai.game.board.holes * HOLE_WEIGHT)
     }
     fn get_random_weights(&mut self) -> AIWeights {
         let mut weights = AIWeights::new();

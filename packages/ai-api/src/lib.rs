@@ -1,28 +1,33 @@
 use serde::{Deserialize, Serialize};
 
-pub const BOARD_WIDTH: i32 = 10;
-pub const BOARD_HEIGHT: i32 = 20;
-
-#[derive(Deserialize)]
-struct CLIInput {
-    matrix: Vec<Vec<bool>>,
-    queue: Vec<i32>,
-    current: i32,
-    hold: Option<i32>,
-}
-
-#[derive(Serialize)]
-struct CLIOutput {
-    moves: Vec<String>,
-    score: Option<f64>,
-}
+const BOARD_WIDTH: usize = 10;
+const BOARD_HEIGHT: usize = 20;
 
 #[derive(Debug)]
-pub struct APIInput {
+pub struct APIRequest {
     pub current: i32,
     pub hold: Option<i32>,
     pub queue: Vec<i32>,
     pub matrix: [u16; BOARD_HEIGHT as usize],
+}
+
+#[derive(Debug)]
+pub struct APIResponse {
+    pub score: Option<f64>,
+    pub moves: Vec<APIMove>,
+}
+
+#[derive(Debug)]
+pub struct APIError(pub String);
+impl From<()> for APIError {
+    fn from(_: ()) -> Self{
+        APIError(String::from("Unknown error"))
+    }
+}
+impl From<&str> for APIError {
+    fn from(err: &str) -> Self{
+        APIError(String::from(err))
+    }
 }
 
 #[derive(Debug)]
@@ -58,35 +63,41 @@ impl std::fmt::Display for APIMove {
 }
 
 #[derive(Debug)]
-pub struct APIOutput {
-    pub score: Option<f64>,
-    pub moves: Vec<APIMove>,
-}
-
-#[derive(Debug)]
-pub enum APIError {
-    IO(std::io::Error),
+pub enum JSONError {
     Serde(serde_json::Error),
     Other(String),
 }
-impl From<serde_json::Error> for APIError {
+impl From<serde_json::Error> for JSONError {
     fn from(err: serde_json::Error) -> Self {
-        APIError::Serde(err)
+        JSONError::Serde(err)
     }
 }
-impl From<std::io::Error> for APIError {
-    fn from(err: std::io::Error) -> Self {
-        APIError::IO(err)
-    }
+#[derive(Deserialize)]
+struct JSONInput {
+    matrix: Vec<Vec<bool>>,
+    queue: Vec<i32>,
+    current: i32,
+    hold: Option<i32>,
 }
 
-pub fn api_read() -> Result<APIInput, APIError> {
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
+#[derive(Serialize)]
+struct JSONOutput {
+    moves: Vec<String>,
+    score: Option<f64>,
+}
 
-    let input = serde_json::from_str::<CLIInput>(&input)?;
+pub trait TetrisAI {
+    fn evaluate(&mut self, req: APIRequest) -> Result<APIResponse, APIError>;
+}
 
-    let mut matrix = [0; BOARD_HEIGHT as usize];
+pub fn parse(req: String) -> Result<APIRequest, JSONError> {
+    let input = serde_json::from_str::<JSONInput>(&req)?;
+
+    if input.matrix.len() != BOARD_WIDTH || input.matrix[0].len() != BOARD_HEIGHT {
+        return Err(JSONError::Other(String::from("Invalid matrix size")));
+    }
+
+    let mut matrix = [0; BOARD_HEIGHT];
     for (i, col) in input.matrix.iter().enumerate() {
         for (j, tile) in col.iter().enumerate() {
             if *tile {
@@ -95,7 +106,7 @@ pub fn api_read() -> Result<APIInput, APIError> {
         }
     }
 
-    Ok(APIInput {
+    Ok(APIRequest {
         current: input.current,
         hold: input.hold,
         queue: input.queue,
@@ -103,15 +114,14 @@ pub fn api_read() -> Result<APIInput, APIError> {
     })
 }
 
-pub fn api_write(options: APIOutput) -> Result<(), serde_json::Error> {
-    let output = CLIOutput {
-        moves: options
+pub fn stringify(res: APIResponse) -> Result<String, JSONError> {
+    let output = JSONOutput {
+        moves: res
             .moves
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<String>>(),
-        score: options.score,
+        score: res.score,
     };
-    println!("{}", serde_json::to_string(&output)?);
-    Ok(())
+    Ok(serde_json::to_string(&output)?)
 }
