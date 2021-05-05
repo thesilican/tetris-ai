@@ -22,45 +22,19 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub type TransitionState<T> = HashMap<T, StateTransitionInfo<T>>;
-#[derive(Debug)]
-pub struct StateTransitionInfo<T> {
-    pub total: i32,
-    pub transitions: HashMap<PieceType, PieceTransitionInfo<T>>,
-}
-impl<T> StateTransitionInfo<T> {
-    fn new(transitions: HashMap<PieceType, PieceTransitionInfo<T>>) -> Self {
-        let mut total = 0;
-        for (_, piece_transition) in transitions.iter() {
-            total += piece_transition.total;
-        }
-        StateTransitionInfo { total, transitions }
-    }
-}
-#[derive(Debug)]
-pub struct PieceTransitionInfo<T> {
-    pub total: i32,
-    pub transitions: HashMap<T, Vec<GameMove>>,
-}
-impl<T: Hash + Eq> PieceTransitionInfo<T> {
-    fn new(transitions: HashMap<T, Vec<PieceMove>>) -> Self {
-        let total = transitions.len() as i32;
-        let transitions = transitions
-            .into_iter()
-            .map(|(state, arr)| (state, arr.into_iter().map(|x| x.to_game_move()).collect()))
-            .collect();
-        PieceTransitionInfo { total, transitions }
-    }
-}
+pub type StateTransitions<T> = HashMap<T, PieceTransitions<T>>;
+// Note: A piece transition must exist for every PieceType
+pub type PieceTransitions<T> = HashMap<PieceType, ChildTransitions<T>>;
+pub type ChildTransitions<T> = HashMap<T, Vec<GameMove>>;
 
 // Given a seed state and a function for generating child states,
 // Generate a state transition digraph
 // Then prune it until it is strongly connected
 fn gen_transition_states<T: Debug + Clone + Eq + Hash>(
     seed_state: T,
-    get_state_transitions: fn(state: &T) -> StateTransitionInfo<T>,
-) -> TransitionState<T> {
-    let mut transitions: TransitionState<T> = HashMap::new();
+    get_piece_transitions: fn(state: &T) -> PieceTransitions<T>,
+) -> StateTransitions<T> {
+    let mut transitions: StateTransitions<T> = HashMap::new();
     // DFS throught all states
     {
         let mut active_states: Vec<T> = Vec::new();
@@ -68,34 +42,30 @@ fn gen_transition_states<T: Debug + Clone + Eq + Hash>(
         active_states.push(seed_state.clone());
         visited_states.insert(seed_state.clone());
 
-        while active_states.len() > 0 {
-            let state = active_states.pop().unwrap();
-            let state_transitions = get_state_transitions(&state);
-            for (_, piece_transitions) in state_transitions.transitions.iter() {
-                for (child_state, _) in piece_transitions.transitions.iter() {
+        while let Some(state) = active_states.pop() {
+            let piece_transitions = get_piece_transitions(&state);
+            for (_, child_transitions) in piece_transitions.iter() {
+                for (child_state, _) in child_transitions.iter() {
                     if !visited_states.contains(&child_state) {
                         active_states.push(child_state.clone());
                         visited_states.insert(child_state.clone());
                     }
                 }
             }
-            transitions.insert(state, state_transitions);
+            transitions.insert(state, piece_transitions);
         }
     }
     // Prune state transitions
     {
         // Reverse map from child_state -> parent_state
         let mut rev_map: HashMap<T, Vec<T>> = HashMap::new();
-        for (state, state_transitions) in transitions.iter() {
-            for (_, piece_transitions) in state_transitions.transitions.iter() {
-                for (child_state, _) in piece_transitions.transitions.iter() {
-                    match rev_map.get_mut(child_state) {
-                        Some(arr) => {
-                            arr.push(state.clone());
-                        }
-                        None => {
-                            rev_map.insert(child_state.clone(), vec![state.clone()]);
-                        }
+        for (state, piece_transitions) in transitions.iter() {
+            for (_, child_transitions) in piece_transitions.iter() {
+                for (child_state, _) in child_transitions.iter() {
+                    if let Some(arr) = rev_map.get_mut(child_state) {
+                        arr.push(state.clone());
+                    } else {
+                        rev_map.insert(child_state.clone(), vec![state.clone()]);
                     }
                 }
             }
@@ -116,23 +86,21 @@ fn gen_transition_states<T: Debug + Clone + Eq + Hash>(
             }
         }
         // Prune unvisited states
-        for (_, state_transitions) in transitions.iter_mut() {
-            for (_, piece_transitions) in state_transitions.transitions.iter_mut() {
-                piece_transitions
-                    .transitions
-                    .retain(|child_state, _| visited_states.contains(child_state));
-                piece_transitions.total = piece_transitions.transitions.len() as i32;
+        for (_, piece_transitions) in transitions.iter_mut() {
+            for (_, child_transitions) in piece_transitions.iter_mut() {
+                // Remove child transitions whose child_state wasn't visited
+                child_transitions.retain(|child_state, _| visited_states.contains(child_state));
             }
-            state_transitions
-                .transitions
-                .retain(|_, piece_transitions| piece_transitions.total != 0);
-            state_transitions.total = state_transitions
-                .transitions
-                .iter()
-                .fold(0, |acc, (_, info)| acc + info.total);
         }
-        transitions.retain(|state, state_transitions| {
-            visited_states.contains(state) && state_transitions.total != 0
+        // Remove state transitions whose states weren't visited
+        // Or have no children
+        transitions.retain(|state, piece_transitions| {
+            let child_count = piece_transitions
+                .iter()
+                .fold(0, |acc, (_, child_transitions)| {
+                    acc + child_transitions.len()
+                });
+            visited_states.contains(state) && child_count > 0
         });
     }
     transitions
@@ -191,11 +159,12 @@ fn gen_piece_moves(piece: &Piece) -> Vec<Vec<PieceMove>> {
 lazy_static! {
     pub static ref C4W_TRANSITIONS: C4WTransitions = C4WTransitions::new();
 }
+
 #[derive(Debug)]
 pub struct C4WTransitions {
-    pub center: TransitionState<u16>,
-    pub left: TransitionState<(i8, i8, i8)>,
-    pub right: TransitionState<(i8, i8, i8)>,
+    pub center: StateTransitions<u16>,
+    pub left: StateTransitions<(i8, i8, i8)>,
+    pub right: StateTransitions<(i8, i8, i8)>,
 }
 impl C4WTransitions {
     fn new() -> Self {
@@ -225,13 +194,13 @@ impl C4WTransitions {
         }
     }
 
-    fn center_gen_transitions(state: &u16) -> StateTransitionInfo<u16> {
+    fn center_gen_transitions(state: &u16) -> PieceTransitions<u16> {
         let mut board = Board::new();
-        let mut transitions = HashMap::new();
+        let mut piece_transitions = HashMap::new();
         // Find all child states given a state
         for piece_type in PieceType::iter_types() {
             let mut piece = Piece::new(piece_type.clone());
-            let mut piece_transitions: HashMap<u16, Vec<PieceMove>> = HashMap::new();
+            let mut child_transitions = HashMap::<u16, Vec<GameMove>>::new();
             for moves in gen_piece_moves(&piece) {
                 C4WTransitions::center_set_state(&mut board, *state);
                 piece.reset();
@@ -244,28 +213,27 @@ impl C4WTransitions {
                     continue;
                 }
                 let new_state = C4WTransitions::center_get_state(&board);
-                match piece_transitions.get_mut(&new_state) {
-                    Some(old_moves) => {
-                        // Choose the one that's shorter
-                        // If they're the same length, choose the one without the soft drop
-                        if old_moves.len() > moves.len() {
-                            *old_moves = moves;
-                        } else if old_moves.len() == moves.len() {
-                            if old_moves.contains(&PieceMove::SoftDrop)
-                                && !moves.contains(&PieceMove::SoftDrop)
-                            {
-                                *old_moves = moves;
-                            }
+                let new_moves = moves
+                    .into_iter()
+                    .map(|x| x.to_game_move())
+                    .collect::<Vec<_>>();
+
+                child_transitions
+                    .entry(new_state)
+                    .and_modify(|old_moves| {
+                        if old_moves.len() > new_moves.len()
+                            || (old_moves.contains(&GameMove::SoftDrop)
+                                && !new_moves.contains(&GameMove::SoftDrop))
+                        {
+                            *old_moves = new_moves;
                         }
-                    }
-                    None => {
-                        piece_transitions.insert(new_state, moves);
-                    }
-                };
+                    })
+                    .or_insert(new_moves);
             }
-            transitions.insert(piece_type, PieceTransitionInfo::new(piece_transitions));
+            piece_transitions.insert(piece_type, child_transitions);
         }
-        StateTransitionInfo::new(transitions)
+        // This sketchy bit of code converts all piece moves to game moves
+        piece_transitions
     }
     pub fn center_get_state(board: &Board) -> u16 {
         let mut state = 0;
@@ -289,12 +257,12 @@ impl C4WTransitions {
         }
     }
 
-    fn lr_gen_transitions(state: &(i8, i8, i8), left: bool) -> StateTransitionInfo<(i8, i8, i8)> {
+    fn lr_gen_transitions(state: &(i8, i8, i8), left: bool) -> PieceTransitions<(i8, i8, i8)> {
         let mut board = Board::new();
-        let mut transitions = HashMap::new();
+        let mut piece_transitions = HashMap::new();
         for piece_type in PieceType::iter_types() {
             let mut piece = Piece::new(piece_type.clone());
-            let mut piece_transitions = HashMap::<(i8, i8, i8), Vec<PieceMove>>::new();
+            let mut child_transitions = HashMap::<(i8, i8, i8), Vec<GameMove>>::new();
             'moves: for moves in gen_piece_moves(&piece) {
                 C4WTransitions::lr_set_state(&mut board, *state, left);
                 piece.reset();
@@ -336,20 +304,22 @@ impl C4WTransitions {
                 new_state.2 -= min_height;
 
                 // Replace current moves if it is shorter
-                match piece_transitions.get_mut(&new_state) {
-                    Some(curr_moves) => {
-                        if curr_moves.len() > moves.len() {
-                            *curr_moves = moves;
+                let new_moves = moves
+                    .into_iter()
+                    .map(|x| x.to_game_move())
+                    .collect::<Vec<_>>();
+                child_transitions
+                    .entry(new_state)
+                    .and_modify(|old_moves| {
+                        if old_moves.len() > new_moves.len() {
+                            *old_moves = new_moves;
                         }
-                    }
-                    None => {
-                        piece_transitions.insert(new_state, moves);
-                    }
-                }
+                    })
+                    .or_insert(new_moves);
             }
-            transitions.insert(piece_type, PieceTransitionInfo::new(piece_transitions));
+            piece_transitions.insert(piece_type, child_transitions);
         }
-        StateTransitionInfo::new(transitions)
+        piece_transitions
     }
     pub fn lr_get_state(board: &Board, left: bool) -> (i8, i8, i8) {
         if left {

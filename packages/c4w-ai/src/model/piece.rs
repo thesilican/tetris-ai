@@ -339,7 +339,7 @@ pub enum PieceType {
     Z,
 }
 impl PieceType {
-    pub fn iter_types() -> std::vec::IntoIter<PieceType> {
+    pub fn iter_types() -> impl Iterator<Item = PieceType> {
         // https://stackoverflow.com/a/21376984/7937009
         let mut pieces = Vec::new();
         for i in 0..PIECE_NUM_TYPES {

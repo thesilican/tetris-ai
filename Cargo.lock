@@ -458,6 +458,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "c4w-ai"
+version = "0.1.0"
+dependencies = [
+ "ai-api",
+ "lazy_static",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1604,6 +1612,7 @@ dependencies = [
  "actix-web",
  "actix-web-actors",
  "ai-api",
+ "c4w-ai",
  "rusty-ai",
 ]
 

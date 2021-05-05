@@ -6,3 +6,5 @@ pub const RIGHT_COL: i32 = 7;
 pub const LR_WIDTH: i32 = 3;
 pub const LR_MAX_DIFF: i32 = 5;
 pub const LR_MAX_HEIGHT: i32 = 17;
+
+pub const AI_MAX_DEPTH: i32 = 100;

@@ -3,10 +3,11 @@ use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use ai_api::TetrisAI;
 use ai_api::{parse, stringify};
+use c4w_ai::ai::ai::AI as C4WAI;
 use rusty_ai::ai::ai::{AIWeights, AI as RustyAI};
 
 struct WSActor {
-    ai: RustyAI,
+    ai: C4WAI,
 }
 impl WSActor {
     fn new() -> Self {
@@ -15,8 +16,11 @@ impl WSActor {
         //      "PuDw3r2oNtK9TeZhPpwa3Lvq4G++x7VAvs9SFb8YPAI+P3qy"
         //  Points:
         //      "Pl3vz78Jv2G+FHNmvU3rWD6tNxu9ws5aO6jcXr8v4am+V8l9"
-        let rusty_weights = "Pl3vz78Jv2G+FHNmvU3rWD6tNxu9ws5aO6jcXr8v4am+V8l9";
-        let ai = RustyAI::new(&AIWeights::from_string(rusty_weights).unwrap(), false);
+
+        // let rusty_weights = "Pl3vz78Jv2G+FHNmvU3rWD6tNxu9ws5aO6jcXr8v4am+V8l9";
+        // let ai = RustyAI::new(&AIWeights::from_string(rusty_weights).unwrap(), false);
+        // WSActor { ai }
+        let ai = C4WAI::new();
         WSActor { ai }
     }
     fn handle_req(&mut self, req: String) -> Result<String, ()> {

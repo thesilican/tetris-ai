@@ -2,6 +2,7 @@ use crate::model::board::Board;
 use crate::model::board::BoardUndoInfo;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
+use ai_api::APIMove;
 use std::collections::VecDeque;
 
 #[derive(Debug)]
@@ -53,7 +54,7 @@ impl Game {
 
     pub fn make_move(
         &mut self,
-        game_move: GameMove,
+        game_move: &GameMove,
     ) -> Result<Option<(GameDropInfo, GameUndoInfo)>, ()> {
         match game_move {
             GameMove::ShiftLeft => {
@@ -193,7 +194,7 @@ pub struct GameUndoInfo {
     pub hold_empty: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum GameMove {
     ShiftLeft,
     ShiftRight,
@@ -222,5 +223,19 @@ impl GameMove {
 impl std::fmt::Display for GameMove {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
+    }
+}
+impl From<GameMove> for APIMove {
+    fn from(game_move: GameMove) -> APIMove {
+        match game_move {
+            GameMove::ShiftLeft => APIMove::ShiftLeft,
+            GameMove::ShiftRight => APIMove::ShiftRight,
+            GameMove::RotateLeft => APIMove::RotateLeft,
+            GameMove::RotateRight => APIMove::RotateRight,
+            GameMove::Rotate180 => APIMove::Rotate180,
+            GameMove::Hold => APIMove::Hold,
+            GameMove::SoftDrop => APIMove::SoftDrop,
+            GameMove::HardDrop => APIMove::HardDrop,
+        }
     }
 }

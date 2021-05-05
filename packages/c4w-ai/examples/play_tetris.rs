@@ -97,13 +97,13 @@ fn main() {
         match c.unwrap() {
             Key::Ctrl('c') => return,
             Key::Left => {
-                game.make_move(GameMove::ShiftLeft).ok();
+                game.make_move(&GameMove::ShiftLeft).ok();
             }
             Key::Right => {
-                game.make_move(GameMove::ShiftRight).ok();
+                game.make_move(&GameMove::ShiftRight).ok();
             }
             Key::Up => {
-                let res = game.make_move(GameMove::HardDrop).ok();
+                let res = game.make_move(&GameMove::HardDrop).ok();
                 if let Some(Some(res)) = res {
                     let (_res, undo) = res;
                     undo_stack.push(undo);
@@ -121,19 +121,19 @@ fn main() {
                 }
             }
             Key::Down => {
-                game.make_move(GameMove::SoftDrop).ok();
+                game.make_move(&GameMove::SoftDrop).ok();
             }
             Key::Char('z') => {
-                game.make_move(GameMove::RotateLeft).ok();
+                game.make_move(&GameMove::RotateLeft).ok();
             }
             Key::Char('x') => {
-                game.make_move(GameMove::RotateRight).ok();
+                game.make_move(&GameMove::RotateRight).ok();
             }
             Key::Char('a') => {
-                game.make_move(GameMove::Rotate180).ok();
+                game.make_move(&GameMove::Rotate180).ok();
             }
             Key::Char('c') => {
-                game.make_move(GameMove::Hold).ok();
+                game.make_move(&GameMove::Hold).ok();
             }
             Key::Char('u') => {
                 if let Some(undo) = undo_stack.pop() {
