@@ -61,9 +61,9 @@ impl TetrisAI for AI {
         }
         match eval.drop.rotation {
             0 => (),
-            1 => moves.push(APIMove::RotateLeft),
+            1 => moves.push(APIMove::RotateRight),
             2 => moves.push(APIMove::Rotate180),
-            3 => moves.push(APIMove::RotateRight),
+            3 => moves.push(APIMove::RotateLeft),
             _ => unreachable!(),
         }
         for _ in 0..(eval.drop.shift.abs()) {

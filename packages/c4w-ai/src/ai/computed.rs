@@ -17,6 +17,7 @@ use lazy_static::lazy_static;
 use std::cmp::max;
 use std::cmp::min;
 use std::cmp::Eq;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -108,7 +109,7 @@ fn gen_transition_states<T: Debug + Clone + Eq + Hash>(
 
 // Generates a list of all possible piece moves
 // Including a final rotation
-fn gen_piece_moves(piece: &Piece) -> Vec<Vec<PieceMove>> {
+fn gen_piece_moves(piece: &Piece, soft_drop: bool) -> Vec<Vec<PieceMove>> {
     // TODO:
     // Maybe optimize for piece columns
     let mut ret = Vec::new();
@@ -117,7 +118,13 @@ fn gen_piece_moves(piece: &Piece) -> Vec<Vec<PieceMove>> {
         let left_bound = left_bound - PIECE_STARTING_COLUMN;
         let right_bound = right_bound - PIECE_STARTING_COLUMN;
         for shift in left_bound..=right_bound {
-            for final_rotation in 0..PIECE_NUM_ROTATION {
+            // No final rotation if no soft drop
+            let final_rotation_range = if soft_drop {
+                0..PIECE_NUM_ROTATION
+            } else {
+                0..1
+            };
+            for final_rotation in final_rotation_range {
                 let mut moves = Vec::new();
                 match rotation {
                     0 => (),
@@ -157,16 +164,16 @@ fn gen_piece_moves(piece: &Piece) -> Vec<Vec<PieceMove>> {
 }
 
 lazy_static! {
-    pub static ref C4W_TRANSITIONS: C4WTransitions = C4WTransitions::new();
+    pub static ref C4W_TRANSITION_INFO: C4WTransitionInfo = C4WTransitionInfo::new();
 }
 
 #[derive(Debug)]
-pub struct C4WTransitions {
+pub struct C4WTransitionInfo {
     pub center: StateTransitions<u16>,
     pub left: StateTransitions<(i8, i8, i8)>,
     pub right: StateTransitions<(i8, i8, i8)>,
 }
-impl C4WTransitions {
+impl C4WTransitionInfo {
     fn new() -> Self {
         let start = std::time::Instant::now();
 
@@ -177,17 +184,17 @@ impl C4WTransitions {
         // #...
         let center_seed_state = 0b0000_0000_0011_0001;
         let center =
-            gen_transition_states(center_seed_state, C4WTransitions::center_gen_transitions);
+            gen_transition_states(center_seed_state, C4WTransitionInfo::center_gen_transitions);
         let lr_seed_state = (0, 0, 0);
         let left = gen_transition_states(lr_seed_state, |state| {
-            C4WTransitions::lr_gen_transitions(state, true)
+            C4WTransitionInfo::lr_gen_transitions(state, true)
         });
         let right = gen_transition_states(lr_seed_state, |state| {
-            C4WTransitions::lr_gen_transitions(state, false)
+            C4WTransitionInfo::lr_gen_transitions(state, false)
         });
         let end = start.elapsed();
         eprintln!("Computed transitions in {:?}", end);
-        C4WTransitions {
+        C4WTransitionInfo {
             center,
             left,
             right,
@@ -201,8 +208,8 @@ impl C4WTransitions {
         for piece_type in PieceType::iter_types() {
             let mut piece = Piece::new(piece_type.clone());
             let mut child_transitions = HashMap::<u16, Vec<GameMove>>::new();
-            for moves in gen_piece_moves(&piece) {
-                C4WTransitions::center_set_state(&mut board, *state);
+            for moves in gen_piece_moves(&piece, true) {
+                C4WTransitionInfo::center_set_state(&mut board, *state);
                 piece.reset();
                 for piece_move in moves.iter() {
                     piece.make_move(&board, piece_move);
@@ -212,27 +219,29 @@ impl C4WTransitions {
                 if res.lines_cleared != 1 {
                     continue;
                 }
-                let new_state = C4WTransitions::center_get_state(&board);
+                let new_state = C4WTransitionInfo::center_get_state(&board);
                 let new_moves = moves
                     .into_iter()
                     .map(|x| x.to_game_move())
                     .collect::<Vec<_>>();
 
-                child_transitions
-                    .entry(new_state)
-                    .and_modify(|old_moves| {
+                match child_transitions.entry(new_state) {
+                    Entry::Occupied(mut entry) => {
+                        let old_moves = entry.get_mut();
                         if old_moves.len() > new_moves.len()
                             || (old_moves.contains(&GameMove::SoftDrop)
                                 && !new_moves.contains(&GameMove::SoftDrop))
                         {
                             *old_moves = new_moves;
                         }
-                    })
-                    .or_insert(new_moves);
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(new_moves);
+                    }
+                }
             }
             piece_transitions.insert(piece_type, child_transitions);
         }
-        // This sketchy bit of code converts all piece moves to game moves
         piece_transitions
     }
     pub fn center_get_state(board: &Board) -> u16 {
@@ -245,7 +254,7 @@ impl C4WTransitions {
         }
         state
     }
-    fn center_set_state(board: &mut Board, mut state: u16) {
+    pub fn center_set_state(board: &mut Board, mut state: u16) {
         board.set_cols([20, 20, 20, 0, 0, 0, 0, 20, 20, 20]);
         for j in 0..CENTER_TRANSITION_HEIGHT {
             let row = (state & 0b1111) << CENTER_COL;
@@ -263,8 +272,8 @@ impl C4WTransitions {
         for piece_type in PieceType::iter_types() {
             let mut piece = Piece::new(piece_type.clone());
             let mut child_transitions = HashMap::<(i8, i8, i8), Vec<GameMove>>::new();
-            'moves: for moves in gen_piece_moves(&piece) {
-                C4WTransitions::lr_set_state(&mut board, *state, left);
+            'moves: for moves in gen_piece_moves(&piece, false) {
+                C4WTransitionInfo::lr_set_state(&mut board, *state, left);
                 piece.reset();
                 for piece_move in moves.iter() {
                     piece.make_move(&board, piece_move);
@@ -292,7 +301,7 @@ impl C4WTransitions {
                     }
                 }
 
-                let mut new_state = C4WTransitions::lr_get_state(&board, left);
+                let mut new_state = C4WTransitionInfo::lr_get_state(&board, left);
                 // Normalize, disallow if max diff is too big
                 let min_height = min(new_state.0, min(new_state.1, new_state.2));
                 let max_height = max(new_state.0, max(new_state.1, new_state.2));
@@ -308,14 +317,17 @@ impl C4WTransitions {
                     .into_iter()
                     .map(|x| x.to_game_move())
                     .collect::<Vec<_>>();
-                child_transitions
-                    .entry(new_state)
-                    .and_modify(|old_moves| {
+                match child_transitions.entry(new_state) {
+                    Entry::Occupied(mut entry) => {
+                        let old_moves = entry.get_mut();
                         if old_moves.len() > new_moves.len() {
                             *old_moves = new_moves;
                         }
-                    })
-                    .or_insert(new_moves);
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(new_moves);
+                    }
+                }
             }
             piece_transitions.insert(piece_type, child_transitions);
         }
@@ -336,7 +348,7 @@ impl C4WTransitions {
             )
         }
     }
-    fn lr_set_state(board: &mut Board, state: (i8, i8, i8), left: bool) {
+    pub fn lr_set_state(board: &mut Board, state: (i8, i8, i8), left: bool) {
         let mut heights = [0; BOARD_WIDTH as usize];
         if left {
             heights[LEFT_COL as usize] = state.0 as i32;

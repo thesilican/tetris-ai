@@ -1,5 +1,8 @@
 use crate::model::board::Board;
 use crate::model::board::BoardUndoInfo;
+use crate::model::consts::BOARD_HEIGHT;
+use crate::model::consts::BOARD_WIDTH;
+use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
 use ai_api::APIMove;
@@ -179,6 +182,58 @@ impl Game {
         }
     }
 }
+impl std::fmt::Display for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let piece = &self.current_piece;
+        let piece_shape = piece.get_shape(None);
+        let (p_x, p_y) = piece.location;
+        for j in (0..BOARD_HEIGHT).rev() {
+            for i in 0..BOARD_WIDTH {
+                let in_piece_bounds = i - p_x >= 0
+                    && i - p_x < PIECE_SHAPE_SIZE
+                    && j - p_y >= 0
+                    && j - p_y < PIECE_SHAPE_SIZE;
+                let in_piece =
+                    in_piece_bounds && piece_shape[(i - p_x) as usize][(j - p_y) as usize];
+
+                if in_piece {
+                    write!(f, "██")?;
+                } else if self.board.get(i, j) {
+                    write!(f, "▓▓")?;
+                } else if in_piece_bounds {
+                    write!(f, "▒▒")?;
+                } else {
+                    write!(f, "░░")?;
+                }
+            }
+            writeln!(f)?;
+        }
+        // Board height/holes info
+        for i in 0..BOARD_WIDTH {
+            let height = self.board.height_map[i as usize];
+            write!(f, "{:2}", height)?;
+        }
+        writeln!(f)?;
+        for i in 0..BOARD_WIDTH {
+            let hole = self.board.holes[i as usize];
+            write!(f, "{:2}", hole)?;
+        }
+        writeln!(f)?;
+        // Other info
+        let curr = &self.current_piece.to_string();
+        let hold = match &self.hold_piece {
+            Some(piece) => piece.to_string(),
+            None => String::from("null"),
+        };
+        let mut queue_text = String::new();
+        for piece in &self.queue_pieces {
+            queue_text.push_str(&piece.to_string());
+            queue_text.push(' ');
+        }
+        writeln!(f, "Curr: {} Hold: {} Queue: {}", curr, hold, queue_text)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 pub struct GameDropInfo {
@@ -194,7 +249,7 @@ pub struct GameUndoInfo {
     pub hold_empty: bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum GameMove {
     ShiftLeft,
     ShiftRight,
