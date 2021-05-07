@@ -3,21 +3,33 @@ use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 
-const BOARD_WIDTH_USIZE: usize = BOARD_WIDTH as usize;
-const BOARD_HEIGHT_USIZE: usize = BOARD_HEIGHT as usize;
+#[derive(Debug)]
+pub struct BoardLockResult {
+    pub lines_cleared: i32,
+    pub block_out: bool,
+}
+
+#[derive(Debug)]
+pub struct BoardUndoInfo {
+    pub shape_diff: [u16; PIECE_SHAPE_SIZE as usize],
+    pub shape_y: i32,
+    pub lines_cleared: Vec<i32>,
+    pub height_map: [i32; BOARD_WIDTH as usize],
+    pub holes: [i32; BOARD_WIDTH as usize],
+}
 
 #[derive(Debug)]
 pub struct Board {
-    pub matrix: [u16; BOARD_HEIGHT_USIZE],
-    pub height_map: [i32; BOARD_WIDTH_USIZE],
-    pub holes: [i32; BOARD_WIDTH_USIZE],
+    pub matrix: [u16; BOARD_HEIGHT as usize],
+    pub height_map: [i32; BOARD_WIDTH as usize],
+    pub holes: [i32; BOARD_WIDTH as usize],
 }
 impl Board {
     pub fn new() -> Self {
         Board {
-            matrix: [0; BOARD_HEIGHT_USIZE],
-            height_map: [0; BOARD_WIDTH_USIZE],
-            holes: [0; BOARD_WIDTH_USIZE],
+            matrix: [0; BOARD_HEIGHT as usize],
+            height_map: [0; BOARD_WIDTH as usize],
+            holes: [0; BOARD_WIDTH as usize],
         }
     }
     pub fn get(&self, x: i32, y: i32) -> bool {
@@ -70,12 +82,12 @@ impl Board {
         self.height_map[col as usize] = height;
         self.holes[col as usize] = 0;
     }
-    pub fn set_cols(&mut self, heights: [i32; BOARD_WIDTH_USIZE]) {
+    pub fn set_cols(&mut self, heights: [i32; BOARD_WIDTH as usize]) {
         for i in 0..BOARD_WIDTH {
             self.set_col(i, heights[i as usize]);
         }
     }
-    pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT_USIZE]) {
+    pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT as usize]) {
         self.matrix = matrix;
         for i in 0..BOARD_WIDTH {
             self.recalculate_metadata(i);
@@ -183,7 +195,7 @@ impl Board {
         }
     }
 
-    pub fn recalculate_metadata(&mut self, col: i32) {
+    fn recalculate_metadata(&mut self, col: i32) {
         let mut encountered = false;
         let mut height = 0;
         let mut holes = 0;
@@ -202,19 +214,4 @@ impl Board {
         self.height_map[col as usize] = height;
         self.holes[col as usize] = holes;
     }
-}
-
-#[derive(Debug)]
-pub struct BoardLockResult {
-    pub lines_cleared: i32,
-    pub block_out: bool,
-}
-
-#[derive(Debug)]
-pub struct BoardUndoInfo {
-    pub shape_diff: [u16; PIECE_SHAPE_SIZE as usize],
-    pub shape_y: i32,
-    pub lines_cleared: Vec<i32>,
-    pub height_map: [i32; BOARD_WIDTH as usize],
-    pub holes: [i32; BOARD_WIDTH as usize],
 }

@@ -1,3 +1,4 @@
+use crate::misc::GenericErr;
 use crate::model::board::Board;
 use crate::model::board::BoardUndoInfo;
 use crate::model::consts::BOARD_HEIGHT;
@@ -5,8 +6,55 @@ use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
-use ai_api::APIMove;
 use std::collections::VecDeque;
+use std::fmt::Display;
+use std::fmt::Formatter;
+
+#[derive(Debug)]
+pub struct GameDropResult {
+    pub lines_cleared: i32,
+    pub block_out: bool,
+}
+
+#[derive(Debug)]
+pub struct GameUndoInfo {
+    pub board: BoardUndoInfo,
+    pub piece: Piece,
+    pub hold: bool,
+    pub hold_empty: bool,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum GameMove {
+    ShiftLeft,
+    ShiftRight,
+    RotateLeft,
+    RotateRight,
+    Rotate180,
+    Hold,
+    SoftDrop,
+    HardDrop,
+}
+impl GameMove {
+    fn to_string(&self) -> String {
+        let slice = match self {
+            GameMove::ShiftLeft => "shiftLeft",
+            GameMove::ShiftRight => "shiftRight",
+            GameMove::RotateLeft => "rotateLeft",
+            GameMove::RotateRight => "rotateRight",
+            GameMove::Rotate180 => "rotate180",
+            GameMove::Hold => "hold",
+            GameMove::SoftDrop => "softDrop",
+            GameMove::HardDrop => "hardDrop",
+        };
+        String::from(slice)
+    }
+}
+impl Display for GameMove {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
 
 #[derive(Debug)]
 pub struct Game {
@@ -21,7 +69,7 @@ impl Game {
     pub fn new() -> Self {
         Game {
             board: Board::new(),
-            current_piece: Piece::new(PieceType::O),
+            current_piece: Piece::new(&PieceType::O),
             hold_piece: None,
             queue_pieces: VecDeque::new(),
             can_hold: true,
@@ -42,15 +90,13 @@ impl Game {
     pub fn append_queue(&mut self, piece: Piece) {
         self.queue_pieces.push_back(piece);
     }
-    pub fn extend_queue(&mut self, pieces: Vec<Piece>) {
-        for piece in pieces {
-            self.queue_pieces.push_back(piece);
-        }
+    pub fn extend_queue(&mut self, pieces: impl Iterator<Item = Piece>) {
+        self.queue_pieces.extend(pieces);
     }
     pub fn clear_queue(&mut self) {
         self.queue_pieces.clear();
     }
-    pub fn set_queue(&mut self, pieces: Vec<Piece>) {
+    pub fn set_queue(&mut self, pieces: impl Iterator<Item = Piece>) {
         self.clear_queue();
         self.extend_queue(pieces);
     }
@@ -58,46 +104,46 @@ impl Game {
     pub fn make_move(
         &mut self,
         game_move: &GameMove,
-    ) -> Result<Option<(GameDropInfo, GameUndoInfo)>, ()> {
+    ) -> Result<Option<(GameDropResult, GameUndoInfo)>, GenericErr> {
         match game_move {
             GameMove::ShiftLeft => {
                 let res = self.current_piece.shift_left(&self.board);
                 match res {
                     true => Ok(None),
-                    false => Err(()),
+                    false => Err("Could not shift left".into()),
                 }
             }
             GameMove::ShiftRight => {
                 let res = self.current_piece.shift_right(&self.board);
                 match res {
                     true => Ok(None),
-                    false => Err(()),
+                    false => Err("Could not shift right".into()),
                 }
             }
             GameMove::RotateLeft => {
                 let res = self.current_piece.rotate_left(&self.board);
                 match res {
                     true => Ok(None),
-                    false => Err(()),
+                    false => Err("Could not rotate left".into()),
                 }
             }
             GameMove::RotateRight => {
                 let res = self.current_piece.rotate_right(&self.board);
                 match res {
                     true => Ok(None),
-                    false => Err(()),
+                    false => Err("Could not rotate right".into()),
                 }
             }
             GameMove::Rotate180 => {
                 let res = self.current_piece.rotate_180(&self.board);
                 match res {
                     true => Ok(None),
-                    false => Err(()),
+                    false => Err("Could not rotate 180".into()),
                 }
             }
             GameMove::Hold => {
                 if !self.can_hold {
-                    return Err(());
+                    return Err("Could not hold".into());
                 }
                 match &self.hold_piece {
                     Some(hold) => {
@@ -110,7 +156,7 @@ impl Game {
                     }
                     None => {
                         if self.queue_pieces.len() == 0 {
-                            return Err(());
+                            return Err("Could not hold".into());
                         }
                         self.hold_piece = Some(self.current_piece.clone());
                         self.current_piece = self.queue_pieces.pop_front().unwrap();
@@ -124,12 +170,12 @@ impl Game {
                 let res = self.current_piece.soft_drop(&self.board);
                 match res {
                     true => Ok(None),
-                    false => Err(()),
+                    false => Err("Could not soft drop".into()),
                 }
             }
             GameMove::HardDrop => {
                 if self.queue_pieces.len() == 0 {
-                    return Err(());
+                    return Err("Could not hard drop".into());
                 }
 
                 self.current_piece.soft_drop(&self.board);
@@ -144,7 +190,7 @@ impl Game {
                 self.hold_was_empty = self.hold_piece.is_none();
                 self.can_hold = true;
                 Ok(Some((
-                    GameDropInfo {
+                    GameDropResult {
                         lines_cleared: res.lines_cleared,
                         block_out: res.block_out,
                     },
@@ -182,8 +228,8 @@ impl Game {
         }
     }
 }
-impl std::fmt::Display for Game {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl Display for Game {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         let piece = &self.current_piece;
         let piece_shape = piece.get_shape(None);
         let (p_x, p_y) = piece.location;
@@ -232,65 +278,5 @@ impl std::fmt::Display for Game {
         }
         writeln!(f, "Curr: {} Hold: {} Queue: {}", curr, hold, queue_text)?;
         Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct GameDropInfo {
-    pub lines_cleared: i32,
-    pub block_out: bool,
-}
-
-#[derive(Debug)]
-pub struct GameUndoInfo {
-    pub board: BoardUndoInfo,
-    pub piece: Piece,
-    pub hold: bool,
-    pub hold_empty: bool,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum GameMove {
-    ShiftLeft,
-    ShiftRight,
-    RotateLeft,
-    RotateRight,
-    Rotate180,
-    Hold,
-    SoftDrop,
-    HardDrop,
-}
-impl GameMove {
-    fn to_string(&self) -> String {
-        let slice = match self {
-            GameMove::ShiftLeft => "shiftLeft",
-            GameMove::ShiftRight => "shiftRight",
-            GameMove::RotateLeft => "rotateLeft",
-            GameMove::RotateRight => "rotateRight",
-            GameMove::Rotate180 => "rotate180",
-            GameMove::Hold => "hold",
-            GameMove::SoftDrop => "softDrop",
-            GameMove::HardDrop => "hardDrop",
-        };
-        String::from(slice)
-    }
-}
-impl std::fmt::Display for GameMove {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
-    }
-}
-impl From<GameMove> for APIMove {
-    fn from(game_move: GameMove) -> APIMove {
-        match game_move {
-            GameMove::ShiftLeft => APIMove::ShiftLeft,
-            GameMove::ShiftRight => APIMove::ShiftRight,
-            GameMove::RotateLeft => APIMove::RotateLeft,
-            GameMove::RotateRight => APIMove::RotateRight,
-            GameMove::Rotate180 => APIMove::Rotate180,
-            GameMove::Hold => APIMove::Hold,
-            GameMove::SoftDrop => APIMove::SoftDrop,
-            GameMove::HardDrop => APIMove::HardDrop,
-        }
     }
 }
