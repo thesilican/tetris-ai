@@ -8,5 +8,5 @@ edition = "2018"
 lazy_static = "1.4"
 
 [dev-dependencies]
-rand = "0.8.3"
+rand = "0.8"
 termion = "1.5"

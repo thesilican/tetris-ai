@@ -214,7 +214,7 @@ impl Game {
     }
 
     pub fn undo_move(&mut self, undo: GameUndoInfo) {
-        assert_eq!(self.can_hold, false, "Expected can_hold to be true");
+        assert_eq!(self.can_hold, true, "Expected can_hold to be true");
         self.board.undo_lock(undo.board);
         self.queue_pieces.push_front(self.current_piece.clone());
         self.current_piece = undo.piece;
