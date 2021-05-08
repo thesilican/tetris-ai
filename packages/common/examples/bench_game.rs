@@ -35,7 +35,7 @@ fn main() {
             // Clear the board every 10 moves
             game.board.set_cols([0; 10]);
         }
-        game.make_move(&game_move).ok();
+        game.make_move(&game_move);
     }
     let end = start.elapsed();
     assert!(game.queue_pieces.len() == 0);

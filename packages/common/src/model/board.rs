@@ -11,14 +11,14 @@ pub struct BoardLockResult {
 
 #[derive(Debug)]
 pub struct BoardUndoInfo {
-    pub shape_diff: [u16; PIECE_SHAPE_SIZE as usize],
+    pub matrix: [u16; PIECE_SHAPE_SIZE as usize],
     pub shape_y: i32,
     pub lines_cleared: Vec<i32>,
     pub height_map: [i32; BOARD_WIDTH as usize],
     pub holes: [i32; BOARD_WIDTH as usize],
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT as usize],
     pub height_map: [i32; BOARD_WIDTH as usize],
@@ -110,7 +110,7 @@ impl Board {
     pub fn lock(&mut self, piece: &Piece) -> (BoardLockResult, BoardUndoInfo) {
         let height_map_backup = self.height_map.clone();
         let holes_backup = self.holes.clone();
-        let mut shape_diff = [0; PIECE_SHAPE_SIZE as usize];
+        let mut matrix_backup = [0; PIECE_SHAPE_SIZE as usize];
         let mut block_out = false;
 
         let (p_x, p_y) = piece.location;
@@ -122,11 +122,10 @@ impl Board {
             }
             let matrix_row = self.matrix[y as usize];
             let piece_row = shape[j as usize];
-            let shape_diff_row = !matrix_row & piece_row;
-            if shape_diff_row != piece_row {
+            if matrix_row & piece_row != 0 {
                 block_out = true;
             }
-            shape_diff[j as usize] = shape_diff_row;
+            matrix_backup[j as usize] = matrix_row;
             self.matrix[y as usize] |= piece_row;
         }
 
@@ -165,7 +164,7 @@ impl Board {
                 block_out,
             },
             BoardUndoInfo {
-                shape_diff,
+                matrix: matrix_backup,
                 shape_y: p_y,
                 lines_cleared,
                 height_map: height_map_backup,
@@ -191,7 +190,7 @@ impl Board {
             if y < 0 || y >= BOARD_HEIGHT {
                 continue;
             }
-            self.matrix[y as usize] &= !(undo.shape_diff[j as usize]);
+            self.matrix[y as usize] = undo.matrix[j as usize];
         }
     }
 

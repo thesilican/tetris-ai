@@ -1,6 +1,17 @@
 use std::fmt::{Debug, Display, Formatter};
 
+macro_rules! impl_from_using_debug {
+    ($t:ty) => {
+        impl From<$t> for GenericErr {
+            fn from(err: $t) -> Self {
+                GenericErr::new(format!("{:?}", err))
+            }
+        }
+    };
+}
+
 #[derive(Debug)]
+/// One error to rule them all!
 pub struct GenericErr(String);
 impl GenericErr {
     pub fn new(text: impl Into<String>) -> Self {
@@ -22,6 +33,9 @@ impl From<()> for GenericErr {
         GenericErr::new("Unknown Error")
     }
 }
+impl_from_using_debug!(std::io::Error);
+impl_from_using_debug!(std::fmt::Error);
+
 impl Display for GenericErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error: '{}'", self.0)

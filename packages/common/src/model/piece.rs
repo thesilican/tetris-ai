@@ -5,6 +5,11 @@ use crate::model::game::GameMove;
 use crate::{misc::GenericErr, model::consts::PIECE_NUM_TYPES};
 use std::fmt::{Display, Formatter};
 
+pub enum PieceMoveRes {
+    Success,
+    Failed,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PieceType {
     O,
@@ -64,7 +69,7 @@ impl Display for PieceType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Piece {
     pub piece_type: PieceType,
     pub rotation: i32,
@@ -159,7 +164,7 @@ impl Piece {
         self.rotation = 0;
         self.location = *self.get_spawn_location();
     }
-    pub fn rotate(&mut self, amount: i32, board: &Board) -> bool {
+    pub fn rotate(&mut self, amount: i32, board: &Board) -> PieceMoveRes {
         let (old_x, old_y) = self.location;
         let old_rot = self.rotation;
         let new_rot = (self.rotation + amount) % 4;
@@ -175,23 +180,23 @@ impl Piece {
             if !(new_x < b_left || new_x > b_right || new_y < b_bottom || new_y > b_top)
                 && !board.intersects_with(&self)
             {
-                return true;
+                return PieceMoveRes::Success;
             }
         }
         self.rotation = old_rot;
         self.location = (old_x, old_y);
-        false
+        PieceMoveRes::Failed
     }
-    pub fn rotate_right(&mut self, board: &Board) -> bool {
+    pub fn rotate_right(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(1, &board)
     }
-    pub fn rotate_180(&mut self, board: &Board) -> bool {
+    pub fn rotate_180(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(2, &board)
     }
-    pub fn rotate_left(&mut self, board: &Board) -> bool {
+    pub fn rotate_left(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(3, &board)
     }
-    pub fn shift(&mut self, (d_x, d_y): (i32, i32), board: &Board) -> bool {
+    pub fn shift(&mut self, (d_x, d_y): (i32, i32), board: &Board) -> PieceMoveRes {
         let (old_x, old_y) = self.location;
         let new_x = old_x + d_x;
         let new_y = old_y + d_y;
@@ -205,21 +210,21 @@ impl Piece {
             || board.intersects_with(&self)
         {
             self.location = (old_x, old_y);
-            return false;
+            return PieceMoveRes::Failed;
         }
 
-        true
+        PieceMoveRes::Success
     }
-    pub fn shift_left(&mut self, board: &Board) -> bool {
+    pub fn shift_left(&mut self, board: &Board) -> PieceMoveRes {
         self.shift((-1, 0), board)
     }
-    pub fn shift_right(&mut self, board: &Board) -> bool {
+    pub fn shift_right(&mut self, board: &Board) -> PieceMoveRes {
         self.shift((1, 0), board)
     }
-    pub fn shift_down(&mut self, board: &Board) -> bool {
+    pub fn shift_down(&mut self, board: &Board) -> PieceMoveRes {
         self.shift((0, -1), board)
     }
-    pub fn soft_drop(&mut self, board: &Board) -> bool {
+    pub fn soft_drop(&mut self, board: &Board) -> PieceMoveRes {
         let (p_x, old_y) = self.location;
         let height_map = self.get_height_map(None);
         let mut min_drop_amount = i32::MAX;
@@ -245,18 +250,22 @@ impl Piece {
         // Return if dropped any amount
         if min_drop_amount >= 0 {
             self.location.1 -= min_drop_amount;
-            return min_drop_amount != 0;
+            return if min_drop_amount != 0 {
+                PieceMoveRes::Success
+            } else {
+                PieceMoveRes::Failed
+            };
         }
 
         // Try to shift down once
-        if self.shift_down(&board) == false {
-            return false;
+        if let PieceMoveRes::Failed = self.shift_down(&board) {
+            return PieceMoveRes::Failed;
         }
         // Keep shifting down while possible
-        while self.shift_down(&board) {}
-        true
+        while let PieceMoveRes::Success = self.shift_down(&board) {}
+        PieceMoveRes::Failed
     }
-    pub fn make_move(&mut self, board: &Board, piece_move: &PieceMove) -> bool {
+    pub fn make_move(&mut self, board: &Board, piece_move: &PieceMove) -> PieceMoveRes {
         match piece_move {
             PieceMove::ShiftLeft => self.shift_left(board),
             PieceMove::ShiftRight => self.shift_right(board),
