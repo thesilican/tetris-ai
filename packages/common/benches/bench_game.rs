@@ -10,8 +10,23 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use test::Bencher;
 
+fn get_rand_move(rng: &mut StdRng) -> GameMove {
+    let distr = Uniform::new(0, 7);
+    let num = distr.sample(rng);
+    match num {
+        0 => GameMove::ShiftLeft,
+        1 => GameMove::ShiftRight,
+        2 => GameMove::RotateLeft,
+        3 => GameMove::RotateRight,
+        4 => GameMove::Rotate180,
+        5 => GameMove::Hold,
+        6 => GameMove::SoftDrop,
+        _ => unreachable!(),
+    }
+}
+
 #[bench]
-pub fn bench(b: &mut Bencher) {
+pub fn random_drops(b: &mut Bencher) {
     // Setup
     const NUM_PIECES: i32 = 1_000;
     const MOVES_PER_PIECE: i32 = 4;
@@ -41,17 +56,35 @@ pub fn bench(b: &mut Bencher) {
     })
 }
 
-fn get_rand_move(rng: &mut StdRng) -> GameMove {
-    let distr = Uniform::new(0, 7);
-    let num = distr.sample(rng);
-    match num {
-        0 => GameMove::ShiftLeft,
-        1 => GameMove::ShiftRight,
-        2 => GameMove::RotateLeft,
-        3 => GameMove::RotateRight,
-        4 => GameMove::Rotate180,
-        5 => GameMove::Hold,
-        6 => GameMove::SoftDrop,
-        _ => unreachable!(),
-    }
+#[bench]
+fn only_drop_o(b: &mut Bencher) {
+    const NUM_PIECES: i32 = 1_000;
+    let cycle = vec![
+        GameMove::ShiftLeft,
+        GameMove::ShiftLeft,
+        GameMove::ShiftLeft,
+        GameMove::HardDrop,
+        GameMove::ShiftLeft,
+        GameMove::HardDrop,
+        GameMove::HardDrop,
+        GameMove::ShiftRight,
+        GameMove::HardDrop,
+        GameMove::ShiftRight,
+        GameMove::ShiftRight,
+        GameMove::ShiftRight,
+        GameMove::HardDrop,
+    ];
+    b.iter(|| {
+        let mut game = Game::new();
+        for _ in 0..(NUM_PIECES / 5) {
+            for game_move in cycle.iter() {
+                game.make_move(&game_move);
+            }
+            if game.queue_pieces.len() < 7 {
+                for _ in 0..7 {
+                    game.append_queue(Piece::new(&PieceType::O));
+                }
+            }
+        }
+    })
 }
