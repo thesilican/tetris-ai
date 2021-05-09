@@ -2,6 +2,8 @@ mod config;
 
 use crate::config::create_ai;
 use actix::{Actor, StreamHandler};
+use actix_cors::Cors;
+use actix_files as fs;
 use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use common::api::ai::TetrisAI;
@@ -39,8 +41,13 @@ async fn index(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, E
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("Starting server on port 8080");
-    HttpServer::new(|| App::new().route("/", web::get().to(index)))
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .wrap(Cors::permissive())
+            .service(fs::Files::new("/static", "static"))
+            .route("/eval", web::get().to(index))
+    })
+    .bind("0.0.0.0:8080")?
+    .run()
+    .await
 }
