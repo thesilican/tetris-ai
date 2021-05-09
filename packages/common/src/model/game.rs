@@ -1,3 +1,4 @@
+use crate::misc::GenericErr;
 use crate::model::board::Board;
 use crate::model::board::BoardUndoInfo;
 use crate::model::consts::BOARD_HEIGHT;
@@ -14,7 +15,7 @@ use std::fmt::Write;
 #[derive(Debug)]
 pub struct GameDropRes {
     pub lines_cleared: i32,
-    pub block_out: bool,
+    pub top_out: bool,
 }
 
 #[derive(Debug)]
@@ -200,7 +201,7 @@ impl Game {
                 GameMoveRes::SuccessDrop(
                     GameDropRes {
                         lines_cleared: res.lines_cleared,
-                        block_out: res.block_out,
+                        top_out: res.top_out,
                     },
                     GameUndoInfo {
                         board: undo_info,
@@ -213,8 +214,10 @@ impl Game {
         }
     }
 
-    pub fn undo_move(&mut self, undo: GameUndoInfo) {
-        assert_eq!(self.can_hold, true, "Expected can_hold to be true");
+    pub fn undo_move(&mut self, undo: GameUndoInfo) -> Result<(), GenericErr> {
+        if self.can_hold != true {
+            return Err("Could not undo move: Expected can_hold to be true".into());
+        }
         self.board.undo_lock(undo.board);
         self.queue_pieces.push_front(self.current_piece.clone());
         self.current_piece = undo.piece;
@@ -239,6 +242,7 @@ impl Game {
             self.current_piece.reset();
             self.current_piece.shift_down(&self.board);
         }
+        Ok(())
     }
 }
 impl Display for Game {
@@ -315,12 +319,18 @@ impl Display for Game {
 #[cfg(test)]
 mod tests {
     use super::Game;
+    use crate::model::game::GameMove;
+    use crate::model::game::GameMoveRes;
     use crate::model::piece::Piece;
     use crate::model::piece::PieceType;
+    use rand::distributions::Distribution;
+    use rand::distributions::Uniform;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
     use std::collections::HashSet;
 
     #[test]
-    fn game_hashes_correctly() {
+    fn game_hashes_properly() {
         let mut game1 = Game::new();
         game1.set_current(Piece::new(&PieceType::O));
         game1.set_hold(Some(Piece::new(&PieceType::I)));
@@ -391,5 +401,81 @@ mod tests {
         hashset.insert(game1.clone());
         hashset.insert(game6.clone());
         assert_eq!(hashset.len(), 2);
+    }
+
+    #[test]
+
+    fn game_undos_properly() {
+        fn get_rand_move(rng: &mut StdRng) -> GameMove {
+            let num = Uniform::new(0, 8).sample(rng);
+            match num {
+                0 => GameMove::ShiftLeft,
+                1 => GameMove::ShiftRight,
+                2 => GameMove::RotateLeft,
+                3 => GameMove::RotateRight,
+                4 => GameMove::Rotate180,
+                5 => GameMove::Hold,
+                6 => GameMove::SoftDrop,
+                7 => GameMove::HardDrop,
+                _ => unreachable!(),
+            }
+        }
+        fn get_rand_piece(rng: &mut StdRng) -> Piece {
+            let piece_type = PieceType::from_i32(Uniform::from(0..7).sample(rng)).unwrap();
+            Piece::new(&piece_type)
+        }
+
+        // Run randomly a bunch of times
+        let mut rng = StdRng::seed_from_u64(100);
+        for _ in 0..20 {
+            let mut game = Game::new();
+            for _ in 0..100 {
+                game.append_queue(get_rand_piece(&mut rng));
+            }
+            // Ensure initial hold state is the same
+            game.make_move(&GameMove::Hold);
+            game.make_move(&GameMove::HardDrop);
+            let initial_game = game.clone();
+
+            let mut undo_stack = Vec::new();
+            for _ in 0..100 {
+                let game_move = get_rand_move(&mut rng);
+                if let GameMoveRes::SuccessDrop(_, undo_info) = game.make_move(&game_move) {
+                    undo_stack.push(undo_info);
+                }
+            }
+            // Ensure that last move is hard drop
+            let game_move = GameMove::HardDrop;
+            if let GameMoveRes::SuccessDrop(_, undo_info) = game.make_move(&game_move) {
+                undo_stack.push(undo_info);
+            }
+
+            // Undo
+            for undo_info in undo_stack.into_iter().rev() {
+                game.undo_move(undo_info).unwrap();
+            }
+
+            // Reset all pieces
+            if let Some(hold) = &mut game.hold_piece {
+                hold.reset();
+            }
+            for piece in game.queue_pieces.iter_mut() {
+                piece.reset()
+            }
+            assert_eq!(initial_game, game);
+        }
+
+        // Should not work if last move was hold
+        let mut game = Game::new();
+        for _ in 0..3 {
+            game.append_queue(get_rand_piece(&mut rng));
+        }
+        let undo_info = match game.make_move(&GameMove::HardDrop) {
+            GameMoveRes::SuccessDrop(_, undo_info) => undo_info,
+            _ => panic!("This should never happen"),
+        };
+        game.make_move(&GameMove::Hold);
+        let res = game.undo_move(undo_info);
+        assert!(res.is_err());
     }
 }

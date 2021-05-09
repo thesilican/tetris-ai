@@ -10,9 +10,8 @@ macro_rules! impl_from_using_debug {
     };
 }
 
-#[derive(Debug)]
 /// One error to rule them all!
-pub struct GenericErr(String);
+pub struct GenericErr(pub String);
 impl GenericErr {
     pub fn new(text: impl Into<String>) -> Self {
         GenericErr(text.into())
@@ -35,9 +34,15 @@ impl From<()> for GenericErr {
 }
 impl_from_using_debug!(std::io::Error);
 impl_from_using_debug!(std::fmt::Error);
+impl_from_using_debug!(serde_json::error::Error);
 
 impl Display for GenericErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error: '{}'", self.0)
+        write!(f, "{}", self.0)
+    }
+}
+impl Debug for GenericErr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

@@ -40,8 +40,8 @@ fn main() -> Result<(), GenericErr> {
                     game.make_move(&GameMove::HardDrop)
                 {
                     println!(
-                        "Drop: Lines cleared: {} Block out: {}",
-                        drop_info.lines_cleared, drop_info.block_out
+                        "Drop: Lines cleared: {} Top out: {}",
+                        drop_info.lines_cleared, drop_info.top_out
                     );
                     undo_queue.push(undo_info);
                 }
@@ -60,7 +60,7 @@ fn main() -> Result<(), GenericErr> {
             }
             Key::Char('u') => {
                 if let Some(undo_info) = undo_queue.pop() {
-                    game.undo_move(undo_info);
+                    game.undo_move(undo_info).unwrap();
                 }
             }
             _ => {}

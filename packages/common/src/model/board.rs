@@ -1,4 +1,5 @@
 use crate::model::consts::BOARD_HEIGHT;
+use crate::model::consts::BOARD_VISIBLE_HEIGHT;
 use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
@@ -6,7 +7,10 @@ use crate::model::piece::Piece;
 #[derive(Debug)]
 pub struct BoardLockResult {
     pub lines_cleared: i32,
-    pub block_out: bool,
+    // Combines guideline top-out and block-out
+    // Basically, if any heights in board.height_map is >= BOARD_HEIGHT
+    // Or if matrix and piece intersected
+    pub top_out: bool,
 }
 
 #[derive(Debug)]
@@ -111,7 +115,7 @@ impl Board {
         let height_map_backup = self.height_map.clone();
         let holes_backup = self.holes.clone();
         let mut matrix_backup = [0; PIECE_SHAPE_SIZE as usize];
-        let mut block_out = false;
+        let mut top_out = false;
 
         let (p_x, p_y) = piece.location;
         let shape = piece.get_bit_shape(None, None);
@@ -123,7 +127,7 @@ impl Board {
             let matrix_row = self.matrix[y as usize];
             let piece_row = shape[j as usize];
             if matrix_row & piece_row != 0 {
-                block_out = true;
+                top_out = true;
             }
             matrix_backup[j as usize] = matrix_row;
             self.matrix[y as usize] |= piece_row;
@@ -139,6 +143,16 @@ impl Board {
                     } else {
                         self.matrix[y as usize] = self.matrix[(y + 1) as usize];
                     }
+                }
+            }
+        }
+
+        // Check for top out
+        if !top_out {
+            for i in 0..BOARD_WIDTH {
+                if self.height_map[i as usize] >= BOARD_VISIBLE_HEIGHT {
+                    top_out = true;
+                    break;
                 }
             }
         }
@@ -161,7 +175,7 @@ impl Board {
         (
             BoardLockResult {
                 lines_cleared: lines_cleared.len() as i32,
-                block_out,
+                top_out,
             },
             BoardUndoInfo {
                 matrix: matrix_backup,
