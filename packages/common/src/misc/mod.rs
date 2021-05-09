@@ -1,16 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
-macro_rules! impl_from_using_debug {
-    ($t:ty) => {
-        impl From<$t> for GenericErr {
-            fn from(err: $t) -> Self {
-                GenericErr::new(format!("{:?}", err))
-            }
-        }
-    };
-}
-
 /// One error to rule them all!
+#[derive(Debug)]
 pub struct GenericErr(pub String);
 impl GenericErr {
     pub fn new(text: impl Into<String>) -> Self {
@@ -32,16 +23,23 @@ impl From<()> for GenericErr {
         GenericErr::new("Unknown Error")
     }
 }
-impl_from_using_debug!(std::io::Error);
-impl_from_using_debug!(std::fmt::Error);
-impl_from_using_debug!(serde_json::error::Error);
-
-impl Display for GenericErr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl From<serde_json::error::Error> for GenericErr {
+    fn from(err: serde_json::error::Error) -> Self {
+        format!("Serde Error: {}", err).into()
     }
 }
-impl Debug for GenericErr {
+impl From<std::io::Error> for GenericErr {
+    fn from(err: std::io::Error) -> Self {
+        format!("IO Error: {}", err).into()
+    }
+}
+impl From<std::fmt::Error> for GenericErr {
+    fn from(err: std::fmt::Error) -> Self {
+        format!("std::fmt Error: {}", err).into()
+    }
+}
+
+impl Display for GenericErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }

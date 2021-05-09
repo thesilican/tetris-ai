@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 
 #[derive(Deserialize)]
-struct JSONInput {
+pub(crate) struct JSONInput {
   pub current: i32,
   pub hold: Option<i32>,
   pub queue: Vec<i32>,
@@ -69,7 +69,7 @@ impl TryFrom<JSONInput> for Game {
 
 #[derive(Serialize)]
 #[serde(untagged)]
-enum JSONOutput {
+pub(crate) enum JSONOutput {
   Success {
     success: bool,
     moves: Vec<String>,
@@ -121,10 +121,9 @@ pub fn parse(json: String) -> Result<Game, GenericErr> {
 ///     - score: string | null
 /// - (if success == false)
 ///     - reason: string
-pub fn stringify(eval: TetrisAIRes) -> Result<String, GenericErr> {
+pub fn stringify(eval: TetrisAIRes) -> String {
   let output = eval.into();
-  let json = serde_json::to_string::<JSONOutput>(&output)?;
-  Ok(json)
+  serde_json::to_string::<JSONOutput>(&output).unwrap()
 }
 
 #[cfg(test)]
@@ -224,7 +223,7 @@ mod tests {
       moves: vec![GameMove::HardDrop, GameMove::Rotate180],
       score: Some(1.5),
     };
-    let json_eval = stringify(eval).unwrap();
+    let json_eval = stringify(eval);
     assert_eq!(json, json_eval);
 
     // Empty JSON
@@ -233,7 +232,7 @@ mod tests {
       moves: vec![],
       score: None,
     };
-    let json_eval = stringify(eval).unwrap();
+    let json_eval = stringify(eval);
     assert_eq!(json, json_eval);
 
     // Failed Result
@@ -241,7 +240,7 @@ mod tests {
     let eval = TetrisAIRes::Fail {
       reason: "I suck at Tetris".into(),
     };
-    let json_eval = stringify(eval).unwrap();
+    let json_eval = stringify(eval);
     assert_eq!(json, json_eval);
   }
 }

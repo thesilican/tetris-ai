@@ -1,6 +1,4 @@
-use crate::api::json::parse;
-use crate::api::json::stringify;
-use crate::misc::GenericErr;
+use crate::api::json::{parse, stringify, JSONOutput};
 use crate::model::game::{Game, GameMove, GameMoveRes};
 
 pub enum TetrisAIRes {
@@ -15,9 +13,19 @@ pub enum TetrisAIRes {
 
 pub trait TetrisAI {
     fn api_evaluate(&mut self, game: &mut Game) -> TetrisAIRes;
-    /// Convenience function that uses JSON parse/stringify
-    fn api_evaluate_json(&mut self, req: String) -> Result<String, GenericErr> {
-        let mut game = parse(req)?;
+    /// Convenience function to handle JSON requests
+    /// Also returns JSON if request is invalid
+    fn api_evaluate_json(&mut self, req: String) -> String {
+        let mut game = match parse(req) {
+            Ok(game) => game,
+            Err(parse_err) => {
+                let output = JSONOutput::Fail {
+                    success: false,
+                    reason: format!("Invalid request: {}", parse_err),
+                };
+                return serde_json::to_string(&output).unwrap();
+            }
+        };
         let res = self.api_evaluate(&mut game);
         stringify(res)
     }
@@ -107,12 +115,12 @@ mod tests {
         let output = r#"{"success":true,"moves":["hardDrop"],"score":1.0}"#;
 
         let res = ai.api_evaluate_json(json.into());
-        assert!(res.is_ok());
-        assert_eq!(res.unwrap(), output);
+        assert_eq!(res, output);
 
         // Invalid json
         let json = r#"I like cookies"#;
+        let output = r#"{"success":false,"reason":"Invalid request: Serde Error: expected value at line 1 column 1"}"#;
         let res = ai.api_evaluate_json(json.into());
-        assert!(res.is_err());
+        assert_eq!(res, output);
     }
 }
