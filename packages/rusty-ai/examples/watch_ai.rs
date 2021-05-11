@@ -19,7 +19,7 @@ fn main() {
     let mut game = Game::new();
     game.set_hold(Some(Piece::new(&PieceType::I)));
     extend_queue(&mut game);
-    let mut ai = RustyAI::new(&weights, 3, 0);
+    let mut ai = RustyAI::new(&weights, 3, 100);
     println!("{}", game);
     loop {
         let res = ai.api_evaluate(&mut game);

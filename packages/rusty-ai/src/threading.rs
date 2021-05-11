@@ -5,7 +5,7 @@ use std::thread::JoinHandle;
 
 enum ThreadReq<R> {
     Job {
-        job: Box<dyn Fn() -> R + Send + 'static>,
+        job: Box<dyn FnOnce() -> R + Send + 'static>,
         job_id: usize,
     },
     Quit,
@@ -75,7 +75,7 @@ where
             reciever,
         }
     }
-    pub fn run_jobs<F: Fn() -> R + Send + 'static>(&mut self, jobs: Vec<F>) -> Vec<R> {
+    pub fn run_jobs<F: FnOnce() -> R + Send + 'static>(&mut self, jobs: Vec<F>) -> Vec<R> {
         let num_jobs = jobs.len();
         let num_workers = self.workers.len();
         assert!(num_jobs > 0);

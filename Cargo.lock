@@ -418,6 +418,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "base65536"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04cb7e04ba4c08c961a722f1c13ebc20c5e3396423c7af00e1273584f45fa9b2"
+dependencies = [
+ "fnv",
+ "lazy_static",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,6 +1350,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusty-ai"
+version = "0.1.0"
+dependencies = [
+ "base65536",
+ "byteorder",
+ "common",
+ "lazy_static",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1539,6 +1559,7 @@ dependencies = [
  "actix-web",
  "actix-web-actors",
  "common",
+ "rusty-ai",
 ]
 
 [[package]]
