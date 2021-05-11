@@ -4,6 +4,8 @@ use crate::model::consts::{PIECE_MAX_X_SHIFT, PIECE_SHAPE_SIZE};
 use crate::model::game::GameMove;
 use crate::{misc::GenericErr, model::consts::PIECE_NUM_TYPES};
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
+use std::hash::Hasher;
 
 pub enum PieceMoveRes {
     Success,
@@ -69,7 +71,7 @@ impl Display for PieceType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub struct Piece {
     pub piece_type: PieceType,
     pub rotation: i32,
@@ -274,6 +276,17 @@ impl Piece {
             PieceMove::Rotate180 => self.rotate_180(board),
             PieceMove::SoftDrop => self.soft_drop(board),
         }
+    }
+}
+// Only compare piece type
+impl PartialEq for Piece {
+    fn eq(&self, other: &Self) -> bool {
+        self.piece_type == other.piece_type
+    }
+}
+impl Hash for Piece {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.piece_type.hash(state);
     }
 }
 

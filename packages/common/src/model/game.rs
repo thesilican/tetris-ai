@@ -11,6 +11,8 @@ use std::collections::VecDeque;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 #[derive(Debug)]
 pub struct GameDropRes {
@@ -64,7 +66,7 @@ impl Display for GameMove {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub struct Game {
     pub board: Board,
     pub current_piece: Piece,
@@ -313,6 +315,22 @@ impl Display for Game {
             can_hold, hold_was_empty
         )?;
         Ok(())
+    }
+}
+impl PartialEq for Game {
+    fn eq(&self, other: &Self) -> bool {
+        self.board == other.board
+            && self.current_piece == other.current_piece
+            && self.hold_piece == other.hold_piece
+            && self.queue_pieces == other.queue_pieces
+    }
+}
+impl Hash for Game {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.board.hash(state);
+        self.current_piece.hash(state);
+        self.hold_piece.hash(state);
+        self.queue_pieces.hash(state);
     }
 }
 

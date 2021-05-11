@@ -6,11 +6,20 @@ use rusty_ai::aiweights::{AIWeights, NUM_AI_WEIGHTS};
 
 fn main() {
     let mut weights = AIWeights::new();
-    weights.values = [1.0; NUM_AI_WEIGHTS as usize];
+    weights.values = [
+        1.0, // PC
+        1.0, // 1 Line
+        1.0, // 2 Line
+        1.0, // 3 Line
+        1.0, // 4 Line
+        -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, // Holes
+        -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, // Height
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Height Delta
+    ];
     let mut game = Game::new();
     game.set_hold(Some(Piece::new(&PieceType::I)));
     extend_queue(&mut game);
-    let mut ai = RustyAI::new(&weights, 2, 0);
+    let mut ai = RustyAI::new(&weights, 3, 0);
     println!("{}", game);
     loop {
         let res = ai.api_evaluate(&mut game);

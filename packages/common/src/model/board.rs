@@ -3,6 +3,8 @@ use crate::model::consts::BOARD_VISIBLE_HEIGHT;
 use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 #[derive(Debug)]
 pub struct BoardLockResult {
@@ -22,7 +24,7 @@ pub struct BoardUndoInfo {
     pub holes: [i32; BOARD_WIDTH as usize],
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT as usize],
     pub height_map: [i32; BOARD_WIDTH as usize],
@@ -226,5 +228,16 @@ impl Board {
         }
         self.height_map[col as usize] = height;
         self.holes[col as usize] = holes;
+    }
+}
+// Only compare matrix, other files are only metadata
+impl PartialEq for Board {
+    fn eq(&self, other: &Self) -> bool {
+        self.matrix == other.matrix
+    }
+}
+impl Hash for Board {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.matrix.hash(state);
     }
 }
