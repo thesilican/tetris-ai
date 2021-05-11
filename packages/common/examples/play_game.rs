@@ -14,11 +14,11 @@ fn main() -> Result<(), GenericErr> {
     stdout.suspend_raw_mode()?;
 
     let mut game = Game::new();
-    let mut undo_queue = Vec::new();
     for piece_type in PieceType::iter_types().skip(1) {
         let piece = Piece::new(&piece_type);
         game.append_queue(piece);
     }
+    println!("{}", std::mem::size_of::<Game>());
     println!("{}", game);
 
     stdout.activate_raw_mode()?;
@@ -36,14 +36,11 @@ fn main() -> Result<(), GenericErr> {
                 game.make_move(&GameMove::SoftDrop);
             }
             Key::Down => {
-                if let GameMoveRes::SuccessDrop(drop_info, undo_info) =
-                    game.make_move(&GameMove::HardDrop)
-                {
+                if let GameMoveRes::SuccessDrop(drop_info) = game.make_move(&GameMove::HardDrop) {
                     println!(
                         "Drop: Lines cleared: {} Top out: {}",
                         drop_info.lines_cleared, drop_info.top_out
                     );
-                    undo_queue.push(undo_info);
                 }
             }
             Key::Char('a') => {
@@ -57,11 +54,6 @@ fn main() -> Result<(), GenericErr> {
             }
             Key::Char('c') => {
                 game.make_move(&GameMove::Hold);
-            }
-            Key::Char('u') => {
-                if let Some(undo_info) = undo_queue.pop() {
-                    game.undo_move(undo_info).unwrap();
-                }
             }
             _ => {}
         }

@@ -74,59 +74,58 @@ impl Display for PieceType {
 #[derive(Clone, Debug, Eq)]
 pub struct Piece {
     pub piece_type: PieceType,
-    pub rotation: i32,
-    pub location: (i32, i32),
+    pub rotation: i8,
+    pub location: (i8, i8),
 }
 impl Piece {
-    pub fn info_spawn_location(piece_type: &PieceType) -> &'static (i32, i32) {
+    pub fn info_spawn_location(piece_type: &PieceType) -> &'static (i8, i8) {
         &PIECE_INFO.spawn_locations[piece_type.to_i32() as usize]
     }
     pub fn info_shape(
         piece_type: &PieceType,
-        rotation: i32,
+        rotation: i8,
     ) -> &'static [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
         &PIECE_INFO.shapes[piece_type.to_i32() as usize][rotation as usize]
     }
     pub fn info_bit_shape(
         piece_type: &PieceType,
-        rotation: i32,
-        x_pos: i32,
+        rotation: i8,
+        x_pos: i8,
     ) -> &'static [u16; PIECE_SHAPE_SIZE as usize] {
-        &PIECE_INFO.bit_shapes[piece_type.to_i32() as usize][rotation as usize]
-            [(x_pos + PIECE_MAX_X_SHIFT - Piece::info_spawn_location(piece_type).0) as usize]
+        &PIECE_INFO.bit_shapes[piece_type.to_i32() as usize][rotation as usize][(x_pos
+            + (PIECE_MAX_X_SHIFT as i8)
+            - Piece::info_spawn_location(piece_type).0)
+            as usize]
     }
     pub fn info_height_map(
         piece_type: &PieceType,
-        rotation: i32,
-    ) -> &'static [(i32, i32); PIECE_SHAPE_SIZE as usize] {
+        rotation: i8,
+    ) -> &'static [(i8, i8); PIECE_SHAPE_SIZE as usize] {
         &PIECE_INFO.height_maps[piece_type.to_i32() as usize][rotation as usize]
     }
-    pub fn info_shift_bounds(piece_type: &PieceType, rotation: i32) -> &'static (i32, i32) {
+    pub fn info_shift_bounds(piece_type: &PieceType, rotation: i8) -> &'static (i8, i8) {
         &PIECE_INFO.shift_bounds[piece_type.to_i32() as usize][rotation as usize]
     }
-    pub fn info_location_bounds(
-        piece_type: &PieceType,
-        rotation: i32,
-    ) -> &'static (i32, i32, i32, i32) {
+    pub fn info_location_bounds(piece_type: &PieceType, rotation: i8) -> &'static (i8, i8, i8, i8) {
         &PIECE_INFO.location_bounds[piece_type.to_i32() as usize][rotation as usize]
     }
-    pub fn info_kick_table(piece_type: &PieceType, from: i32, to: i32) -> &'static Vec<(i32, i32)> {
+    pub fn info_kick_table(piece_type: &PieceType, from: i8, to: i8) -> &'static Vec<(i8, i8)> {
         &PIECE_INFO.kick_table[piece_type.to_i32() as usize][from as usize][to as usize]
     }
 
-    pub fn get_spawn_location(&self) -> &'static (i32, i32) {
+    pub fn get_spawn_location(&self) -> &'static (i8, i8) {
         Piece::info_spawn_location(&self.piece_type)
     }
     pub fn get_shape(
         &self,
-        rotation: Option<i32>,
+        rotation: Option<i8>,
     ) -> &'static [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
         Piece::info_shape(&self.piece_type, rotation.unwrap_or(self.rotation))
     }
     pub fn get_bit_shape(
         &self,
-        rotation: Option<i32>,
-        x_pos: Option<i32>,
+        rotation: Option<i8>,
+        x_pos: Option<i8>,
     ) -> &'static [u16; PIECE_SHAPE_SIZE as usize] {
         Piece::info_bit_shape(
             &self.piece_type,
@@ -136,17 +135,17 @@ impl Piece {
     }
     pub fn get_height_map(
         &self,
-        rotation: Option<i32>,
-    ) -> &'static [(i32, i32); PIECE_SHAPE_SIZE as usize] {
+        rotation: Option<i8>,
+    ) -> &'static [(i8, i8); PIECE_SHAPE_SIZE as usize] {
         Piece::info_height_map(&self.piece_type, rotation.unwrap_or(self.rotation))
     }
-    pub fn get_shift_bounds(&self, rotation: Option<i32>) -> &'static (i32, i32) {
+    pub fn get_shift_bounds(&self, rotation: Option<i8>) -> &'static (i8, i8) {
         Piece::info_shift_bounds(&self.piece_type, rotation.unwrap_or(self.rotation))
     }
-    pub fn get_location_bounds(&self, rotation: Option<i32>) -> &'static (i32, i32, i32, i32) {
+    pub fn get_location_bounds(&self, rotation: Option<i8>) -> &'static (i8, i8, i8, i8) {
         Piece::info_location_bounds(&self.piece_type, rotation.unwrap_or(self.rotation))
     }
-    pub fn get_kick_table(&self, from: Option<i32>, to: i32) -> &'static Vec<(i32, i32)> {
+    pub fn get_kick_table(&self, from: Option<i8>, to: i8) -> &'static Vec<(i8, i8)> {
         Piece::info_kick_table(&self.piece_type, from.unwrap_or(self.rotation), to)
     }
     pub fn to_string(&self) -> String {
@@ -166,7 +165,7 @@ impl Piece {
         self.rotation = 0;
         self.location = *self.get_spawn_location();
     }
-    pub fn rotate(&mut self, amount: i32, board: &Board) -> PieceMoveRes {
+    pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceMoveRes {
         let (old_x, old_y) = self.location;
         let old_rot = self.rotation;
         let new_rot = (self.rotation + amount) % 4;
@@ -198,7 +197,7 @@ impl Piece {
     pub fn rotate_left(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(3, &board)
     }
-    pub fn shift(&mut self, (d_x, d_y): (i32, i32), board: &Board) -> PieceMoveRes {
+    pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> PieceMoveRes {
         let (old_x, old_y) = self.location;
         let new_x = old_x + d_x;
         let new_y = old_y + d_y;
@@ -229,7 +228,7 @@ impl Piece {
     pub fn soft_drop(&mut self, board: &Board) -> PieceMoveRes {
         let (p_x, old_y) = self.location;
         let height_map = self.get_height_map(None);
-        let mut min_drop_amount = i32::MAX;
+        let mut min_drop_amount = i8::MAX;
         // Slightly optimized soft-drop algorithm
         // Effective if the piece is above the height of the board
         // Used in probably 99% of scenarios
@@ -238,7 +237,7 @@ impl Piece {
             if low == -1 {
                 continue;
             }
-            let x = p_x + i;
+            let x = p_x + (i as i8);
             let matrix_height = board.height_map[x as usize];
             let drop_amount = old_y + low - matrix_height;
             if drop_amount < min_drop_amount {

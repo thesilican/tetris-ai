@@ -13,7 +13,7 @@ lazy_static! {
 /// Precomputed constants for a piece
 pub(crate) struct PieceInfo {
     /// The spawn location for each piece
-    pub spawn_locations: [(i32, i32); PIECE_NUM_TYPES as usize],
+    pub spawn_locations: [(i8, i8); PIECE_NUM_TYPES as usize],
     /// The shape of each piece, as a 2d array of bools
     pub shapes: [[[[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize];
         PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
@@ -23,14 +23,14 @@ pub(crate) struct PieceInfo {
         PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
     /// Lows and Heights (Height from bottom to first block, then height of blocks)
     /// Both fields are -1 if that column is empty
-    pub height_maps: [[[(i32, i32); PIECE_SHAPE_SIZE as usize]; PIECE_NUM_ROTATION as usize];
+    pub height_maps: [[[(i8, i8); PIECE_SHAPE_SIZE as usize]; PIECE_NUM_ROTATION as usize];
         PIECE_NUM_TYPES as usize],
     /// Min/Max x/y positions for a piece (min x, max x, min y, max y)
     pub location_bounds:
-        [[(i32, i32, i32, i32); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
+        [[(i8, i8, i8, i8); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
     /// How much a piece can shift from its spawn position
-    pub shift_bounds: [[(i32, i32); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
-    pub kick_table: [[[Vec<(i32, i32)>; PIECE_NUM_ROTATION as usize]; PIECE_NUM_ROTATION as usize];
+    pub shift_bounds: [[(i8, i8); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
+    pub kick_table: [[[Vec<(i8, i8)>; PIECE_NUM_ROTATION as usize]; PIECE_NUM_ROTATION as usize];
         PIECE_NUM_TYPES as usize],
 }
 
@@ -51,13 +51,13 @@ impl PieceInfo {
 
         let sizes = [2, 4, 3, 3, 3, 3, 3];
         let spawn_locations = [
-            (PIECE_SPAWN_COLUMN, 19),
-            (PIECE_SPAWN_COLUMN, 18),
-            (PIECE_SPAWN_COLUMN, 19),
-            (PIECE_SPAWN_COLUMN, 19),
-            (PIECE_SPAWN_COLUMN, 19),
-            (PIECE_SPAWN_COLUMN, 19),
-            (PIECE_SPAWN_COLUMN, 19),
+            (PIECE_SPAWN_COLUMN as i8, 19),
+            (PIECE_SPAWN_COLUMN as i8, 18),
+            (PIECE_SPAWN_COLUMN as i8, 19),
+            (PIECE_SPAWN_COLUMN as i8, 19),
+            (PIECE_SPAWN_COLUMN as i8, 19),
+            (PIECE_SPAWN_COLUMN as i8, 19),
+            (PIECE_SPAWN_COLUMN as i8, 19),
         ];
         let base_shapes = [
             // O
@@ -153,12 +153,12 @@ impl PieceInfo {
         }
 
         // Calculate height maps and shift bounds
-        let mut height_maps: [[[(i32, i32); PIECE_SHAPE_SIZE as usize];
-            PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize] = Default::default();
-        let mut location_bounds: [[(i32, i32, i32, i32); PIECE_NUM_ROTATION as usize];
+        let mut height_maps: [[[(i8, i8); PIECE_SHAPE_SIZE as usize]; PIECE_NUM_ROTATION as usize];
             PIECE_NUM_TYPES as usize] = Default::default();
-        let mut shift_bounds: [[(i32, i32); PIECE_NUM_ROTATION as usize];
+        let mut location_bounds: [[(i8, i8, i8, i8); PIECE_NUM_ROTATION as usize];
             PIECE_NUM_TYPES as usize] = Default::default();
+        let mut shift_bounds: [[(i8, i8); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize] =
+            Default::default();
         for piece in 0..PIECE_NUM_TYPES {
             for rotation in 0..PIECE_NUM_ROTATION {
                 let shape = shapes[piece as usize][rotation as usize];
@@ -169,7 +169,7 @@ impl PieceInfo {
                     for j in 0..PIECE_SHAPE_SIZE {
                         if shape[i as usize][j as usize] {
                             if height_map[i as usize].0 == -1 {
-                                height_map[i as usize] = (j, 1);
+                                height_map[i as usize] = (j as i8, 1);
                             } else {
                                 height_map[i as usize].1 += 1;
                             }
@@ -186,7 +186,7 @@ impl PieceInfo {
                         break;
                     }
                 }
-                let mut right = BOARD_WIDTH - PIECE_SHAPE_SIZE;
+                let mut right = (BOARD_WIDTH - PIECE_SHAPE_SIZE) as i8;
                 for i in (0..PIECE_SHAPE_SIZE).rev() {
                     if height_map[i as usize].0 == -1 {
                         right += 1;
@@ -202,7 +202,7 @@ impl PieceInfo {
                         break;
                     }
                 }
-                let mut top = BOARD_HEIGHT - PIECE_SHAPE_SIZE;
+                let mut top = (BOARD_HEIGHT - PIECE_SHAPE_SIZE) as i8;
                 for j in (0..PIECE_SHAPE_SIZE).rev() {
                     if bit_shape[j as usize] == 0 {
                         top += 1;
@@ -211,13 +211,14 @@ impl PieceInfo {
                     }
                 }
                 location_bounds[piece as usize][rotation as usize] = (left, right, bottom, top);
-                shift_bounds[piece as usize][rotation as usize] =
-                    (PIECE_SPAWN_COLUMN - left, right - PIECE_SPAWN_COLUMN);
+                shift_bounds[piece as usize][rotation as usize] = (
+                    PIECE_SPAWN_COLUMN as i8 - left,
+                    right - PIECE_SPAWN_COLUMN as i8,
+                );
             }
         }
         // Pain
-        let o_kick_table: [[Vec<(i32, i32)>; PIECE_NUM_ROTATION as usize];
-            PIECE_NUM_ROTATION as usize] = [
+        let o_kick_table = [
             [vec![], vec![(0, 0)], vec![(0, 0)], vec![(0, 0)]],
             [vec![(0, 0)], vec![], vec![(0, 0)], vec![(0, 0)]],
             [vec![(0, 0)], vec![(0, 0)], vec![], vec![(0, 0)]],

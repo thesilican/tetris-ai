@@ -16,5 +16,5 @@ pub fn create_ai() -> impl TetrisAI + Unpin + 'static {
         -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, // Height
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Height Delta
     ];
-    RustyAI::new(&weights, 3, 0)
+    RustyAI::new(&weights, 3, 300)
 }

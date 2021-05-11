@@ -8,27 +8,15 @@ use std::hash::Hasher;
 
 #[derive(Debug)]
 pub struct BoardLockResult {
-    pub lines_cleared: i32,
-    // Combines guideline top-out and block-out
-    // Basically, if any heights in board.height_map is >= BOARD_HEIGHT
-    // Or if matrix and piece intersected
     pub top_out: bool,
-}
-
-#[derive(Debug)]
-pub struct BoardUndoInfo {
-    pub matrix: [u16; PIECE_SHAPE_SIZE as usize],
-    pub shape_y: i32,
-    pub lines_cleared: Vec<i32>,
-    pub height_map: [i32; BOARD_WIDTH as usize],
-    pub holes: [i32; BOARD_WIDTH as usize],
+    pub lines_cleared: i32,
 }
 
 #[derive(Clone, Debug, Eq)]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT as usize],
-    pub height_map: [i32; BOARD_WIDTH as usize],
-    pub holes: [i32; BOARD_WIDTH as usize],
+    pub height_map: [i8; BOARD_WIDTH as usize],
+    pub holes: [i8; BOARD_WIDTH as usize],
 }
 impl Board {
     pub fn new() -> Self {
@@ -45,6 +33,8 @@ impl Board {
         if self.get(x, y) == state {
             return;
         }
+        let x = x as i8;
+        let y = y as i8;
         if state {
             // Turn on bit
             self.matrix[y as usize] |= 1 << x;
@@ -65,7 +55,7 @@ impl Board {
                 loop {
                     self.height_map[x as usize] -= 1;
                     if self.height_map[x as usize] == 0
-                        || self.get(x, self.height_map[x as usize] - 1)
+                        || self.get(x as i32, (self.height_map[x as usize] - 1) as i32)
                     {
                         break;
                     }
@@ -85,7 +75,7 @@ impl Board {
                 self.matrix[i as usize] &= !(1 << col);
             }
         }
-        self.height_map[col as usize] = height;
+        self.height_map[col as usize] = height as i8;
         self.holes[col as usize] = 0;
     }
     pub fn set_cols(&mut self, heights: [i32; BOARD_WIDTH as usize]) {
@@ -100,7 +90,7 @@ impl Board {
         }
     }
     pub fn intersects_with(&self, piece: &Piece) -> bool {
-        let p_y = piece.location.1;
+        let p_y = piece.location.1 as i32;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
             if p_y + j < 0 || p_y + j >= BOARD_HEIGHT {
@@ -113,26 +103,15 @@ impl Board {
         }
         false
     }
-    pub fn lock(&mut self, piece: &Piece) -> (BoardLockResult, BoardUndoInfo) {
-        let height_map_backup = self.height_map.clone();
-        let holes_backup = self.holes.clone();
-        let mut matrix_backup = [0; PIECE_SHAPE_SIZE as usize];
-        let mut top_out = false;
-
+    pub fn lock(&mut self, piece: &Piece) -> BoardLockResult {
         let (p_x, p_y) = piece.location;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
-            let y = p_y + j;
+            let y = (p_y as i32) + j;
             if y < 0 || y >= BOARD_HEIGHT {
                 continue;
             }
-            let matrix_row = self.matrix[y as usize];
-            let piece_row = shape[j as usize];
-            if matrix_row & piece_row != 0 {
-                top_out = true;
-            }
-            matrix_backup[j as usize] = matrix_row;
-            self.matrix[y as usize] |= piece_row;
+            self.matrix[y as usize] |= shape[j as usize];
         }
 
         let mut lines_cleared = Vec::new();
@@ -149,21 +128,19 @@ impl Board {
             }
         }
 
-        // Check for top out
-        if !top_out {
-            for i in 0..BOARD_WIDTH {
-                if self.height_map[i as usize] >= BOARD_VISIBLE_HEIGHT {
-                    top_out = true;
-                    break;
-                }
+        // Check for top-out
+        let mut top_out = false;
+        for j in BOARD_VISIBLE_HEIGHT..BOARD_HEIGHT {
+            if self.matrix[j as usize] != 0 {
+                top_out = true;
+                break;
             }
         }
 
-        // TODO: maybe find a faster algorithm for recalculating metadata?
-        // Although this is probably fast enough anyways
+        // Recalcluate metadatas
         if lines_cleared.len() == 0 {
             for i in 0..PIECE_SHAPE_SIZE {
-                let x = i + p_x;
+                let x = i + (p_x as i32);
                 if x >= 0 && x < BOARD_WIDTH {
                     self.recalculate_metadata(x);
                 }
@@ -174,39 +151,9 @@ impl Board {
             }
         }
 
-        (
-            BoardLockResult {
-                lines_cleared: lines_cleared.len() as i32,
-                top_out,
-            },
-            BoardUndoInfo {
-                matrix: matrix_backup,
-                shape_y: p_y,
-                lines_cleared,
-                height_map: height_map_backup,
-                holes: holes_backup,
-            },
-        )
-    }
-    pub fn undo_lock(&mut self, undo: BoardUndoInfo) {
-        self.height_map = undo.height_map;
-        self.holes = undo.holes;
-
-        // Undo lines cleared
-        for j in undo.lines_cleared.iter().rev() {
-            for y in ((*j + 1)..BOARD_HEIGHT).rev() {
-                self.matrix[y as usize] = self.matrix[(y - 1) as usize];
-            }
-            self.matrix[*j as usize] = (1 << BOARD_WIDTH) - 1;
-        }
-
-        // Undo shape
-        for j in 0..PIECE_SHAPE_SIZE {
-            let y = j + undo.shape_y;
-            if y < 0 || y >= BOARD_HEIGHT {
-                continue;
-            }
-            self.matrix[y as usize] = undo.matrix[j as usize];
+        BoardLockResult {
+            lines_cleared: lines_cleared.len() as i32,
+            top_out,
         }
     }
 
@@ -218,7 +165,7 @@ impl Board {
             if self.get(col, j) {
                 if !encountered {
                     encountered = true;
-                    height = j + 1;
+                    height = (j + 1) as i8;
                 }
             } else {
                 if encountered {
@@ -230,7 +177,7 @@ impl Board {
         self.holes[col as usize] = holes;
     }
 }
-// Only compare matrix, other files are only metadata
+// Only compare matrix, other fields are only metadata
 impl PartialEq for Board {
     fn eq(&self, other: &Self) -> bool {
         self.matrix == other.matrix

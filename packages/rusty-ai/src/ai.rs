@@ -8,9 +8,8 @@ use common::model::game::Game;
 use common::model::game::GameDropRes;
 use common::model::game::GameMove;
 use common::model::game::GameMoveRes;
-use common::model::piece::Piece;
-use dashmap::DashSet;
-use std::sync::Arc;
+use std::collections::HashMap;
+// use std::sync::Arc;
 
 pub struct AIEval {
     pub score: f32,
@@ -43,14 +42,18 @@ impl RustyAI {
         }
     }
 
-    fn gen_moves(current_piece: &Piece, hold_piece: &Piece) -> Vec<Vec<GameMove>> {
+    fn gen_moves(game: &Game) -> Vec<Vec<GameMove>> {
         let mut res = Vec::new();
         for final_rotation in 0..PIECE_NUM_ROTATION {
             for hold in 0..2 {
-                let piece = if hold == 0 { current_piece } else { hold_piece };
+                let piece = if hold == 0 {
+                    &game.current_piece
+                } else {
+                    &game.hold_piece.as_ref().unwrap()
+                };
                 for rotation in 0..PIECE_NUM_ROTATION {
-                    let (left, right) = piece.get_shift_bounds(Some(rotation));
-                    for shift in (-*left)..*right {
+                    let (left, right) = piece.get_shift_bounds(Some(rotation as i8));
+                    for shift in (-*left)..=*right {
                         let mut moves = Vec::new();
                         match rotation {
                             0 => (),
@@ -90,6 +93,31 @@ impl RustyAI {
         res
     }
 
+    fn gen_child_states(game: &Game) -> impl Iterator<Item = (Game, GameDropRes, Vec<GameMove>)> {
+        let mut res = HashMap::new();
+        let moves_list = RustyAI::gen_moves(game);
+        for moves in moves_list {
+            let mut child_game = game.clone();
+            for game_move in moves.iter() {
+                child_game.make_move(game_move);
+            }
+            let drop_res = match child_game.make_move(&GameMove::HardDrop) {
+                GameMoveRes::SuccessDrop(drop_res) => drop_res,
+                _ => panic!(),
+            };
+            if drop_res.top_out {
+                continue;
+            }
+            // Remove duplicates
+            let hold = child_game.current_piece != game.current_piece;
+            let key = (child_game.board.matrix.clone(), hold);
+            if !res.contains_key(&key) {
+                res.insert(key, (child_game, drop_res, moves));
+            }
+        }
+        res.into_iter().map(|(_, val)| val)
+    }
+
     fn board_score(weights: &AIWeights, game: &Game) -> f32 {
         let mut score = 0.0;
         for i in 0..BOARD_WIDTH {
@@ -104,6 +132,7 @@ impl RustyAI {
         }
         score
     }
+
     fn drop_score(weights: &AIWeights, drop: &GameDropRes, game: &Game) -> f32 {
         let mut score = 0.0;
         if game.board.matrix[0] == 0 {
@@ -120,12 +149,7 @@ impl RustyAI {
         score
     }
 
-    fn evaluate_recursive(
-        game: &mut Game,
-        memo: &DashSet<(i32, Game)>,
-        weights: &AIWeights,
-        depth: i32,
-    ) -> AIEval {
+    fn evaluate_recursive(game: &Game, weights: &AIWeights, depth: i32) -> AIEval {
         // TODO: update recursive code
         if depth == 0 || game.queue_pieces.len() == 0 {
             let score = RustyAI::board_score(weights, game);
@@ -133,43 +157,21 @@ impl RustyAI {
         }
 
         let mut best_score = -f32::INFINITY;
-        let moves_list =
-            RustyAI::gen_moves(&game.current_piece, &game.hold_piece.as_ref().unwrap());
-        for moves in moves_list {
-            for game_move in moves {
-                game.make_move(&game_move);
-            }
-            let (drop_res, undo_info) = match game.make_move(&GameMove::HardDrop) {
-                GameMoveRes::SuccessDrop(drop_res, undo_info) => (drop_res, undo_info),
-                // Should never fail since queue len >= 1
-                _ => unreachable!(),
-            };
-            if drop_res.top_out {
-                game.undo_move(undo_info).unwrap();
-                continue;
-            }
-            let memo_key = (depth, game.clone());
-            if memo.contains(&memo_key) {
-                game.undo_move(undo_info).unwrap();
-                continue;
-            } else {
-                memo.insert(memo_key);
-            }
 
+        for (game, drop_res, _) in RustyAI::gen_child_states(game) {
             let drop_score = RustyAI::drop_score(&weights, &drop_res, &game);
             let AIEval { score: eval_score } =
-                RustyAI::evaluate_recursive(game, memo, &weights, depth - 1);
+                RustyAI::evaluate_recursive(&game, &weights, depth - 1);
             let score = drop_score + eval_score;
             if score > best_score {
                 best_score = score;
             }
-            game.undo_move(undo_info).unwrap();
         }
 
         AIEval { score: best_score }
     }
 
-    fn evaluate(&mut self, mut game: &mut Game, depth: i32) -> TetrisAIRes {
+    fn evaluate(&mut self, game: &mut Game, depth: i32) -> TetrisAIRes {
         assert!(depth >= 1);
         assert!(game.queue_pieces.len() >= 1);
         if game.hold_piece.is_none() {
@@ -178,78 +180,38 @@ impl RustyAI {
                 moves: vec![GameMove::Hold],
             };
         }
-        let memo = DashSet::<(i32, Game)>::new();
         let mut best_score = -f32::INFINITY;
         let mut best_moves = vec![];
-        let moves_list =
-            RustyAI::gen_moves(&game.current_piece, &game.hold_piece.as_ref().unwrap());
 
         if self.thread_pool.get_thread_count() == 0 {
             // Run without threads
-            for moves in moves_list {
-                for game_move in moves.iter() {
-                    game.make_move(game_move);
-                }
-                let (drop_res, undo_info) = match game.make_move(&GameMove::HardDrop) {
-                    GameMoveRes::SuccessDrop(drop_res, undo_info) => (drop_res, undo_info),
-                    // Should never fail since queue len >= 1
-                    _ => unreachable!(),
-                };
-                if drop_res.top_out {
-                    game.undo_move(undo_info).unwrap();
-                    continue;
-                }
-                let memo_key = (depth, game.clone());
-                if memo.contains(&memo_key) {
-                    game.undo_move(undo_info).unwrap();
-                    continue;
-                } else {
-                    memo.insert(memo_key);
-                }
-
+            for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
                 let drop_score = RustyAI::drop_score(&self.weights, &drop_res, &game);
                 let AIEval { score: eval_score } =
-                    RustyAI::evaluate_recursive(&mut game, &memo, &self.weights, depth - 1);
+                    RustyAI::evaluate_recursive(&game, &self.weights, depth - 1);
                 let score = drop_score + eval_score;
                 if score > best_score {
                     best_score = score;
                     best_moves = moves;
                 }
-                game.undo_move(undo_info).unwrap();
             }
         } else {
             // Create jobs
             let mut jobs = Vec::new();
-            let memo = Arc::new(memo);
-            for moves in moves_list.iter() {
-                let memo = memo.clone();
+            let mut moves_list = Vec::new();
+            for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
                 let weights = self.weights.clone();
-                let mut game = game.clone();
-                let moves = moves.clone();
                 jobs.push(move || {
-                    let memo = &*memo;
-                    for game_move in moves.iter() {
-                        game.make_move(game_move);
-                    }
-                    let drop_res = match game.make_move(&GameMove::HardDrop) {
-                        GameMoveRes::SuccessDrop(drop_res, _) => drop_res,
-                        // Should never fail since queue len >= 1
-                        _ => unreachable!(),
-                    };
-                    if drop_res.top_out {
-                        return AIEval {
-                            score: -f32::INFINITY,
-                        };
-                    }
-
                     let drop_score = RustyAI::drop_score(&weights, &drop_res, &game);
                     let AIEval { score: eval_score } =
-                        RustyAI::evaluate_recursive(&mut game, &memo, &weights, depth - 1);
+                        RustyAI::evaluate_recursive(&game, &weights, depth - 1);
                     AIEval {
                         score: drop_score + eval_score,
                     }
                 });
+                moves_list.push(moves);
             }
+
             let results = self.thread_pool.run_jobs(jobs);
 
             for (i, res) in results.iter().enumerate() {
@@ -258,7 +220,6 @@ impl RustyAI {
                     best_moves = moves_list[i].clone();
                 }
             }
-            println!("{}", memo.len());
         }
 
         if best_score == -f32::INFINITY {

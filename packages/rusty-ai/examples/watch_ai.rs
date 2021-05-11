@@ -2,7 +2,7 @@ use common::api::ai::{TetrisAI, TetrisAIRes};
 use common::model::game::Game;
 use common::model::piece::{Piece, PieceType};
 use rusty_ai::ai::RustyAI;
-use rusty_ai::aiweights::{AIWeights, NUM_AI_WEIGHTS};
+use rusty_ai::aiweights::AIWeights;
 use std::time::Instant;
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
     let mut game = Game::new();
     game.set_hold(Some(Piece::new(&PieceType::I)));
     extend_queue(&mut game);
-    let mut ai = RustyAI::new(&weights, 3, 0);
+    let mut ai = RustyAI::new(&weights, 3, 240);
     println!("{}", game);
     loop {
         let start = Instant::now();
@@ -29,9 +29,9 @@ fn main() {
             for game_move in moves.iter() {
                 game.make_move(game_move);
             }
-            // println!("{}", game);
-            // println!("{}", res);
-            println!("{},", start.elapsed().as_millis());
+            println!("{}", game);
+            println!("{}", res);
+            println!("{:?}", start.elapsed());
         } else {
             println!("{}", res);
             break;
