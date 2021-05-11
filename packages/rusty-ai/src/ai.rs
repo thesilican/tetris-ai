@@ -9,7 +9,8 @@ use common::model::game::GameDropRes;
 use common::model::game::GameMove;
 use common::model::game::GameMoveRes;
 use common::model::piece::Piece;
-use std::collections::HashSet;
+use dashmap::DashSet;
+use std::sync::Arc;
 
 pub struct AIEval {
     pub score: f32,
@@ -121,7 +122,7 @@ impl RustyAI {
 
     fn evaluate_recursive(
         game: &mut Game,
-        memo: &mut HashSet<(i32, Game)>,
+        memo: &DashSet<(i32, Game)>,
         weights: &AIWeights,
         depth: i32,
     ) -> AIEval {
@@ -177,8 +178,7 @@ impl RustyAI {
                 moves: vec![GameMove::Hold],
             };
         }
-        // TODO: Fix game hash to ignore piece
-        let mut memo = HashSet::<(i32, Game)>::new();
+        let memo = DashSet::<(i32, Game)>::new();
         let mut best_score = -f32::INFINITY;
         let mut best_moves = vec![];
         let moves_list =
@@ -209,7 +209,7 @@ impl RustyAI {
 
                 let drop_score = RustyAI::drop_score(&self.weights, &drop_res, &game);
                 let AIEval { score: eval_score } =
-                    RustyAI::evaluate_recursive(&mut game, &mut memo, &self.weights, depth - 1);
+                    RustyAI::evaluate_recursive(&mut game, &memo, &self.weights, depth - 1);
                 let score = drop_score + eval_score;
                 if score > best_score {
                     best_score = score;
@@ -220,11 +220,14 @@ impl RustyAI {
         } else {
             // Create jobs
             let mut jobs = Vec::new();
+            let memo = Arc::new(memo);
             for moves in moves_list.iter() {
+                let memo = memo.clone();
                 let weights = self.weights.clone();
                 let mut game = game.clone();
                 let moves = moves.clone();
                 jobs.push(move || {
+                    let memo = &*memo;
                     for game_move in moves.iter() {
                         game.make_move(game_move);
                     }
@@ -238,11 +241,10 @@ impl RustyAI {
                             score: -f32::INFINITY,
                         };
                     }
-                    let mut memo = HashSet::<(i32, Game)>::new();
 
                     let drop_score = RustyAI::drop_score(&weights, &drop_res, &game);
                     let AIEval { score: eval_score } =
-                        RustyAI::evaluate_recursive(&mut game, &mut memo, &weights, depth - 1);
+                        RustyAI::evaluate_recursive(&mut game, &memo, &weights, depth - 1);
                     AIEval {
                         score: drop_score + eval_score,
                     }
@@ -256,6 +258,7 @@ impl RustyAI {
                     best_moves = moves_list[i].clone();
                 }
             }
+            println!("{}", memo.len());
         }
 
         if best_score == -f32::INFINITY {

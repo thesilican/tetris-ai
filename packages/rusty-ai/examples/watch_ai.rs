@@ -3,6 +3,7 @@ use common::model::game::Game;
 use common::model::piece::{Piece, PieceType};
 use rusty_ai::ai::RustyAI;
 use rusty_ai::aiweights::{AIWeights, NUM_AI_WEIGHTS};
+use std::time::Instant;
 
 fn main() {
     let mut weights = AIWeights::new();
@@ -19,16 +20,18 @@ fn main() {
     let mut game = Game::new();
     game.set_hold(Some(Piece::new(&PieceType::I)));
     extend_queue(&mut game);
-    let mut ai = RustyAI::new(&weights, 3, 100);
+    let mut ai = RustyAI::new(&weights, 3, 0);
     println!("{}", game);
     loop {
+        let start = Instant::now();
         let res = ai.api_evaluate(&mut game);
         if let TetrisAIRes::Success { moves, .. } = &res {
             for game_move in moves.iter() {
                 game.make_move(game_move);
             }
-            println!("{}", game);
-            println!("{}", res);
+            // println!("{}", game);
+            // println!("{}", res);
+            println!("{},", start.elapsed().as_millis());
         } else {
             println!("{}", res);
             break;
