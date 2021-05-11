@@ -307,7 +307,7 @@ impl Display for Game {
         // Other info
         let can_hold = self.can_hold;
         let hold_was_empty = self.hold_was_empty;
-        writeln!(
+        write!(
             f,
             "Can Hold: {}, Hold Was Empty: {}",
             can_hold, hold_was_empty

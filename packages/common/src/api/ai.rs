@@ -1,5 +1,6 @@
 use crate::api::json::{parse, stringify, JSONOutput};
 use crate::model::game::{Game, GameMove, GameMoveRes};
+use std::fmt::{self, Display, Formatter};
 
 pub enum TetrisAIRes {
     Success {
@@ -9,6 +10,27 @@ pub enum TetrisAIRes {
     Fail {
         reason: String,
     },
+}
+impl Display for TetrisAIRes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TetrisAIRes::Success { moves, score } => {
+                let score = match score {
+                    Some(score) => format!("{:.2}", score),
+                    None => String::from("None"),
+                };
+                let moves = moves
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "Eval Score: {} Moves: [{}]", score, moves)
+            }
+            TetrisAIRes::Fail { reason } => {
+                write!(f, "Eval Failed: {}", reason)
+            }
+        }
+    }
 }
 
 pub trait TetrisAI {
