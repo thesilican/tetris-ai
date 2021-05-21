@@ -3,7 +3,7 @@ use crate::model::computed::PIECE_INFO;
 use crate::model::consts::{PIECE_MAX_X_SHIFT, PIECE_SHAPE_SIZE};
 use crate::model::game::GameMove;
 use crate::{misc::GenericErr, model::consts::PIECE_NUM_TYPES};
-use std::fmt::{Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -288,6 +288,11 @@ impl Hash for Piece {
         self.piece_type.hash(state);
     }
 }
+impl Display for Piece {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum PieceMove {
@@ -324,7 +329,7 @@ impl From<PieceMove> for GameMove {
     }
 }
 impl Display for PieceMove {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string())
     }
 }

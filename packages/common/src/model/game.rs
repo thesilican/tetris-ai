@@ -210,40 +210,43 @@ impl Display for Game {
             writeln!(f)?;
         }
         // Board height/holes info
-        for i in 0..BOARD_WIDTH {
-            let height = self.board.height_map[i as usize];
-            write!(f, "{:2}", height)?;
-        }
-        writeln!(f)?;
-        for i in 0..BOARD_WIDTH {
-            let hole = self.board.holes[i as usize];
-            write!(f, "{:2}", hole)?;
-        }
-        writeln!(f)?;
+        // for i in 0..BOARD_WIDTH {
+        //     let height = self.board.height_map[i as usize];
+        //     write!(f, "{:2}", height)?;
+        // }
+        // writeln!(f)?;
+        // for i in 0..BOARD_WIDTH {
+        //     let hole = self.board.holes[i as usize];
+        //     write!(f, "{:2}", hole)?;
+        // }
+        // writeln!(f)?;
 
         // Curr, Hold, and Queue pieces
-        let curr = &self.current_piece.to_string();
+        let curr = format!("{}", &self.current_piece);
         let hold = match &self.hold_piece {
-            Some(piece) => piece.to_string(),
-            None => String::from("None"),
+            Some(piece) => {
+                let can_hold = if self.can_hold { "✓" } else { "✗" };
+                format!("{0} {1}", piece, can_hold)
+            }
+            None => format!(""),
         };
         const MAX_QUEUE_DISPLAY: usize = 7;
-        let mut queue_text = self
-            .queue_pieces
-            .iter()
-            .take(MAX_QUEUE_DISPLAY)
-            .map(|x| x.to_string())
-            .collect::<Vec<_>>()
-            .join(" ");
-        if self.queue_pieces.len() > MAX_QUEUE_DISPLAY {
-            let amount = self.queue_pieces.len() - MAX_QUEUE_DISPLAY;
-            write!(queue_text, " +{}", amount)?;
-        }
-        writeln!(f, "Curr: {}, Hold: {}, Queue: {}", curr, hold, queue_text)?;
+        let queue_text = {
+            let mut text = self
+                .queue_pieces
+                .iter()
+                .take(MAX_QUEUE_DISPLAY)
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if self.queue_pieces.len() > MAX_QUEUE_DISPLAY {
+                let amount = self.queue_pieces.len() - MAX_QUEUE_DISPLAY;
+                write!(text, " +{}", amount)?;
+            }
+            text
+        };
+        write!(f, "[{1}] ({0}) {2}", curr, hold, queue_text)?;
 
-        // Other info
-        let can_hold = self.can_hold;
-        write!(f, "Can Hold: {}", can_hold)?;
         Ok(())
     }
 }

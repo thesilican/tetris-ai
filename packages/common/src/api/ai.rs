@@ -1,6 +1,9 @@
 use crate::api::json::{parse, stringify, JSONOutput};
+use crate::model::consts::PIECE_NUM_TYPES;
 use crate::model::game::{Game, GameMove, GameMoveRes};
+use crate::model::piece::{Piece, PieceType};
 use std::fmt::{self, Display, Formatter};
+use std::time::Instant;
 
 pub enum TetrisAIRes {
     Success {
@@ -34,11 +37,11 @@ impl Display for TetrisAIRes {
 }
 
 pub trait TetrisAI {
-    fn api_evaluate(&mut self, game: &mut Game) -> TetrisAIRes;
+    fn api_evaluate(&mut self, game: &Game) -> TetrisAIRes;
     /// Convenience function to handle JSON requests
     /// Also returns JSON if request is invalid
     fn api_evaluate_json(&mut self, req: String) -> String {
-        let mut game = match parse(req) {
+        let game = match parse(req) {
             Ok(game) => game,
             Err(parse_err) => {
                 let output = JSONOutput::Fail {
@@ -48,8 +51,63 @@ pub trait TetrisAI {
                 return serde_json::to_string(&output).unwrap();
             }
         };
-        let res = self.api_evaluate(&mut game);
+        let res = self.api_evaluate(&game);
         stringify(res)
+    }
+    /// A quick and easy way to watch an ai play a game
+    fn watch_ai(&mut self, mut seed: i32) {
+        let mut gen_bag = || {
+            let mut bag = PieceType::iter_types().collect::<Vec<_>>();
+            // Fisher-Yates shuffle
+            for i in (1..PIECE_NUM_TYPES).rev() {
+                let j = seed % i;
+                bag.swap(i as usize, j as usize);
+                // Epic way to randomize
+                seed = (seed + j + 123) % 456_789;
+            }
+            bag.into_iter().map(|p| Piece::new(&p))
+        };
+        let mut game = Game::new();
+        game.extend_queue(gen_bag().into_iter());
+        println!("{}\n", game);
+        'l: loop {
+            if game.queue_pieces.len() < 7 {
+                game.extend_queue(gen_bag().into_iter());
+            }
+            let start = Instant::now();
+            let res = self.api_evaluate(&mut game);
+            let elapsed = start.elapsed();
+            if let TetrisAIRes::Success { moves, score } = res {
+                for game_move in &moves {
+                    if let GameMove::HardDrop = game_move {
+                        let res = game.make_move(&game_move);
+                        if let GameMoveRes::SuccessDrop(drop_res) = res {
+                            if drop_res.top_out {
+                                println!("TOP OUT");
+                                break 'l;
+                            }
+                        }
+                    } else {
+                        game.make_move(game_move);
+                    }
+                }
+                let score = score
+                    .map(|x| format!("{:.2}", x))
+                    .unwrap_or(String::from("None"));
+                let moves = moves
+                    .into_iter()
+                    .map(|x| format!("{}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                println!(
+                    "{0}\nEval: {1} in {3:?} [{2}]\n",
+                    game, score, moves, elapsed
+                );
+            } else if let TetrisAIRes::Fail { reason } = res {
+                println!("Evaluation failed: {}", reason);
+                break;
+            }
+        }
     }
 }
 
@@ -61,8 +119,8 @@ impl DummyAI {
     }
 }
 impl TetrisAI for DummyAI {
-    fn api_evaluate(&mut self, game: &mut Game) -> TetrisAIRes {
-        match game.make_move(&GameMove::HardDrop) {
+    fn api_evaluate(&mut self, game: &Game) -> TetrisAIRes {
+        match game.clone().make_move(&GameMove::HardDrop) {
             GameMoveRes::SuccessDrop(..) => TetrisAIRes::Success {
                 moves: vec![GameMove::HardDrop],
                 score: Some(1.0),
