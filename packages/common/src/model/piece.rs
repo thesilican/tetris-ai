@@ -12,7 +12,7 @@ pub enum PieceMoveRes {
     Failed,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PieceType {
     O,
     I,
@@ -71,7 +71,7 @@ impl Display for PieceType {
     }
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct Piece {
     pub piece_type: PieceType,
     pub rotation: i8,

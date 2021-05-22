@@ -3,6 +3,7 @@ use crate::model::consts::BOARD_VISIBLE_HEIGHT;
 use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
+use std::cmp::min;
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -86,7 +87,7 @@ impl Board {
     pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT as usize]) {
         self.matrix = matrix;
         for i in 0..BOARD_WIDTH {
-            self.recalculate_metadata(i);
+            self.recalculate_metadata(i, BOARD_HEIGHT);
         }
     }
     pub fn intersects_with(&self, piece: &Piece) -> bool {
@@ -114,54 +115,55 @@ impl Board {
             self.matrix[y as usize] |= shape[j as usize];
         }
 
-        let mut lines_cleared = Vec::new();
-        for j in (0..BOARD_HEIGHT).rev() {
+        let mut lines_cleared = 0;
+        for j in 0..BOARD_HEIGHT {
             if self.matrix[j as usize] == (1 << BOARD_WIDTH) - 1 {
-                lines_cleared.push(j);
-                for y in j..BOARD_HEIGHT {
-                    if y == BOARD_HEIGHT - 1 {
-                        self.matrix[y as usize] = 0;
-                    } else {
-                        self.matrix[y as usize] = self.matrix[(y + 1) as usize];
-                    }
-                }
+                lines_cleared += 1;
+            } else {
+                self.matrix[(j - lines_cleared) as usize] = self.matrix[j as usize];
             }
+        }
+        for j in 0..lines_cleared {
+            self.matrix[(BOARD_HEIGHT - lines_cleared + j) as usize] = 0;
         }
 
         // Check for top-out
-        let mut top_out = false;
-        for j in BOARD_VISIBLE_HEIGHT..BOARD_HEIGHT {
-            if self.matrix[j as usize] != 0 {
-                top_out = true;
-                break;
-            }
-        }
+        let top_out = self.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0;
 
         // Recalcluate metadatas
-        if lines_cleared.len() == 0 {
+        if lines_cleared == 0 {
             for i in 0..PIECE_SHAPE_SIZE {
                 let x = i + (p_x as i32);
-                if x >= 0 && x < BOARD_WIDTH {
-                    self.recalculate_metadata(x);
+                if x < 0 || x >= BOARD_WIDTH {
+                    continue;
                 }
+                let max_height = min(
+                    self.height_map[x as usize] as i32 + PIECE_SHAPE_SIZE - lines_cleared,
+                    BOARD_HEIGHT,
+                );
+                self.recalculate_metadata(x, max_height);
             }
         } else {
-            for i in 0..BOARD_WIDTH {
-                self.recalculate_metadata(i);
+            for x in 0..BOARD_WIDTH {
+                let max_height = min(
+                    self.height_map[x as usize] as i32 + PIECE_SHAPE_SIZE - lines_cleared,
+                    BOARD_HEIGHT,
+                );
+                self.recalculate_metadata(x, max_height);
             }
         }
 
         BoardLockResult {
-            lines_cleared: lines_cleared.len() as i32,
+            lines_cleared: lines_cleared,
             top_out,
         }
     }
 
-    fn recalculate_metadata(&mut self, col: i32) {
+    fn recalculate_metadata(&mut self, col: i32, max_height: i32) {
         let mut encountered = false;
         let mut height = 0;
         let mut holes = 0;
-        for j in (0..BOARD_HEIGHT).rev() {
+        for j in (0..max_height).rev() {
             if self.get(col, j) {
                 if !encountered {
                     encountered = true;

@@ -1,7 +1,7 @@
 use crate::api::json::{parse, stringify, JSONOutput};
 use crate::model::consts::PIECE_NUM_TYPES;
 use crate::model::game::{Game, GameMove, GameMoveRes};
-use crate::model::piece::{Piece, PieceType};
+use crate::model::piece::PieceType;
 use std::fmt::{self, Display, Formatter};
 use std::time::Instant;
 
@@ -65,14 +65,14 @@ pub trait TetrisAI {
                 // Epic way to randomize
                 seed = (seed + j + 123) % 456_789;
             }
-            bag.into_iter().map(|p| Piece::new(&p))
+            bag
         };
         let mut game = Game::new();
-        game.extend_queue(gen_bag().into_iter());
+        game.extend_queue(&gen_bag());
         println!("{}\n", game);
         'l: loop {
             if game.queue_pieces.len() < 7 {
-                game.extend_queue(gen_bag().into_iter());
+                game.extend_queue(&gen_bag());
             }
             let start = Instant::now();
             let res = self.api_evaluate(&mut game);

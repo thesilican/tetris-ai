@@ -60,8 +60,8 @@ impl Display for GameMove {
 pub struct Game {
     pub board: Board,
     pub current_piece: Piece,
-    pub hold_piece: Option<Piece>,
-    pub queue_pieces: VecDeque<Piece>,
+    pub hold_piece: Option<PieceType>,
+    pub queue_pieces: VecDeque<PieceType>,
     pub can_hold: bool,
 }
 impl Game {
@@ -75,26 +75,31 @@ impl Game {
         }
     }
 
-    pub fn set_current(&mut self, piece: Piece) {
-        self.current_piece = piece;
+    pub fn set_current(&mut self, piece: PieceType) {
+        self.current_piece.piece_type = piece;
+        self.reset_current_piece();
         self.can_hold = true;
     }
-    pub fn set_hold(&mut self, piece: Option<Piece>) {
+    pub fn set_hold(&mut self, piece: Option<PieceType>) {
         self.hold_piece = piece;
         self.can_hold = true;
     }
-    pub fn append_queue(&mut self, piece: Piece) {
+    pub fn append_queue(&mut self, piece: PieceType) {
         self.queue_pieces.push_back(piece);
     }
-    pub fn extend_queue(&mut self, pieces: impl Iterator<Item = Piece>) {
+    pub fn extend_queue(&mut self, pieces: &[PieceType]) {
         self.queue_pieces.extend(pieces);
     }
     pub fn clear_queue(&mut self) {
         self.queue_pieces.clear();
     }
-    pub fn set_queue(&mut self, pieces: impl Iterator<Item = Piece>) {
+    pub fn set_queue(&mut self, pieces: &[PieceType]) {
         self.clear_queue();
         self.extend_queue(pieces);
+    }
+    fn reset_current_piece(&mut self) {
+        self.current_piece.reset();
+        self.current_piece.shift_down(&self.board);
     }
 
     pub fn make_move(&mut self, game_move: &GameMove) -> GameMoveRes {
@@ -138,20 +143,16 @@ impl Game {
                 if !self.can_hold {
                     return GameMoveRes::Failed;
                 }
-                if self.hold_piece.is_none() {
-                    let queue_piece = match self.queue_pieces.pop_front() {
+                let hold = match self.hold_piece {
+                    Some(hold) => hold,
+                    None => match self.queue_pieces.pop_front() {
                         Some(piece) => piece,
                         None => return GameMoveRes::Failed,
-                    };
-                    self.hold_piece = Some(queue_piece);
-                }
-                // Always true
-                if let Some(hold) = &mut self.hold_piece {
-                    std::mem::swap(&mut self.current_piece, hold);
-                }
-                self.current_piece.reset();
-                self.current_piece.shift_down(&self.board);
-                self.can_hold = false;
+                    },
+                };
+                self.hold_piece = Some(self.current_piece.piece_type);
+                self.current_piece.piece_type = hold;
+                self.reset_current_piece();
                 GameMoveRes::SuccessNorm
             }
             GameMove::SoftDrop => {
@@ -168,8 +169,8 @@ impl Game {
 
                 self.current_piece.soft_drop(&self.board);
                 let res = self.board.lock(&self.current_piece);
-                self.current_piece = self.queue_pieces.pop_front().unwrap();
-                self.current_piece.reset();
+                self.current_piece.piece_type = self.queue_pieces.pop_front().unwrap();
+                self.reset_current_piece();
                 self.current_piece.shift_down(&self.board);
                 self.can_hold = true;
 
@@ -270,22 +271,21 @@ impl Hash for Game {
 #[cfg(test)]
 mod tests {
     use super::Game;
-    use crate::model::piece::Piece;
     use crate::model::piece::PieceType;
     use std::collections::HashSet;
 
     #[test]
     fn game_hashes_properly() {
         let mut game1 = Game::new();
-        game1.set_current(Piece::new(&PieceType::O));
-        game1.set_hold(Some(Piece::new(&PieceType::I)));
-        game1.set_queue(vec![Piece::new(&PieceType::T), Piece::new(&PieceType::L)].into_iter());
+        game1.set_current(PieceType::O);
+        game1.set_hold(Some(PieceType::I));
+        game1.set_queue(&[PieceType::T, PieceType::L]);
         game1.board.set(0, 0, true);
         game1.board.set(9, 22, true);
         let mut game2 = Game::new();
-        game2.set_current(Piece::new(&PieceType::O));
-        game2.set_hold(Some(Piece::new(&PieceType::I)));
-        game2.set_queue(vec![Piece::new(&PieceType::T), Piece::new(&PieceType::L)].into_iter());
+        game2.set_current(PieceType::O);
+        game2.set_hold(Some(PieceType::I));
+        game2.set_queue(&[PieceType::T, PieceType::L]);
         game2.board.set(0, 0, true);
         game2.board.set(9, 22, true);
         let mut hashset = HashSet::new();
@@ -298,9 +298,9 @@ mod tests {
 
         // Differs by current piece
         let mut game3 = Game::new();
-        game3.set_current(Piece::new(&PieceType::I));
-        game3.set_hold(Some(Piece::new(&PieceType::I)));
-        game3.set_queue(vec![Piece::new(&PieceType::T), Piece::new(&PieceType::L)].into_iter());
+        game3.set_current(PieceType::I);
+        game3.set_hold(Some(PieceType::I));
+        game3.set_queue(&[PieceType::T, PieceType::L]);
         game3.board.set(0, 0, true);
         game3.board.set(9, 22, true);
         assert_ne!(game1, game3);
@@ -311,9 +311,9 @@ mod tests {
 
         // Differs by hold_piece
         let mut game4 = Game::new();
-        game4.set_current(Piece::new(&PieceType::O));
+        game4.set_current(PieceType::O);
         game4.set_hold(None);
-        game4.set_queue(vec![Piece::new(&PieceType::T), Piece::new(&PieceType::L)].into_iter());
+        game4.set_queue(&[PieceType::T, PieceType::L]);
         game4.board.set(0, 0, true);
         game4.board.set(9, 22, true);
         assert_ne!(game1, game4);
@@ -324,9 +324,9 @@ mod tests {
 
         // Differs by queue
         let mut game5 = Game::new();
-        game5.set_current(Piece::new(&PieceType::O));
-        game5.set_hold(Some(Piece::new(&PieceType::I)));
-        game5.set_queue(vec![Piece::new(&PieceType::L), Piece::new(&PieceType::L)].into_iter());
+        game5.set_current(PieceType::O);
+        game5.set_hold(Some(PieceType::I));
+        game5.set_queue(&[PieceType::L, PieceType::L]);
         game5.board.set(0, 0, true);
         game5.board.set(9, 22, true);
         assert_ne!(game1, game5);
@@ -337,9 +337,9 @@ mod tests {
 
         // Differs by board
         let mut game6 = Game::new();
-        game6.set_current(Piece::new(&PieceType::O));
-        game6.set_hold(Some(Piece::new(&PieceType::I)));
-        game6.set_queue(vec![Piece::new(&PieceType::T), Piece::new(&PieceType::L)].into_iter());
+        game6.set_current(PieceType::O);
+        game6.set_hold(Some(PieceType::I));
+        game6.set_queue(&[PieceType::T, PieceType::L]);
         game6.board.set(0, 0, true);
         assert_ne!(game1, game6);
         hashset.clear();

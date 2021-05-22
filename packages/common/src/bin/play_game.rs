@@ -2,7 +2,6 @@ use common::misc::GenericErr;
 use common::model::game::Game;
 use common::model::game::GameMove;
 use common::model::game::GameMoveRes;
-use common::model::piece::Piece;
 use common::model::piece::PieceType;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -14,10 +13,7 @@ fn main() -> Result<(), GenericErr> {
     stdout.suspend_raw_mode()?;
 
     let mut game = Game::new();
-    for piece_type in PieceType::iter_types().skip(1) {
-        let piece = Piece::new(&piece_type);
-        game.append_queue(piece);
-    }
+    game.extend_queue(&PieceType::iter_types().skip(1).collect::<Vec<_>>());
     println!("{}", std::mem::size_of::<Game>());
     println!("{}", game);
 
@@ -68,8 +64,5 @@ fn main() -> Result<(), GenericErr> {
 }
 
 fn refill_queue(game: &mut Game) {
-    for piece_type in PieceType::iter_types() {
-        let piece = Piece::new(&piece_type);
-        game.append_queue(piece);
-    }
+    game.extend_queue(&PieceType::iter_types().collect::<Vec<_>>());
 }
