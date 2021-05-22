@@ -1,4 +1,4 @@
-use crate::aiweights::AIWeights;
+use crate::ai_weights::AIWeights;
 use crate::threading::ThreadPool;
 use common::api::ai::TetrisAI;
 use common::api::ai::TetrisAIRes;
@@ -10,6 +10,9 @@ use common::model::game::GameMove;
 use common::model::game::GameMoveRes;
 use std::collections::HashMap;
 // use std::sync::Arc;
+
+const EVAL_TOP_FIRST: usize = 30;
+const EVAL_TOP: usize = 5;
 
 pub struct AIEval {
     pub score: f32,
@@ -150,16 +153,24 @@ impl RustyAI {
     }
 
     fn evaluate_recursive(game: &Game, weights: &AIWeights, depth: i32) -> AIEval {
-        // TODO: update recursive code
         if depth == 0 || game.queue_pieces.len() == 0 {
             let score = RustyAI::board_score(weights, game);
             return AIEval { score };
         }
 
-        let mut best_score = -f32::INFINITY;
-
+        // Only evaluate the top N games, to cut down on duplicates
+        let mut games = Vec::new();
         for (game, drop_res, _) in RustyAI::gen_child_states(game) {
             let drop_score = RustyAI::drop_score(&weights, &drop_res, &game);
+            let board_score = RustyAI::board_score(&weights, &game);
+            let score = drop_score + board_score;
+            games.push((score, drop_score, game));
+        }
+        games.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
+        let top_games = games.into_iter().take(EVAL_TOP);
+
+        let mut best_score = -f32::INFINITY;
+        for (_, drop_score, game) in top_games {
             let AIEval { score: eval_score } =
                 RustyAI::evaluate_recursive(&game, &weights, depth - 1);
             let score = drop_score + eval_score;
@@ -171,7 +182,7 @@ impl RustyAI {
         AIEval { score: best_score }
     }
 
-    fn evaluate(&mut self, game: &mut Game, depth: i32) -> TetrisAIRes {
+    fn evaluate(&mut self, game: &Game, depth: i32) -> TetrisAIRes {
         assert!(depth >= 1);
         assert!(game.queue_pieces.len() >= 1);
         if game.hold_piece.is_none() {
@@ -180,47 +191,68 @@ impl RustyAI {
                 moves: vec![GameMove::Hold],
             };
         }
+
+        let mut games = Vec::new();
+
+        for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
+            let drop_score = RustyAI::drop_score(&self.weights, &drop_res, &game);
+            let board_score = RustyAI::board_score(&self.weights, &game);
+            let score = drop_score + board_score;
+            games.push((score, drop_score, game, moves));
+        }
+        games.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
+        let top_games = games.into_iter().take(EVAL_TOP_FIRST);
+
         let mut best_score = -f32::INFINITY;
         let mut best_moves = vec![];
-
-        if self.thread_pool.get_thread_count() == 0 {
-            // Run without threads
-            for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
-                let drop_score = RustyAI::drop_score(&self.weights, &drop_res, &game);
-                let AIEval { score: eval_score } =
-                    RustyAI::evaluate_recursive(&game, &self.weights, depth - 1);
-                let score = drop_score + eval_score;
-                if score > best_score {
-                    best_score = score;
-                    best_moves = moves;
-                }
-            }
-        } else {
-            // Create jobs
-            let mut jobs = Vec::new();
-            let mut moves_list = Vec::new();
-            for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
-                let weights = self.weights.clone();
-                jobs.push(move || {
-                    let drop_score = RustyAI::drop_score(&weights, &drop_res, &game);
-                    let AIEval { score: eval_score } =
-                        RustyAI::evaluate_recursive(&game, &weights, depth - 1);
-                    AIEval {
-                        score: drop_score + eval_score,
-                    }
-                });
-                moves_list.push(moves);
-            }
-
-            let results = self.thread_pool.run_jobs(jobs);
-
-            for (i, res) in results.iter().enumerate() {
-                if res.score > best_score {
-                    best_score = res.score;
-                    best_moves = moves_list[i].clone();
-                }
+        for (_, drop_score, game, moves) in top_games {
+            let AIEval { score: eval_score } =
+                RustyAI::evaluate_recursive(&game, &self.weights, depth - 1);
+            let score = drop_score + eval_score;
+            if score > best_score {
+                best_score = score;
+                best_moves = moves;
             }
         }
+
+        // if self.thread_pool.get_thread_count() == 0 {
+        //     // Run without threads
+        //     for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
+        //         let drop_score = RustyAI::drop_score(&self.weights, &drop_res, &game);
+        //         let AIEval { score: eval_score } =
+        //             RustyAI::evaluate_recursive(&game, &self.weights, depth - 1);
+        //         let score = drop_score + eval_score;
+        //         if score > best_score {
+        //             best_score = score;
+        //             best_moves = moves;
+        //         }
+        //     }
+        // } else {
+        //     // Create jobs
+        //     let mut jobs = Vec::new();
+        //     let mut moves_list = Vec::new();
+        //     for (game, drop_res, moves) in RustyAI::gen_child_states(game) {
+        //         let weights = self.weights.clone();
+        //         jobs.push(move || {
+        //             let drop_score = RustyAI::drop_score(&weights, &drop_res, &game);
+        //             let AIEval { score: eval_score } =
+        //                 RustyAI::evaluate_recursive(&game, &weights, depth - 1);
+        //             AIEval {
+        //                 score: drop_score + eval_score,
+        //             }
+        //         });
+        //         moves_list.push(moves);
+        //     }
+
+        //     let results = self.thread_pool.run_jobs(jobs);
+
+        //     for (i, res) in results.iter().enumerate() {
+        //         if res.score > best_score {
+        //             best_score = res.score;
+        //             best_moves = moves_list[i].clone();
+        //         }
+        //     }
+        // }
 
         if best_score == -f32::INFINITY {
             TetrisAIRes::Fail {
@@ -240,7 +272,7 @@ impl RustyAI {
     }
 }
 impl TetrisAI for RustyAI {
-    fn api_evaluate(&mut self, game: &mut Game) -> TetrisAIRes {
+    fn api_evaluate(&mut self, game: &Game) -> TetrisAIRes {
         self.evaluate(game, self.eval_depth)
     }
 }

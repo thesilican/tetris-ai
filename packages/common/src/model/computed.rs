@@ -7,11 +7,11 @@ use crate::model::consts::{BOARD_WIDTH, PIECE_MAX_X_SHIFT};
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub(crate) static ref PIECE_INFO: PieceInfo = PieceInfo::new();
+    pub static ref PIECE_INFO: PieceInfo = PieceInfo::new();
 }
 
 /// Precomputed constants for a piece
-pub(crate) struct PieceInfo {
+pub struct PieceInfo {
     /// The spawn location for each piece
     pub spawn_locations: [(i8, i8); PIECE_NUM_TYPES as usize],
     /// The shape of each piece, as a 2d array of bools

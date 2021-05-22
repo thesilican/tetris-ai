@@ -100,7 +100,7 @@ pub trait TetrisAI {
                     .collect::<Vec<_>>()
                     .join(", ");
                 println!(
-                    "{0}\nEval: {1} in {3:?} [{2}]\n",
+                    "{0}\nEval: {1} in {3:?}\n[{2}]\n",
                     game, score, moves, elapsed
                 );
             } else if let TetrisAIRes::Fail { reason } = res {

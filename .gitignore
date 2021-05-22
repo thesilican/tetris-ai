@@ -4,3 +4,6 @@ static/
 
 **/target/
 **/debug/
+
+**/perf.svg
+**/perf.data*
