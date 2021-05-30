@@ -30,6 +30,9 @@ impl Board {
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.matrix[y as usize] & (1 << x) != 0
     }
+    pub fn get_row(&self, y: i32) -> u16 {
+        self.matrix[y as usize]
+    }
     pub fn set(&mut self, x: i32, y: i32, state: bool) {
         if self.get(x, y) == state {
             return;
@@ -131,24 +134,27 @@ impl Board {
         let top_out = self.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0;
 
         // Recalcluate metadatas
+        // TODO: Figure out an efficient method for this
+        let mut height_map_max = i8::MIN;
+        for height in &self.height_map {
+            if *height > height_map_max {
+                height_map_max = *height;
+            }
+        }
+        let max_height = min(
+            height_map_max as i32 + PIECE_SHAPE_SIZE - lines_cleared,
+            BOARD_HEIGHT,
+        );
         if lines_cleared == 0 {
             for i in 0..PIECE_SHAPE_SIZE {
                 let x = i + (p_x as i32);
                 if x < 0 || x >= BOARD_WIDTH {
                     continue;
                 }
-                let max_height = min(
-                    self.height_map[x as usize] as i32 + PIECE_SHAPE_SIZE - lines_cleared,
-                    BOARD_HEIGHT,
-                );
                 self.recalculate_metadata(x, max_height);
             }
         } else {
             for x in 0..BOARD_WIDTH {
-                let max_height = min(
-                    self.height_map[x as usize] as i32 + PIECE_SHAPE_SIZE - lines_cleared,
-                    BOARD_HEIGHT,
-                );
                 self.recalculate_metadata(x, max_height);
             }
         }

@@ -8,11 +8,10 @@ use common::model::game::Game;
 use common::model::game::GameDropRes;
 use common::model::game::GameMove;
 use common::model::game::GameMoveRes;
+use common::model::piece::Piece;
 use std::collections::HashMap;
-// use std::sync::Arc;
 
-const EVAL_TOP_FIRST: usize = 30;
-const EVAL_TOP: usize = 5;
+const EVAL_AMOUNT: [usize; 6] = [1, 2, 3, 4, 5, 10];
 
 pub struct AIEval {
     pub score: f32,
@@ -46,18 +45,18 @@ impl RustyAI {
     }
 
     fn gen_moves(game: &Game) -> Vec<Vec<GameMove>> {
-        let mut res = Vec::new();
+        let mut res = Vec::with_capacity(300);
         for final_rotation in 0..PIECE_NUM_ROTATION {
             for hold in 0..2 {
                 let piece = if hold == 0 {
-                    &game.current_piece
+                    game.current_piece.piece_type
                 } else {
-                    &game.hold_piece.as_ref().unwrap()
+                    game.hold_piece.unwrap()
                 };
                 for rotation in 0..PIECE_NUM_ROTATION {
-                    let (left, right) = piece.get_shift_bounds(Some(rotation as i8));
+                    let (left, right) = Piece::info_shift_bounds(&piece, rotation as i8);
                     for shift in (-*left)..=*right {
-                        let mut moves = Vec::new();
+                        let mut moves = Vec::with_capacity(8);
                         match rotation {
                             0 => (),
                             1 => moves.push(GameMove::RotateRight),
@@ -76,15 +75,15 @@ impl RustyAI {
                             0 => (),
                             1 => {
                                 moves.push(GameMove::SoftDrop);
-                                moves.push(GameMove::RotateRight)
+                                moves.push(GameMove::RotateRight);
                             }
                             2 => {
                                 moves.push(GameMove::SoftDrop);
-                                moves.push(GameMove::Rotate180)
+                                moves.push(GameMove::Rotate180);
                             }
                             3 => {
                                 moves.push(GameMove::SoftDrop);
-                                moves.push(GameMove::RotateLeft)
+                                moves.push(GameMove::RotateLeft);
                             }
                             _ => unreachable!(),
                         }
@@ -167,7 +166,8 @@ impl RustyAI {
             games.push((score, drop_score, game));
         }
         games.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
-        let top_games = games.into_iter().take(EVAL_TOP);
+        let amount = EVAL_AMOUNT[depth as usize];
+        let top_games = games.into_iter().take(amount);
 
         let mut best_score = -f32::INFINITY;
         for (_, drop_score, game) in top_games {
@@ -201,7 +201,8 @@ impl RustyAI {
             games.push((score, drop_score, game, moves));
         }
         games.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
-        let top_games = games.into_iter().take(EVAL_TOP_FIRST);
+        let amount = EVAL_AMOUNT[depth as usize];
+        let top_games = games.into_iter().take(amount);
 
         let mut best_score = -f32::INFINITY;
         let mut best_moves = vec![];

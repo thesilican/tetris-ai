@@ -211,16 +211,16 @@ impl Display for Game {
             writeln!(f)?;
         }
         // Board height/holes info
-        // for i in 0..BOARD_WIDTH {
-        //     let height = self.board.height_map[i as usize];
-        //     write!(f, "{:2}", height)?;
-        // }
-        // writeln!(f)?;
-        // for i in 0..BOARD_WIDTH {
-        //     let hole = self.board.holes[i as usize];
-        //     write!(f, "{:2}", hole)?;
-        // }
-        // writeln!(f)?;
+        for i in 0..BOARD_WIDTH {
+            let height = self.board.height_map[i as usize];
+            write!(f, "{:2}", height)?;
+        }
+        writeln!(f)?;
+        for i in 0..BOARD_WIDTH {
+            let hole = self.board.holes[i as usize];
+            write!(f, "{:2}", hole)?;
+        }
+        writeln!(f)?;
 
         // Curr, Hold, and Queue pieces
         let curr = format!("{}", &self.current_piece);

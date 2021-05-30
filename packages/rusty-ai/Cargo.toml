@@ -24,5 +24,4 @@ name = "train"
 required-features = ["trainer"]
 
 [profile.release]
-lto = true
 debug = true
