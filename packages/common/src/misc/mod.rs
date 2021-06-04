@@ -38,6 +38,16 @@ impl From<std::fmt::Error> for GenericErr {
         format!("std::fmt Error: {}", err).into()
     }
 }
+impl From<std::num::ParseIntError> for GenericErr {
+    fn from(err: std::num::ParseIntError) -> Self {
+        format!("std::num::ParseIntError: {}", err).into()
+    }
+}
+impl From<std::string::FromUtf8Error> for GenericErr {
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        format!("std::string::FromUtf8Error: {}", err).into()
+    }
+}
 
 impl Display for GenericErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

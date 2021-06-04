@@ -28,19 +28,22 @@ where
 {
     fn new(id: usize, rx: Receiver<ThreadReq<R>>, tx: Sender<ThreadRes<R>>) -> Self {
         // Main thread loop
-        let handle = std::thread::spawn(move || loop {
-            let (job, job_id) = match rx.recv().unwrap() {
-                ThreadReq::Job { job, job_id } => (job, job_id),
-                ThreadReq::Quit => break,
-            };
-            let result = job();
-            tx.send(ThreadRes {
-                worker_id: id,
-                job_id,
-                result,
+        let handle = std::thread::Builder::new()
+            .name(format!("threadpool {}", id))
+            .spawn(move || loop {
+                let (job, job_id) = match rx.recv().unwrap() {
+                    ThreadReq::Job { job, job_id } => (job, job_id),
+                    ThreadReq::Quit => break,
+                };
+                let result = job();
+                tx.send(ThreadRes {
+                    worker_id: id,
+                    job_id,
+                    result,
+                })
+                .unwrap();
             })
             .unwrap();
-        });
 
         WorkerThread {
             id,
@@ -75,7 +78,7 @@ where
             reciever,
         }
     }
-    pub fn run_jobs<F: FnOnce() -> R + Send + 'static>(&mut self, jobs: Vec<F>) -> Vec<R> {
+    pub fn run_jobs<F: FnOnce() -> R + Send + 'static>(&self, jobs: Vec<F>) -> Vec<R> {
         let num_jobs = jobs.len();
         let num_workers = self.workers.len();
         assert!(num_jobs > 0);
@@ -138,7 +141,7 @@ mod tests {
 
     fn thread_pool_should_work() {
         const NUM_JOBS: usize = 1_000;
-        let mut thread_pool = ThreadPool::new(10);
+        let thread_pool = ThreadPool::new(10);
         let mut jobs = Vec::new();
         for i in 0..NUM_JOBS {
             jobs.push(move || i + i);

@@ -12,19 +12,20 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct GameDropRes {
     pub lines_cleared: i32,
     pub top_out: bool,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameMoveRes {
     SuccessNorm,
     SuccessDrop(GameDropRes),
     Failed,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameMove {
     ShiftLeft,
     ShiftRight,
@@ -102,7 +103,7 @@ impl Game {
         self.current_piece.shift_down(&self.board);
     }
 
-    pub fn make_move(&mut self, game_move: &GameMove) -> GameMoveRes {
+    pub fn make_move(&mut self, game_move: GameMove) -> GameMoveRes {
         match game_move {
             GameMove::ShiftLeft => {
                 let res = self.current_piece.shift_left(&self.board);
@@ -153,6 +154,7 @@ impl Game {
                 self.hold_piece = Some(self.current_piece.piece_type);
                 self.current_piece.piece_type = hold;
                 self.reset_current_piece();
+                self.can_hold = false;
                 GameMoveRes::SuccessNorm
             }
             GameMove::SoftDrop => {

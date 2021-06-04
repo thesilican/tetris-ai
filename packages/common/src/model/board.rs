@@ -7,7 +7,7 @@ use std::cmp::min;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BoardLockResult {
     pub top_out: bool,
     pub lines_cleared: i32,

@@ -23,16 +23,16 @@ fn main() -> Result<(), GenericErr> {
         match key? {
             Key::Ctrl('c') => break,
             Key::Left => {
-                game.make_move(&GameMove::ShiftLeft);
+                game.make_move(GameMove::ShiftLeft);
             }
             Key::Right => {
-                game.make_move(&GameMove::ShiftRight);
+                game.make_move(GameMove::ShiftRight);
             }
             Key::Up => {
-                game.make_move(&GameMove::SoftDrop);
+                game.make_move(GameMove::SoftDrop);
             }
             Key::Down => {
-                if let GameMoveRes::SuccessDrop(drop_info) = game.make_move(&GameMove::HardDrop) {
+                if let GameMoveRes::SuccessDrop(drop_info) = game.make_move(GameMove::HardDrop) {
                     println!(
                         "Drop: Lines cleared: {} Top out: {}",
                         drop_info.lines_cleared, drop_info.top_out
@@ -40,16 +40,16 @@ fn main() -> Result<(), GenericErr> {
                 }
             }
             Key::Char('a') => {
-                game.make_move(&GameMove::Rotate180);
+                game.make_move(GameMove::Rotate180);
             }
             Key::Char('z') => {
-                game.make_move(&GameMove::RotateLeft);
+                game.make_move(GameMove::RotateLeft);
             }
             Key::Char('x') => {
-                game.make_move(&GameMove::RotateRight);
+                game.make_move(GameMove::RotateRight);
             }
             Key::Char('c') => {
-                game.make_move(&GameMove::Hold);
+                game.make_move(GameMove::Hold);
             }
             _ => {}
         }

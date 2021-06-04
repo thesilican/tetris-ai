@@ -1,5 +1,3 @@
-use rusty_ai::trainer;
-
 fn main() {
-    println!("Hello, World!");
+    rusty_ai::trainer::AITrainer::new().start()
 }

@@ -1,11 +1,16 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use common::misc::GenericErr;
-use core::convert::TryFrom;
+use rand::rngs::StdRng;
+use rand_distr::Distribution;
+use rand_distr::Normal;
 use std::fmt::{self, Display, Formatter};
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::io::Cursor;
+use std::str::FromStr;
 
 pub const NUM_AI_WEIGHTS: i32 = 34;
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AIWeights {
     /// 0: Perfect Clear\
     /// 1-4: 1-4 line clear\
@@ -19,6 +24,14 @@ impl AIWeights {
         AIWeights {
             values: [0.0; NUM_AI_WEIGHTS as usize],
         }
+    }
+    pub fn new_random(rng: &mut StdRng) -> Self {
+        let mut weights = AIWeights::new();
+        let distr = Normal::new(0.0, 1.0).unwrap();
+        for i in 0..NUM_AI_WEIGHTS {
+            weights.values[i as usize] = distr.sample(rng);
+        }
+        weights.normalized()
     }
 
     pub fn normalized(&self) -> Self {
@@ -50,9 +63,22 @@ impl AIWeights {
         values[property as usize] += amount;
         AIWeights { values }.normalized()
     }
-
-    pub fn from_string(text: &str) -> Result<Self, GenericErr> {
-        let bytes = match base65536::decode(text, false) {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for num in &self.values {
+            bytes.write_f32::<BigEndian>(*num).unwrap();
+        }
+        bytes
+    }
+    pub fn to_string(&self) -> String {
+        let bytes = self.to_bytes();
+        base64::encode(&bytes)
+    }
+}
+impl FromStr for AIWeights {
+    type Err = GenericErr;
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let bytes = match base64::decode(text) {
             Ok(bytes) => bytes,
             Err(_) => return Err("Error decoding weight string".into()),
         };
@@ -66,33 +92,20 @@ impl AIWeights {
         }
         Ok(AIWeights { values })
     }
-    pub fn to_string(&self) -> String {
-        let mut bytes = Vec::new();
-        for num in &self.values {
-            bytes.write_f32::<BigEndian>(*num).unwrap();
-        }
-        base65536::encode(&bytes, None)
-    }
-}
-impl TryFrom<String> for AIWeights {
-    type Error = GenericErr;
-    fn try_from(text: String) -> Result<Self, Self::Error> {
-        AIWeights::from_string(&text)
-    }
-}
-impl TryFrom<&str> for AIWeights {
-    type Error = GenericErr;
-    fn try_from(text: &str) -> Result<Self, Self::Error> {
-        AIWeights::from_string(text)
-    }
-}
-impl From<AIWeights> for String {
-    fn from(weights: AIWeights) -> Self {
-        weights.to_string()
-    }
 }
 impl Display for AIWeights {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string())
     }
 }
+impl Hash for AIWeights {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_bytes().hash(state)
+    }
+}
+impl PartialEq for AIWeights {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_bytes() == other.to_bytes()
+    }
+}
+impl Eq for AIWeights {}

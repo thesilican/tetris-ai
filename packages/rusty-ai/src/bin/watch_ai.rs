@@ -14,5 +14,5 @@ fn main() {
         -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, // Height
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // Height Delta
     ];
-    RustyAI::new(&weights, 5, 0).watch_ai(10);
+    RustyAI::new(&weights, 20).watch_ai(10);
 }

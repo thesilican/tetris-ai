@@ -80,7 +80,7 @@ pub trait TetrisAI {
             if let TetrisAIRes::Success { moves, score } = res {
                 for game_move in &moves {
                     if let GameMove::HardDrop = game_move {
-                        let res = game.make_move(&game_move);
+                        let res = game.make_move(*game_move);
                         if let GameMoveRes::SuccessDrop(drop_res) = res {
                             if drop_res.top_out {
                                 println!("TOP OUT");
@@ -88,7 +88,7 @@ pub trait TetrisAI {
                             }
                         }
                     } else {
-                        game.make_move(game_move);
+                        game.make_move(*game_move);
                     }
                 }
                 let score = score
@@ -120,7 +120,7 @@ impl DummyAI {
 }
 impl TetrisAI for DummyAI {
     fn api_evaluate(&mut self, game: &Game) -> TetrisAIRes {
-        match game.clone().make_move(&GameMove::HardDrop) {
+        match game.clone().make_move(GameMove::HardDrop) {
             GameMoveRes::SuccessDrop(..) => TetrisAIRes::Success {
                 moves: vec![GameMove::HardDrop],
                 score: Some(1.0),

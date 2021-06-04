@@ -196,7 +196,7 @@ fn main() {
             if game.queue_pieces.len() == 0 {
                 game.extend_queue(&bag)
             }
-            game.make_move(game_move);
+            game.make_move(*game_move);
         }
     }
     println!("{:?}", start.elapsed());

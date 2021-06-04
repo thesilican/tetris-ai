@@ -7,6 +7,7 @@ use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::hash::Hasher;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceMoveRes {
     Success,
     Failed,
@@ -294,7 +295,7 @@ impl Display for Piece {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PieceMove {
     ShiftLeft,
     ShiftRight,
