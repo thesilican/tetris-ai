@@ -29,8 +29,8 @@ pub const ROUNDS: i32 = 100;
 pub const POPULATION: i32 = 2000;
 pub const SELECTION_AMOUNT: usize = 100;
 pub const OFFSPRING_AMOUNT: i32 = 1500;
-pub const MUTATION_CHANCE: f32 = 0.75;
-pub const MUTATION_AMOUNT: f32 = 0.2;
+pub const MUTATION_CHANCE: f32 = 0.6;
+pub const MUTATION_AMOUNT: f32 = 0.1;
 pub const MIN_FITNESS: i32 = AI_TOP_OUT_WEIGHT * AI_GAME_ROUNDS;
 
 pub const THREAD_COUNT: usize = 8;
