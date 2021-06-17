@@ -205,7 +205,7 @@ fn dt_cannon_loop(b: &mut Bencher) {
             if game.queue_pieces.len() == 0 {
                 game.extend_queue(&bag)
             }
-            game.make_move(game_move);
+            game.make_move(*game_move);
         }
         black_box(game);
     })

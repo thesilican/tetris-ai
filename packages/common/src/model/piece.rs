@@ -3,6 +3,7 @@ use crate::model::computed::PIECE_INFO;
 use crate::model::consts::{PIECE_MAX_X_SHIFT, PIECE_SHAPE_SIZE};
 use crate::model::game::GameMove;
 use crate::{misc::GenericErr, model::consts::PIECE_NUM_TYPES};
+use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -63,6 +64,21 @@ impl PieceType {
             PieceType::J => 'J',
             PieceType::S => 'S',
             PieceType::Z => 'Z',
+        }
+    }
+}
+impl TryFrom<char> for PieceType {
+    type Error = GenericErr;
+    fn try_from(piece_char: char) -> Result<Self, Self::Error> {
+        match piece_char.to_ascii_uppercase() {
+            'O' => Ok(PieceType::O),
+            'I' => Ok(PieceType::I),
+            'T' => Ok(PieceType::T),
+            'L' => Ok(PieceType::L),
+            'J' => Ok(PieceType::J),
+            'S' => Ok(PieceType::S),
+            'Z' => Ok(PieceType::Z),
+            _ => Err(format!("Invalid piece char {}", piece_char).into()),
         }
     }
 }

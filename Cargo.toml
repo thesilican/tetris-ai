@@ -12,3 +12,6 @@ actix-files = "0.5"
 actix-cors = "0.5"
 common = { path = "packages/common" }
 rusty-ai = { path = "packages/rusty-ai" }
+
+[profile.release]
+lto = true
