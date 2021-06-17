@@ -1,9 +1,3 @@
-node_modules/
-dist/
-static/
-
 **/target/
-**/debug/
-
-**/perf.svg
+**/flamegraph.svg
 **/perf.data*
