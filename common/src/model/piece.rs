@@ -7,7 +7,7 @@ use rand::prelude::Distribution;
 use rand::{distributions::Uniform, Rng};
 use std::convert::TryInto;
 use std::fmt::{self, Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -153,7 +153,7 @@ impl From<Vec<PieceType>> for Bag {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Piece {
     pub piece_type: PieceType,
     pub rotation: i8,
@@ -336,17 +336,6 @@ impl Piece {
         // Keep shifting down while possible
         while let PieceMoveRes::Success = self.shift_down(&board) {}
         PieceMoveRes::Failed
-    }
-}
-// Only compare piece type
-impl PartialEq for Piece {
-    fn eq(&self, other: &Self) -> bool {
-        self.piece_type == other.piece_type
-    }
-}
-impl Hash for Piece {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.piece_type.hash(state);
     }
 }
 impl Display for Piece {

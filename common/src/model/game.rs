@@ -1,3 +1,4 @@
+use crate::misc::GenericErr;
 use crate::model::board::Board;
 use crate::model::consts::BOARD_HEIGHT;
 use crate::model::consts::BOARD_WIDTH;
@@ -10,6 +11,7 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::str::FromStr;
 
 use super::piece::Bag;
 
@@ -36,6 +38,23 @@ pub enum GameMove {
     Hold,
     SoftDrop,
     HardDrop,
+}
+impl FromStr for GameMove {
+    type Err = GenericErr;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "shiftLeft" => Ok(GameMove::ShiftLeft),
+            "shiftRight" => Ok(GameMove::ShiftRight),
+            "rotateLeft" => Ok(GameMove::RotateLeft),
+            "rotateRight" => Ok(GameMove::RotateRight),
+            "rotate180" => Ok(GameMove::Rotate180),
+            "hold" => Ok(GameMove::Hold),
+            "softDrop" => Ok(GameMove::SoftDrop),
+            "hardDrop" => Ok(GameMove::HardDrop),
+            _ => Err("Invalid game move".into()),
+        }
+    }
 }
 impl Display for GameMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -198,7 +217,7 @@ impl Display for Game {
                 if in_piece {
                     write!(f, "██")?;
                 } else if self.board.get(i, j) {
-                    write!(f, "▓▓")?;
+                    write!(f, "[]")?;
                 } else if in_piece_bounds {
                     write!(f, "▒▒")?;
                 } else {
