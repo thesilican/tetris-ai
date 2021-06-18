@@ -1,9 +1,9 @@
 #![feature(test)]
 extern crate test;
-use common::model::game::Game;
-use common::model::game::GameMove;
-use common::model::piece::Bag;
-use common::model::piece::PieceType;
+use common::model::Bag;
+use common::model::Game;
+use common::model::GameMove;
+use common::model::PieceType;
 use test::{black_box, Bencher};
 
 /*

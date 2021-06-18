@@ -1,6 +1,5 @@
-use crate::model::piece::Piece;
-
 use super::game::{Game, GameMove};
+use crate::model::{piece::Piece, GameMoveRes};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -59,6 +58,7 @@ lazy_static! {
     // TODO: Add single-final-rotation and no-final-rotation permutations
 }
 
+// TODO: handle top-out
 fn gen_child_states(
     game: &Game,
     perms: &'static Vec<Vec<GameMove>>,
@@ -137,9 +137,16 @@ fn gen_child_states(
             for game_move in v {
                 game.make_move(*game_move);
             }
-            game.make_move(GameMove::HardDrop);
-            (game, v)
+            // Remove top-outs
+            let fail = match game.make_move(GameMove::HardDrop) {
+                GameMoveRes::SuccessDrop(drop_res) => drop_res.top_out,
+                GameMoveRes::Failed => panic!("This should never happen"),
+                GameMoveRes::SuccessNorm => unreachable!(),
+            };
+            (game, v, fail)
         })
+        .filter(|x| !x.2)
+        .map(|(game, v, _)| (game, v))
         .collect()
 }
 

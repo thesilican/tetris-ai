@@ -1,8 +1,4 @@
-use common::model::{
-    funcs::gen_child_states_dr,
-    game::{Game, GameMove},
-    piece::Bag,
-};
+use common::model::{gen_child_states_dr, Bag, Game, GameMove};
 
 fn main() {
     let moves = vec![

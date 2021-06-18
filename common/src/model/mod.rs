@@ -1,6 +1,13 @@
-pub mod board;
+mod board;
 mod computed;
-pub mod consts;
-pub mod funcs;
-pub mod game;
-pub mod piece;
+mod consts;
+mod funcs;
+mod game;
+mod piece;
+
+// Re-exports
+pub use board::{Board, BoardLockResult};
+pub use consts::*;
+pub use funcs::gen_child_states_dr;
+pub use game::{Game, GameDropRes, GameMove, GameMoveRes};
+pub use piece::{Bag, Piece, PieceMoveRes, PieceType};
