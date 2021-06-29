@@ -123,6 +123,7 @@ impl Default for PieceType {
     }
 }
 
+/// Represents a 7-bag of pieces
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Bag(pub Vec<PieceType>);
 impl Bag {

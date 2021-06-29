@@ -1,4 +1,4 @@
-use crate::misc::GenericErr;
+use crate::misc::{ArrDeque, GenericErr};
 use crate::model::board::Board;
 use crate::model::consts::BOARD_HEIGHT;
 use crate::model::consts::BOARD_WIDTH;
@@ -14,6 +14,7 @@ use std::hash::Hasher;
 use std::str::FromStr;
 
 use super::piece::Bag;
+use super::GAME_MAX_QUEUE_LEN;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct GameDropRes {
@@ -71,12 +72,12 @@ impl Display for GameMove {
     }
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct Game {
     pub board: Board,
     pub current_piece: Piece,
     pub hold_piece: Option<PieceType>,
-    pub queue_pieces: VecDeque<PieceType>,
+    pub queue_pieces: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
     pub can_hold: bool,
 }
 impl Game {
@@ -85,7 +86,7 @@ impl Game {
             board: Board::new(),
             current_piece: Piece::from(PieceType::O),
             hold_piece: None,
-            queue_pieces: VecDeque::new(),
+            queue_pieces: ArrDeque::new(),
             can_hold: true,
         }
     }
@@ -96,7 +97,7 @@ impl Game {
             board: Board::new(),
             current_piece: Piece::from(*iter.next().unwrap()),
             hold_piece: None,
-            queue_pieces: iter.map(|x| *x).collect::<VecDeque<_>>(),
+            queue_pieces: iter.map(|x| *x).collect(),
             can_hold: true,
         }
     }
