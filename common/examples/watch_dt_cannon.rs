@@ -179,18 +179,16 @@ fn main() {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let bag = Bag::new();
-    let mut game = Game::new_with_bag(&bag);
+    let bag = Bag::new_7_bag();
+    let mut game = Game::new(&bag);
     game.make_move(GameMove::Hold);
     game.allow_hold();
     for _ in 0..10_000 {
         for game_move in moves.iter() {
             game.make_move(*game_move);
-            if game.queue_pieces.len() < 7 {
-                game.extend_bag(&bag);
-            }
+            game.refill_queue(&bag);
             println!("{}", game);
-            std::thread::sleep(std::time::Duration::from_millis(250));
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
     }
 }

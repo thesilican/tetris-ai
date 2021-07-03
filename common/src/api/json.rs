@@ -1,10 +1,10 @@
 use crate::api::ai::TetrisAiRes;
 use crate::misc::GenericErr;
-use crate::model::Game;
 use crate::model::PieceType;
 use crate::model::BOARD_HEIGHT;
 use crate::model::BOARD_VISIBLE_HEIGHT;
 use crate::model::BOARD_WIDTH;
+use crate::model::{Bag, Game};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -56,10 +56,11 @@ impl TryFrom<JsonInput> for Game {
             }
         }
 
-        let mut game = Game::new();
-        game.set_current(current);
+        let mut bag = Bag::new();
+        bag.append(current);
+        bag.extend(&queue);
+        let mut game = Game::new(&bag);
         game.set_hold(hold);
-        game.extend_queue(&queue);
         game.board.set_matrix(matrix);
         Ok(game)
     }
@@ -105,124 +106,5 @@ impl TetrisAiRes {
     pub fn to_json(self) -> String {
         let output = JsonOutput::from(self);
         serde_json::to_string(&output).unwrap()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        api::TetrisAiRes,
-        model::{Game, GameMove, PieceType},
-    };
-    use std::str::FromStr;
-    #[test]
-
-    fn json_should_parse_properly() {
-        let json = r#"{
-            "current": 0,
-            "hold": null,
-            "queue": [1, 2],
-            "matrix": [
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, true, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ],
-                [
-                    false, false, false, false, false, false, false, false, false, false,
-                    false, false, false, false, false, false, false, false, false, false
-                ]
-            ]
-        }"#;
-        let json_game = Game::from_str(json).unwrap();
-
-        let mut game = Game::new();
-        game.set_current(PieceType::O);
-        game.set_hold(None);
-        game.append_queue(PieceType::I);
-        game.append_queue(PieceType::T);
-        game.board.set(1, 2, true);
-
-        assert_eq!(game, json_game);
-
-        // Empty json
-        let json = "";
-        let res = Game::from_str(json);
-        assert!(res.is_err());
-
-        // Invalid matrix size
-        let json = r#"{
-            "current": 0,
-            "hold": null,
-            "queue": [1, 2],
-            "matrix": [
-              [
-                false, false
-              ],
-            ]
-          }
-        "#;
-        let res = Game::from_str(json);
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn json_should_serialize_properly() {
-        // Example JSON
-        let json = r#"{"success":true,"moves":["hardDrop","rotate180"],"score":1.5}"#;
-        let eval = TetrisAiRes::Success {
-            moves: vec![GameMove::HardDrop, GameMove::Rotate180],
-            score: Some(1.5),
-        };
-        let json_eval = eval.to_json();
-        assert_eq!(json, json_eval);
-
-        // Empty JSON
-        let json = r#"{"success":true,"moves":[],"score":null}"#;
-        let eval = TetrisAiRes::Success {
-            moves: vec![],
-            score: None,
-        };
-        let json_eval = eval.to_json();
-        assert_eq!(json, json_eval);
-
-        // Failed Result
-        let json = r#"{"success":false,"reason":"I suck at Tetris"}"#;
-        let eval = TetrisAiRes::Fail {
-            reason: "I suck at Tetris".into(),
-        };
-        let json_eval = eval.to_json();
-        assert_eq!(json, json_eval);
     }
 }

@@ -1,4 +1,4 @@
-use std::{convert::TryInto, iter::FromIterator, ops::Index, slice::Iter};
+use std::{convert::TryInto, iter::FromIterator, ops::Index};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InsertRes {
@@ -6,7 +6,7 @@ pub enum InsertRes {
     Full,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 /// Basic stack-based circular buffer
 pub struct ArrDeque<T, const N: usize> {
     head: usize,
@@ -39,18 +39,19 @@ impl<T, const N: usize> ArrDeque<T, N> {
         if self.len == N {
             return InsertRes::Full;
         }
-        self.len += 1;
         let i = (self.head + self.len) % N;
         self.arr[i] = Some(item);
+        self.len += 1;
         InsertRes::Ok
     }
     pub fn pop_front(&mut self) -> Option<T> {
         if self.len == 0 {
             return None;
         }
+        let res = self.arr[self.head].take();
+        self.head = (self.head + 1) % N;
         self.len -= 1;
-        let i = (self.head + self.len) % N;
-        self.arr[i].take()
+        res
     }
     pub fn clear(&mut self) {
         for i in 0..self.len {
@@ -60,10 +61,18 @@ impl<T, const N: usize> ArrDeque<T, N> {
         self.head = 0;
         self.len = 0;
     }
-    pub fn iter(&self) -> Iter<T> {
-        if self.head + self.len > N {
-            self.arr.iter().map(|x| x.unwrap())
-        }
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        let start = self.head;
+        let (end, wrap_end) = if self.head + self.len > N {
+            (N, self.head + self.len - N)
+        } else {
+            (self.head + self.len, 0)
+        };
+
+        self.arr[start..end]
+            .iter()
+            .map(|x| x.as_ref().unwrap())
+            .chain(self.arr[..wrap_end].iter().map(|x| x.as_ref().unwrap()))
     }
 }
 impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
@@ -73,6 +82,11 @@ impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
                 return;
             }
         }
+    }
+}
+impl<'a, T: 'a + Copy, const N: usize> Extend<&'a T> for ArrDeque<T, N> {
+    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
+        self.extend(iter.into_iter().map(|x| *x))
     }
 }
 impl<T, const N: usize> Index<usize> for ArrDeque<T, N> {

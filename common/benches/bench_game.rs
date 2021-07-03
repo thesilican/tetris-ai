@@ -3,15 +3,8 @@ extern crate test;
 use common::model::Bag;
 use common::model::Game;
 use common::model::GameMove;
-use common::model::PieceType;
 use test::{black_box, Bencher};
 
-/*
-    Bench Results
-    2021-05-22 - 13,694 ns/iter (78ns/move)
-    2021-05-22 - 11,276 ns/iter (65ns/move)
-    2021-06-17 - 12,861 ns/iter (74ns/move)
-*/
 #[bench]
 fn dt_cannon_loop(b: &mut Bencher) {
     // moves is 175 GameMoves long
@@ -193,14 +186,14 @@ fn dt_cannon_loop(b: &mut Bencher) {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let bag = Bag::new();
+    let bag = Bag::new_7_bag();
     b.iter(|| {
-        let mut game = Game::new_with_bag(&bag);
+        let mut game = Game::new(&bag);
         game.make_move(GameMove::Hold);
         game.allow_hold();
         for game_move in moves.iter() {
             if game.queue_pieces.len() == 0 {
-                game.extend_bag(&bag)
+                game.extend_queue(&bag)
             }
             game.make_move(*game_move);
         }
@@ -208,25 +201,10 @@ fn dt_cannon_loop(b: &mut Bencher) {
     })
 }
 
-/*
-    Bench Results
-    2021-05-22 - 65 ns/iter
-    2021-05-22 - 55 ns/iter
-    2021-06-17 - 50 ns/iter
-*/
 #[bench]
 fn copy_game(b: &mut Bencher) {
-    let bag = vec![
-        PieceType::O,
-        PieceType::I,
-        PieceType::T,
-        PieceType::L,
-        PieceType::J,
-        PieceType::S,
-        PieceType::Z,
-    ];
-    let mut game = Game::new();
-    game.extend_queue(&bag);
+    let bag = Bag::new_7_bag();
+    let game = Game::new(&bag);
     b.iter(|| {
         let copy = game.clone();
         black_box(copy);

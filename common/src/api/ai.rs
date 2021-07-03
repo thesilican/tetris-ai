@@ -1,7 +1,7 @@
 use rand::SeedableRng;
 
 use crate::api::json::JsonOutput;
-use crate::model::{gen_child_states_dr, Bag, Game, GameMove, GameMoveRes};
+use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use std::time::Instant;
@@ -57,14 +57,10 @@ pub trait TetrisAi {
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        let mut bag = Bag::new();
-        let mut game = Game::new_with_bag(&bag);
+        let mut bag = Bag::new_7_bag();
+        let mut game = Game::new(&bag);
         println!("{}\n", game);
         'l: loop {
-            if game.queue_pieces.len() < 7 {
-                bag.shuffle(&mut rng);
-                game.extend_bag(&bag);
-            }
             let start = Instant::now();
             let res = self.evaluate(&mut game);
             let elapsed = start.elapsed();
@@ -101,6 +97,7 @@ pub trait TetrisAi {
                     break;
                 }
             }
+            game.refill_queue_shuffled(&mut bag, &mut rng);
         }
     }
 }
@@ -113,9 +110,18 @@ impl DummyAi {
 }
 impl TetrisAi for DummyAi {
     fn evaluate(&mut self, game: &Game) -> TetrisAiRes {
-        let child_states = gen_child_states_dr(game);
-        match child_states.first() {
-            Some(&(_, moves)) => TetrisAiRes::Success {
+        let child_states = game.child_states_dr();
+        let mut best_moves = None;
+        let mut best_height = BOARD_HEIGHT;
+        for (game, moves) in child_states.iter() {
+            let max_height = game.board.height_map.iter().fold(0, |a, b| a.max(*b)) as i32;
+            if max_height < best_height {
+                best_height = max_height;
+                best_moves = Some(*moves);
+            }
+        }
+        match best_moves {
+            Some(moves) => TetrisAiRes::Success {
                 moves: moves
                     .iter()
                     .map(|x| *x)
@@ -123,7 +129,7 @@ impl TetrisAi for DummyAi {
                     .collect(),
                 score: Some(child_states.len() as f64),
             },
-            _ => TetrisAiRes::Fail {
+            None => TetrisAiRes::Fail {
                 reason: "No valid moves".into(),
             },
         }

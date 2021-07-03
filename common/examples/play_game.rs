@@ -14,9 +14,9 @@ fn main() -> Result<(), GenericErr> {
     stdout.suspend_raw_mode()?;
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(1);
-    let mut bag = Bag::new();
+    let mut bag = Bag::new_7_bag();
     bag.shuffle(&mut rng);
-    let mut game = Game::new_with_bag(&bag);
+    let mut game = Game::new(&bag);
     println!("{}", game);
 
     stdout.activate_raw_mode()?;
@@ -56,9 +56,9 @@ fn main() -> Result<(), GenericErr> {
             _ => {}
         }
 
-        if game.queue_pieces.len() < 7 {
+        if game.queue_pieces.len() <= 1 {
             bag.shuffle(&mut rng);
-            game.extend_bag(&bag);
+            game.extend_queue(&bag);
         }
         println!("{}", game);
         stdout.activate_raw_mode()?;

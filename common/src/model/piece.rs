@@ -123,12 +123,24 @@ impl Default for PieceType {
     }
 }
 
-/// Represents a 7-bag of pieces
+/// Represents a bag of pieces
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Bag(pub Vec<PieceType>);
+pub struct Bag(Vec<PieceType>);
 impl Bag {
     pub fn new() -> Self {
+        Bag(Vec::new())
+    }
+    pub fn new_7_bag() -> Self {
         Bag(PieceType::all().to_vec())
+    }
+    pub fn append(&mut self, piece: PieceType) {
+        self.0.push(piece);
+    }
+    pub fn extend(&mut self, pieces: &[PieceType]) {
+        self.0.extend(pieces);
+    }
+    pub fn clear(&mut self) {
+        self.0.clear();
     }
     pub fn shuffle(&mut self, rng: &mut impl Rng) {
         let arr = &mut self.0;
@@ -137,10 +149,8 @@ impl Bag {
             arr.swap(i, j);
         }
     }
-}
-impl Default for Bag {
-    fn default() -> Self {
-        Bag::new()
+    pub fn pieces(&self) -> &[PieceType] {
+        &self.0
     }
 }
 impl From<&[PieceType]> for Bag {

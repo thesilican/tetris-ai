@@ -1,7 +1,7 @@
 use super::game::{Game, GameMove};
-use crate::model::{piece::Piece, GameMoveRes};
+use crate::model::{piece::Piece, BOARD_VISIBLE_HEIGHT};
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 fn gen_move_vec(hold: bool, rot: i32, shift: i32, rot_1: i32, rot_2: i32) -> Vec<GameMove> {
     fn rot_to_move(rot: i32) -> Vec<GameMove> {
@@ -40,13 +40,13 @@ lazy_static! {
         let mut perms = Vec::new();
         for rot_1 in 0..4 {
             for rot_2 in 0..4 {
-                for hold in &[false, true] {
+                for hold in [false, true] {
                     for rot in 0..4 {
                         for shift in -4..=5 {
                             if rot_1 == 0 && rot_2 != 0 {
                                 continue;
                             }
-                            let perm = gen_move_vec(*hold, rot, shift, rot_1, rot_2);
+                            let perm = gen_move_vec(hold, rot, shift, rot_1, rot_2);
                             perms.push(perm);
                         }
                     }
@@ -55,10 +55,34 @@ lazy_static! {
         }
         perms
     };
-    // TODO: Add single-final-rotation and no-final-rotation permutations
+    static ref PERMS_SR: Vec<Vec<GameMove>> = {
+        let mut perms = Vec::new();
+        for rot_1 in 0..4 {
+            for hold in [false, true] {
+                for rot in 0..4 {
+                    for shift in -4..=5 {
+                        let perm = gen_move_vec(hold, rot, shift, rot_1, 0);
+                        perms.push(perm);
+                    }
+                }
+            }
+        }
+        perms
+    };
+    static ref PERMS_NR: Vec<Vec<GameMove>> = {
+        let mut perms = Vec::new();
+        for hold in [false, true] {
+            for rot in 0..4 {
+                for shift in -4..=5 {
+                    let perm = gen_move_vec(hold, rot, shift, 0, 0);
+                    perms.push(perm);
+                }
+            }
+        }
+        perms
+    };
 }
 
-// TODO: handle top-out
 fn gen_child_states(
     game: &Game,
     perms: &'static Vec<Vec<GameMove>>,
@@ -66,10 +90,16 @@ fn gen_child_states(
     assert!(
         game.queue_pieces.len() >= 2 || (game.hold_piece.is_some() && game.queue_pieces.len() >= 1)
     );
+    // Check if board already topped out
+    if game.board.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0 {
+        return Vec::new();
+    }
     let current_piece = game.current_piece;
-    let hold_piece = Piece::from(game.hold_piece.unwrap_or(game.queue_pieces[0]));
-    // Map to remove duplicates
-    let mut map = HashMap::<_, &'static [GameMove]>::new();
+    let mut hold_piece = Piece::from(game.hold_piece.unwrap_or(game.queue_pieces[0]));
+    hold_piece.shift_down(&game.board);
+
+    let mut res = Vec::new();
+    let mut visited = HashSet::new();
     // Iterate over all game move permutations
     for perm in perms.iter() {
         // Get working piece
@@ -108,48 +138,41 @@ fn gen_child_states(
         // Soft drop (to ensure consistency)
         piece.soft_drop(&game.board);
         // Get canonical key
-        let key = {
-            let mut y = piece.location.1;
-            let mut shape = *piece.get_bit_shape(None, None);
-            // Canonicalize by shifting shape down until bottom row is not empty
-            while shape[0] == 0 {
-                for i in 0..3 {
-                    shape[i] = shape[i + 1];
-                }
-                shape[3] = 0;
-                y += 1;
+        let mut y = piece.location.1;
+        let mut shape = *piece.get_bit_shape(None, None);
+        // Canonicalize by shifting shape down until bottom row is not empty
+        while shape[0] == 0 {
+            for i in 0..3 {
+                shape[i] = shape[i + 1];
             }
-            (shape, y)
-        };
-        map.entry(key)
-            .and_modify(|val| {
-                // Keep the shorter permutation
-                if val.len() > perm.len() {
-                    *val = perm
-                }
-            })
-            .or_insert(perm);
-    }
-    map.into_iter()
-        .map(|(_, v)| {
-            // TODO: could speed up by using existing piece
+            shape[3] = 0;
+            y += 1;
+        }
+        let key = (shape, y);
+
+        if visited.insert(key) {
             let mut game = game.clone();
-            for game_move in v {
+            for game_move in perm {
                 game.make_move(*game_move);
             }
-            // Remove top-outs
-            let fail = match game.make_move(GameMove::HardDrop) {
-                GameMoveRes::SuccessDrop(drop_res) => drop_res.top_out,
-                GameMoveRes::Failed => panic!("This should never happen"),
-                GameMoveRes::SuccessNorm => unreachable!(),
-            };
-            (game, v, fail)
-        })
-        .filter(|x| !x.2)
-        .map(|(game, v, _)| (game, v))
-        .collect()
+            if game.board.matrix[BOARD_VISIBLE_HEIGHT as usize] == 0 {
+                // No top out
+                res.push((game, perm.as_slice()));
+            }
+        }
+    }
+    // Todo: fix problems with incorrect output (logic error)
+    res
 }
 
-pub fn gen_child_states_dr(game: &Game) -> Vec<(Game, &'static [GameMove])> {
-    gen_child_states(game, &PERMS_DR)
+impl Game {
+    pub fn child_states_dr(&self) -> Vec<(Game, &'static [GameMove])> {
+        gen_child_states(self, &PERMS_DR)
+    }
+    pub fn child_states_sr(&self) -> Vec<(Game, &'static [GameMove])> {
+        gen_child_states(self, &PERMS_SR)
+    }
+    pub fn child_states_nr(&self) -> Vec<(Game, &'static [GameMove])> {
+        gen_child_states(self, &PERMS_NR)
+    }
 }

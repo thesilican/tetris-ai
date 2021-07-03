@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::misc::{ArrDeque, GenericErr};
 use crate::model::board::Board;
 use crate::model::consts::BOARD_HEIGHT;
@@ -5,7 +7,6 @@ use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
-use std::collections::VecDeque;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
@@ -81,18 +82,9 @@ pub struct Game {
     pub can_hold: bool,
 }
 impl Game {
-    pub fn new() -> Self {
-        Game {
-            board: Board::new(),
-            current_piece: Piece::from(PieceType::O),
-            hold_piece: None,
-            queue_pieces: ArrDeque::new(),
-            can_hold: true,
-        }
-    }
-    pub fn new_with_bag(bag: &Bag) -> Self {
-        assert!(bag.0.len() >= 1);
-        let mut iter = bag.0.iter();
+    pub fn new(bag: &Bag) -> Self {
+        assert!(bag.pieces().len() >= 1);
+        let mut iter = bag.pieces().iter();
         Game {
             board: Board::new(),
             current_piece: Piece::from(*iter.next().unwrap()),
@@ -111,21 +103,22 @@ impl Game {
         self.hold_piece = piece;
         self.can_hold = true;
     }
-    pub fn append_queue(&mut self, piece: PieceType) {
-        self.queue_pieces.push_back(piece);
-    }
-    pub fn extend_queue(&mut self, pieces: &[PieceType]) {
-        self.queue_pieces.extend(pieces);
+    pub fn extend_queue(&mut self, bag: &Bag) {
+        self.queue_pieces.extend(bag.pieces())
     }
     pub fn clear_queue(&mut self) {
         self.queue_pieces.clear();
     }
-    pub fn set_queue(&mut self, pieces: &[PieceType]) {
-        self.clear_queue();
-        self.extend_queue(pieces.into());
+    pub fn refill_queue(&mut self, bag: &Bag) {
+        if self.queue_pieces.len() <= 1 {
+            self.extend_queue(&bag);
+        }
     }
-    pub fn extend_bag(&mut self, bag: &Bag) {
-        self.extend_queue(&bag.0)
+    pub fn refill_queue_shuffled(&mut self, bag: &mut Bag, mut rng: &mut impl Rng) {
+        if self.queue_pieces.len() <= 1 {
+            bag.shuffle(&mut rng);
+            self.extend_queue(&bag);
+        }
     }
     pub fn allow_hold(&mut self) {
         // Used to override
@@ -216,7 +209,8 @@ impl Display for Game {
                     in_piece_bounds && piece_shape[(i - p_x) as usize][(j - p_y) as usize];
 
                 if in_piece {
-                    write!(f, "██")?;
+                    // write!(f, "██")?;
+                    write!(f, "[]")?;
                 } else if self.board.get(i, j) {
                     write!(f, "[]")?;
                 } else if in_piece_bounds {
@@ -282,86 +276,5 @@ impl Hash for Game {
         self.current_piece.hash(state);
         self.hold_piece.hash(state);
         self.queue_pieces.hash(state);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Game;
-    use crate::model::piece::PieceType;
-    use std::collections::HashSet;
-
-    #[test]
-    fn game_hashes_properly() {
-        let mut game1 = Game::new();
-        game1.set_current(PieceType::O);
-        game1.set_hold(Some(PieceType::I));
-        game1.set_queue(&[PieceType::T, PieceType::L]);
-        game1.board.set(0, 0, true);
-        game1.board.set(9, 22, true);
-        let mut game2 = Game::new();
-        game2.set_current(PieceType::O);
-        game2.set_hold(Some(PieceType::I));
-        game2.set_queue(&[PieceType::T, PieceType::L]);
-        game2.board.set(0, 0, true);
-        game2.board.set(9, 22, true);
-        let mut hashset = HashSet::new();
-
-        // Game 1 and Game 2 should be identical
-        assert_eq!(game1, game2);
-        hashset.insert(game1.clone());
-        hashset.insert(game2.clone());
-        assert_eq!(hashset.len(), 1);
-
-        // Differs by current piece
-        let mut game3 = Game::new();
-        game3.set_current(PieceType::I);
-        game3.set_hold(Some(PieceType::I));
-        game3.set_queue(&[PieceType::T, PieceType::L]);
-        game3.board.set(0, 0, true);
-        game3.board.set(9, 22, true);
-        assert_ne!(game1, game3);
-        hashset.clear();
-        hashset.insert(game1.clone());
-        hashset.insert(game3.clone());
-        assert_eq!(hashset.len(), 2);
-
-        // Differs by hold_piece
-        let mut game4 = Game::new();
-        game4.set_current(PieceType::O);
-        game4.set_hold(None);
-        game4.set_queue(&[PieceType::T, PieceType::L]);
-        game4.board.set(0, 0, true);
-        game4.board.set(9, 22, true);
-        assert_ne!(game1, game4);
-        hashset.clear();
-        hashset.insert(game1.clone());
-        hashset.insert(game4.clone());
-        assert_eq!(hashset.len(), 2);
-
-        // Differs by queue
-        let mut game5 = Game::new();
-        game5.set_current(PieceType::O);
-        game5.set_hold(Some(PieceType::I));
-        game5.set_queue(&[PieceType::L, PieceType::L]);
-        game5.board.set(0, 0, true);
-        game5.board.set(9, 22, true);
-        assert_ne!(game1, game5);
-        hashset.clear();
-        hashset.insert(game1.clone());
-        hashset.insert(game5.clone());
-        assert_eq!(hashset.len(), 2);
-
-        // Differs by board
-        let mut game6 = Game::new();
-        game6.set_current(PieceType::O);
-        game6.set_hold(Some(PieceType::I));
-        game6.set_queue(&[PieceType::T, PieceType::L]);
-        game6.board.set(0, 0, true);
-        assert_ne!(game1, game6);
-        hashset.clear();
-        hashset.insert(game1.clone());
-        hashset.insert(game6.clone());
-        assert_eq!(hashset.len(), 2);
     }
 }
