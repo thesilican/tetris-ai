@@ -1,8 +1,10 @@
 use super::game::{Game, GameMove};
-use crate::model::{piece::Piece, BOARD_VISIBLE_HEIGHT};
+use crate::model::piece::Piece;
 use lazy_static::lazy_static;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
+// Given the options (hold, rot, shift, rot_1, rot_2),
+// generate the corresponding Vec<GameMove>
 fn gen_move_vec(hold: bool, rot: i32, shift: i32, rot_1: i32, rot_2: i32) -> Vec<GameMove> {
     fn rot_to_move(rot: i32) -> Vec<GameMove> {
         match rot {
@@ -31,11 +33,12 @@ fn gen_move_vec(hold: bool, rot: i32, shift: i32, rot_1: i32, rot_2: i32) -> Vec
     }
     perm.extend(&rot_to_move(rot_1));
     perm.extend(&rot_to_move(rot_2));
+    perm.push(GameMove::HardDrop);
     perm
 }
 lazy_static! {
     // Precomputed move permutations
-    // Double-rotate permutations: 1144
+    // Double-rotate permutations: 1040
     static ref PERMS_DR: Vec<Vec<GameMove>> = {
         let mut perms = Vec::new();
         for rot_1 in 0..4 {
@@ -53,8 +56,10 @@ lazy_static! {
                 }
             }
         }
+        println!("{}", perms.len());
         perms
     };
+    // Single-rotate permutations: 320
     static ref PERMS_SR: Vec<Vec<GameMove>> = {
         let mut perms = Vec::new();
         for rot_1 in 0..4 {
@@ -67,8 +72,10 @@ lazy_static! {
                 }
             }
         }
+        println!("{}", perms.len());
         perms
     };
+    // No-rotate permutations: 80
     static ref PERMS_NR: Vec<Vec<GameMove>> = {
         let mut perms = Vec::new();
         for hold in [false, true] {
@@ -79,10 +86,12 @@ lazy_static! {
                 }
             }
         }
+        println!("{}", perms.len());
         perms
     };
 }
 
+// Given a game, generate all possible child states
 fn gen_child_states(
     game: &Game,
     perms: &'static Vec<Vec<GameMove>>,
@@ -91,15 +100,19 @@ fn gen_child_states(
         game.queue_pieces.len() >= 2 || (game.hold_piece.is_some() && game.queue_pieces.len() >= 1)
     );
     // Check if board already topped out
-    if game.board.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0 {
+    if game.board.topped_out() {
         return Vec::new();
     }
+
+    // Get current and hold piece
     let current_piece = game.current_piece;
     let mut hold_piece = Piece::from(game.hold_piece.unwrap_or(game.queue_pieces[0]));
     hold_piece.shift_down(&game.board);
 
-    let mut res = Vec::new();
-    let mut visited = HashSet::new();
+    // Return value
+    let mut res = Vec::<(Game, &'static [GameMove])>::new();
+    // Visited states and their index
+    let mut visited = HashMap::<([u16; 4], i8), usize>::new();
     // Iterate over all game move permutations
     for perm in perms.iter() {
         // Get working piece
@@ -111,9 +124,11 @@ fn gen_child_states(
         // Move piece
         for game_move in perm {
             match *game_move {
-                GameMove::Hold => {}
+                GameMove::Hold => {
+                    // Skip (should only be first)
+                }
                 GameMove::HardDrop => {
-                    panic!("perms should not have HardDrop")
+                    // Skip (should always be last)
                 }
                 GameMove::ShiftLeft => {
                     piece.shift_left(&game.board);
@@ -137,10 +152,10 @@ fn gen_child_states(
         }
         // Soft drop (to ensure consistency)
         piece.soft_drop(&game.board);
-        // Get canonical key
+        // Get canonical key (shape and position)
+        // Canonicalize by shifting shape down until bottom row is not empty
         let mut y = piece.location.1;
         let mut shape = *piece.get_bit_shape(None, None);
-        // Canonicalize by shifting shape down until bottom row is not empty
         while shape[0] == 0 {
             for i in 0..3 {
                 shape[i] = shape[i + 1];
@@ -150,14 +165,24 @@ fn gen_child_states(
         }
         let key = (shape, y);
 
-        if visited.insert(key) {
+        if visited.contains_key(&key) {
+            let index = visited[&key];
+            let old_perm = &mut res[index].1;
+            // Replace if current permutation is shorter
+            if perm.len() < old_perm.len() {
+                *old_perm = perm;
+            }
+        } else {
+            // Get child game state
+            // TODO: maybe optimize using existing child piece
             let mut game = game.clone();
             for game_move in perm {
                 game.make_move(*game_move);
             }
-            if game.board.matrix[BOARD_VISIBLE_HEIGHT as usize] == 0 {
-                // No top out
-                res.push((game, perm.as_slice()));
+            if !game.board.topped_out() {
+                // Set visited[key] to index of state
+                visited.insert(key, res.len());
+                res.push((game, &perm[..]));
             }
         }
     }

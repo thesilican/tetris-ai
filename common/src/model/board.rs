@@ -141,6 +141,9 @@ impl Board {
             top_out,
         }
     }
+    pub fn topped_out(&self) -> bool {
+        self.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0
+    }
 
     fn recalculate_metadata(&mut self, x: i32, max_height: i32) {
         // max_height - assert that all cells above (x, max_height)

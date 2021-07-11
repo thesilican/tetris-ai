@@ -204,6 +204,10 @@ fn dt_cannon_loop(b: &mut Bencher) {
     })
 }
 
+/*
+    Progress:
+    2021-07-11: 1,464 ns/iter (+/- 13)
+*/
 #[bench]
 fn copy_game(b: &mut Bencher) {
     let mut bag = Bag::new(0);
@@ -213,5 +217,19 @@ fn copy_game(b: &mut Bencher) {
             let copy = game;
             black_box(copy);
         }
+    })
+}
+
+/*
+    Progress
+    2021-07-11: 119,021 ns/iter (+/- 5,106)
+*/
+#[bench]
+fn gen_child_states(b: &mut Bencher) {
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag(&mut bag, true);
+    b.iter(|| {
+        let children = game.child_states_dr();
+        black_box(children);
     })
 }

@@ -119,11 +119,7 @@ impl TetrisAi for SimpleAi {
         }
         match best_moves {
             Some(moves) => TetrisAiRes::Success {
-                moves: moves
-                    .iter()
-                    .map(|x| *x)
-                    .chain(std::iter::once(GameMove::HardDrop))
-                    .collect(),
+                moves: Vec::from(moves),
                 score: Some(child_states.len() as f64),
             },
             None => TetrisAiRes::Fail {
