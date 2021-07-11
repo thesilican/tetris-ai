@@ -2,13 +2,13 @@ use super::piece::Piece;
 use crate::model::consts::*;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct BoardLockResult {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BoardLockRes {
     pub top_out: bool,
     pub lines_cleared: i32,
 }
 
-#[derive(Copy, Clone, Debug, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT as usize],
     pub height_map: [i8; BOARD_WIDTH as usize],
@@ -29,65 +29,42 @@ impl Board {
         if self.get(x, y) == state {
             return;
         }
-        let x = x as i8;
-        let y = y as i8;
         if state {
-            // Turn on bit
             self.matrix[y as usize] |= 1 << x;
-            if y >= self.height_map[x as usize] {
-                // Above height - add holes if necessary
-                self.holes[x as usize] += y - self.height_map[x as usize];
-                self.height_map[x as usize] = y + 1;
-            } else {
-                // Below height (must be a hole that was removed)
-                self.holes[x as usize] -= 1;
-            }
         } else {
-            // Turn off bit
             self.matrix[y as usize] &= !(1 << x);
-            if self.height_map[x as usize] == y + 1 {
-                // Top hole was turned off
-                // Keep looping down until hole is found
-                loop {
-                    self.height_map[x as usize] -= 1;
-                    if self.height_map[x as usize] == 0
-                        || self.get(x as i32, (self.height_map[x as usize] - 1) as i32)
-                    {
-                        break;
-                    }
-                    self.holes[x as usize] -= 1;
-                }
-            } else {
-                // Bit must be a hole
-                self.holes[x as usize] += 1
-            }
         }
+        let max_height = std::cmp::max(y, self.height_map[x as usize] as i32);
+        self.recalculate_metadata(x, max_height);
     }
-    pub fn set_col(&mut self, col: i32, height: i32) {
+    pub fn set_col(&mut self, x: i32, height: i32) {
         for i in 0..BOARD_HEIGHT {
             if i < height {
-                self.matrix[i as usize] |= 1 << col;
+                self.matrix[i as usize] |= 1 << x;
             } else {
-                self.matrix[i as usize] &= !(1 << col);
+                self.matrix[i as usize] &= !(1 << x);
             }
         }
-        self.height_map[col as usize] = height as i8;
-        self.holes[col as usize] = 0;
+        self.height_map[x as usize] = height as i8;
+        self.holes[x as usize] = 0;
     }
     pub fn set_cols(&mut self, heights: [i32; BOARD_WIDTH as usize]) {
         for i in 0..BOARD_WIDTH {
             self.set_col(i, heights[i as usize]);
         }
     }
-    pub fn set_row(&mut self, row: i32, state: u16) {
-        assert!(state & !((1 << BOARD_WIDTH) - 1) == 0);
-        self.matrix[row as usize] = state;
-        for col in 0..BOARD_WIDTH {
-            let max_height = std::cmp::max(row + 1, self.height_map[col as usize] as i32);
-            self.recalculate_metadata(col, max_height)
+    pub fn set_row(&mut self, y: i32, row: u16) {
+        assert_eq!(row & !((1 << BOARD_WIDTH) - 1), 0);
+        self.matrix[y as usize] = row;
+        for i in 0..BOARD_WIDTH {
+            let max_height = std::cmp::max(y + 1, self.height_map[i as usize] as i32);
+            self.recalculate_metadata(i, max_height)
         }
     }
     pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT as usize]) {
+        for row in matrix {
+            assert_eq!(row & !((1 << BOARD_WIDTH) - 1), 0);
+        }
         self.matrix = matrix;
         for i in 0..BOARD_WIDTH {
             self.recalculate_metadata(i, BOARD_HEIGHT);
@@ -107,7 +84,7 @@ impl Board {
         }
         false
     }
-    pub fn lock(&mut self, piece: &Piece) -> BoardLockResult {
+    pub fn lock(&mut self, piece: &Piece) -> BoardLockRes {
         let (p_x, p_y) = piece.location;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
@@ -159,18 +136,20 @@ impl Board {
             }
         }
 
-        BoardLockResult {
+        BoardLockRes {
             lines_cleared: lines_cleared,
             top_out,
         }
     }
 
-    fn recalculate_metadata(&mut self, col: i32, max_height: i32) {
+    fn recalculate_metadata(&mut self, x: i32, max_height: i32) {
+        // max_height - assert that all cells above (x, max_height)
+        // is empty
         let mut encountered = false;
         let mut height = 0;
         let mut holes = 0;
         for j in (0..max_height).rev() {
-            if self.matrix[j as usize] & (1 << col) != 0 {
+            if self.matrix[j as usize] & (1 << x) != 0 {
                 if !encountered {
                     encountered = true;
                     height = (j + 1) as i8;
@@ -181,8 +160,8 @@ impl Board {
                 }
             }
         }
-        self.height_map[col as usize] = height;
-        self.holes[col as usize] = holes;
+        self.height_map[x as usize] = height;
+        self.holes[x as usize] = holes;
     }
 }
 // Only compare matrix, other fields are only metadata
@@ -191,6 +170,7 @@ impl PartialEq for Board {
         self.matrix == other.matrix
     }
 }
+impl Eq for Board {}
 impl Hash for Board {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.matrix.hash(state);

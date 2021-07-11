@@ -4,7 +4,8 @@ use crate::model::computed::PIECE_INFO;
 use crate::model::consts::*;
 use lazy_static::lazy_static;
 use rand::prelude::Distribution;
-use rand::{distributions::Uniform, Rng};
+use rand::SeedableRng;
+use rand::{distributions::Uniform, rngs::StdRng};
 use std::convert::TryInto;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
@@ -123,44 +124,29 @@ impl Default for PieceType {
     }
 }
 
-/// Represents a bag of pieces
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Bag(Vec<PieceType>);
+/// Represents a shuffleable 7-bag
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bag {
+    arr: [PieceType; BAG_LEN],
+    rng: StdRng,
+}
 impl Bag {
-    pub fn new() -> Self {
-        Bag(Vec::new())
+    pub fn new(rng_seed: u64) -> Self {
+        Bag {
+            arr: PieceType::all().try_into().unwrap(),
+            rng: StdRng::seed_from_u64(rng_seed),
+        }
     }
-    pub fn new_7_bag() -> Self {
-        Bag(PieceType::all().to_vec())
-    }
-    pub fn append(&mut self, piece: PieceType) {
-        self.0.push(piece);
-    }
-    pub fn extend(&mut self, pieces: &[PieceType]) {
-        self.0.extend(pieces);
-    }
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
-    pub fn shuffle(&mut self, rng: &mut impl Rng) {
-        let arr = &mut self.0;
+    pub fn shuffle(&mut self) {
+        let arr = &mut self.arr;
+        let mut rng = &mut self.rng;
         for i in (1..arr.len()).rev() {
-            let j = Uniform::new(0, i).sample(rng);
+            let j = Uniform::new(0, i).sample(&mut rng);
             arr.swap(i, j);
         }
     }
     pub fn pieces(&self) -> &[PieceType] {
-        &self.0
-    }
-}
-impl From<&[PieceType]> for Bag {
-    fn from(value: &[PieceType]) -> Self {
-        Bag(value.to_vec())
-    }
-}
-impl From<Vec<PieceType>> for Bag {
-    fn from(value: Vec<PieceType>) -> Self {
-        Bag(value)
+        &self.arr
     }
 }
 

@@ -5,6 +5,10 @@ use common::model::Game;
 use common::model::GameMove;
 use test::{black_box, Bencher};
 
+/*
+    Progress:
+    2021-07-11: 449,750 ns/iter (+/- 7,400)
+*/
 #[bench]
 fn dt_cannon_loop(b: &mut Bencher) {
     // moves is 175 GameMoves long
@@ -186,16 +190,15 @@ fn dt_cannon_loop(b: &mut Bencher) {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let bag = Bag::new_7_bag();
+    let mut bag = Bag::new(0);
     b.iter(|| {
-        let mut game = Game::new(&bag);
-        game.make_move(GameMove::Hold);
-        game.allow_hold();
-        for game_move in moves.iter() {
-            if game.queue_pieces.len() == 0 {
-                game.extend_queue(&bag)
+        let mut game = Game::from_bag(&mut bag, false);
+        game.swap_hold();
+        for _ in 0..100 {
+            for game_move in moves.iter() {
+                game.make_move(*game_move);
+                game.refill_queue(&mut bag, false);
             }
-            game.make_move(*game_move);
         }
         black_box(game);
     })
@@ -203,10 +206,12 @@ fn dt_cannon_loop(b: &mut Bencher) {
 
 #[bench]
 fn copy_game(b: &mut Bencher) {
-    let bag = Bag::new_7_bag();
-    let game = Game::new(&bag);
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag(&mut bag, true);
     b.iter(|| {
-        let copy = game.clone();
-        black_box(copy);
+        for _ in 0..1000 {
+            let copy = game;
+            black_box(copy);
+        }
     })
 }

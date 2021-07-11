@@ -1,10 +1,10 @@
 use crate::api::ai::TetrisAiRes;
 use crate::misc::GenericErr;
+use crate::model::Game;
 use crate::model::PieceType;
 use crate::model::BOARD_HEIGHT;
 use crate::model::BOARD_VISIBLE_HEIGHT;
 use crate::model::BOARD_WIDTH;
-use crate::model::{Bag, Game};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -55,12 +55,7 @@ impl TryFrom<JsonInput> for Game {
                 }
             }
         }
-
-        let mut bag = Bag::new();
-        bag.append(current);
-        bag.extend(&queue);
-        let mut game = Game::new(&bag);
-        game.set_hold(hold);
+        let mut game = Game::from_pieces(current, hold, &queue);
         game.board.set_matrix(matrix);
         Ok(game)
     }

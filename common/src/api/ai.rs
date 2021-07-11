@@ -1,5 +1,3 @@
-use rand::SeedableRng;
-
 use crate::api::json::JsonOutput;
 use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT};
 use std::fmt::{self, Display, Formatter};
@@ -56,9 +54,8 @@ pub trait TetrisAi {
     }
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
-        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        let mut bag = Bag::new_7_bag();
-        let mut game = Game::new(&bag);
+        let mut bag = Bag::new(seed);
+        let mut game = Game::from_bag(&mut bag, true);
         println!("{}\n", game);
         'l: loop {
             let start = Instant::now();
@@ -97,18 +94,18 @@ pub trait TetrisAi {
                     break;
                 }
             }
-            game.refill_queue_shuffled(&mut bag, &mut rng);
+            game.refill_queue(&mut bag, true);
         }
     }
 }
 
-pub struct DummyAi;
-impl DummyAi {
+pub struct SimpleAi;
+impl SimpleAi {
     pub fn new() -> Self {
-        DummyAi
+        SimpleAi
     }
 }
-impl TetrisAi for DummyAi {
+impl TetrisAi for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> TetrisAiRes {
         let child_states = game.child_states_dr();
         let mut best_moves = None;

@@ -13,4 +13,6 @@ pub const BOARD_WIDTH: i32 = 10;
 pub const BOARD_HEIGHT: i32 = 24;
 pub const BOARD_VISIBLE_HEIGHT: i32 = 20;
 
+pub const BAG_LEN: usize = 7;
+
 pub const GAME_MAX_QUEUE_LEN: usize = 8;

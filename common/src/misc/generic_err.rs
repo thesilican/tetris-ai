@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 /// One error to rule them all!
 #[derive(Debug)]
@@ -8,6 +8,12 @@ impl Default for GenericErr {
         ().into()
     }
 }
+impl Display for GenericErr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl From<String> for GenericErr {
     fn from(text: String) -> Self {
         GenericErr(text)
@@ -23,34 +29,18 @@ impl From<()> for GenericErr {
         GenericErr("Unknown Error".into())
     }
 }
-impl From<serde_json::error::Error> for GenericErr {
-    fn from(err: serde_json::error::Error) -> Self {
-        format!("Serde Error: {}", err).into()
-    }
-}
-impl From<std::io::Error> for GenericErr {
-    fn from(err: std::io::Error) -> Self {
-        format!("IO Error: {}", err).into()
-    }
-}
-impl From<std::fmt::Error> for GenericErr {
-    fn from(err: std::fmt::Error) -> Self {
-        format!("std::fmt Error: {}", err).into()
-    }
-}
-impl From<std::num::ParseIntError> for GenericErr {
-    fn from(err: std::num::ParseIntError) -> Self {
-        format!("std::num::ParseIntError: {}", err).into()
-    }
-}
-impl From<std::string::FromUtf8Error> for GenericErr {
-    fn from(err: std::string::FromUtf8Error) -> Self {
-        format!("std::string::FromUtf8Error: {}", err).into()
-    }
-}
 
-impl Display for GenericErr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
+macro_rules! impl_generic_err {
+    ($t: ty) => {
+        impl From<$t> for GenericErr {
+            fn from(err: $t) -> Self {
+                format!("{}: {}", stringify!($t), err).into()
+            }
+        }
+    };
 }
+impl_generic_err!(serde_json::error::Error);
+impl_generic_err!(std::io::Error);
+impl_generic_err!(std::fmt::Error);
+impl_generic_err!(std::num::ParseIntError);
+impl_generic_err!(std::string::FromUtf8Error);

@@ -3,7 +3,6 @@ use common::model::Bag;
 use common::model::Game;
 use common::model::GameMove;
 use common::model::GameMoveRes;
-use rand::SeedableRng;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -13,10 +12,8 @@ fn main() -> Result<(), GenericErr> {
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
 
-    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
-    let mut bag = Bag::new_7_bag();
-    bag.shuffle(&mut rng);
-    let mut game = Game::new(&bag);
+    let mut bag = Bag::new(0);
+    let mut game = Game::from_bag(&mut bag, true);
     println!("{}", game);
 
     stdout.activate_raw_mode()?;
@@ -56,10 +53,7 @@ fn main() -> Result<(), GenericErr> {
             _ => {}
         }
 
-        if game.queue_pieces.len() <= 1 {
-            bag.shuffle(&mut rng);
-            game.extend_queue(&bag);
-        }
+        game.refill_queue(&mut bag, true);
         println!("{}", game);
         stdout.activate_raw_mode()?;
     }

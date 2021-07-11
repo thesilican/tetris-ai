@@ -71,8 +71,8 @@ impl<T, const N: usize> ArrDeque<T, N> {
 
         self.arr[start..end]
             .iter()
+            .chain(self.arr[..wrap_end].iter())
             .map(|x| x.as_ref().unwrap())
-            .chain(self.arr[..wrap_end].iter().map(|x| x.as_ref().unwrap()))
     }
 }
 impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
@@ -110,6 +110,20 @@ impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut arr = ArrDeque::new();
         arr.extend(iter);
+        arr
+    }
+}
+impl<'a, T: 'a, const N: usize> FromIterator<&'a T> for ArrDeque<T, N>
+where
+    T: Copy,
+{
+    fn from_iter<I: IntoIterator<Item = &'a T>>(iter: I) -> Self {
+        let mut arr = ArrDeque::new();
+        for item in iter {
+            if let InsertRes::Full = arr.push_back(*item) {
+                return arr;
+            }
+        }
         arr
     }
 }

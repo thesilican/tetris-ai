@@ -1,5 +1,3 @@
-use rand::Rng;
-
 use crate::misc::{ArrDeque, GenericErr};
 use crate::model::board::Board;
 use crate::model::consts::BOARD_HEIGHT;
@@ -7,6 +5,7 @@ use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
+use crate::model::BAG_LEN;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
@@ -16,6 +15,12 @@ use std::str::FromStr;
 
 use super::piece::Bag;
 use super::GAME_MAX_QUEUE_LEN;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SwapHoldRes {
+    Success,
+    Failed,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct GameDropRes {
@@ -82,14 +87,29 @@ pub struct Game {
     pub can_hold: bool,
 }
 impl Game {
-    pub fn new(bag: &Bag) -> Self {
-        assert!(bag.pieces().len() >= 1);
+    pub fn from_bag(bag: &mut Bag, shuffle: bool) -> Self {
+        if shuffle {
+            bag.shuffle()
+        }
         let mut iter = bag.pieces().iter();
         Game {
             board: Board::new(),
             current_piece: Piece::from(*iter.next().unwrap()),
             hold_piece: None,
             queue_pieces: iter.map(|x| *x).collect(),
+            can_hold: true,
+        }
+    }
+    pub fn from_pieces(
+        current_piece: PieceType,
+        hold_piece: Option<PieceType>,
+        queue_pieces: &[PieceType],
+    ) -> Self {
+        Game {
+            board: Board::new(),
+            current_piece: Piece::from(current_piece),
+            hold_piece,
+            queue_pieces: queue_pieces.into_iter().collect(),
             can_hold: true,
         }
     }
@@ -103,26 +123,41 @@ impl Game {
         self.hold_piece = piece;
         self.can_hold = true;
     }
-    pub fn extend_queue(&mut self, bag: &Bag) {
-        self.queue_pieces.extend(bag.pieces())
+    pub fn set_queue(&mut self, pieces: &[PieceType]) {
+        self.clear_queue();
+        self.extend_queue(pieces);
+    }
+    pub fn append_queue(&mut self, piece: PieceType) {
+        self.queue_pieces.push_back(piece);
+    }
+    pub fn extend_queue(&mut self, pieces: &[PieceType]) {
+        self.queue_pieces.extend(pieces);
     }
     pub fn clear_queue(&mut self) {
         self.queue_pieces.clear();
     }
-    pub fn refill_queue(&mut self, bag: &Bag) {
-        if self.queue_pieces.len() <= 1 {
-            self.extend_queue(&bag);
+    pub fn refill_queue(&mut self, bag: &mut Bag, shuffle: bool) {
+        const THRESHOLD: usize = GAME_MAX_QUEUE_LEN - BAG_LEN;
+        if self.queue_pieces.len() <= THRESHOLD {
+            if shuffle {
+                bag.shuffle()
+            }
+            self.extend_queue(bag.pieces());
         }
     }
-    pub fn refill_queue_shuffled(&mut self, bag: &mut Bag, mut rng: &mut impl Rng) {
-        if self.queue_pieces.len() <= 1 {
-            bag.shuffle(&mut rng);
-            self.extend_queue(&bag);
-        }
-    }
-    pub fn allow_hold(&mut self) {
-        // Used to override
-        self.can_hold = true;
+
+    pub fn swap_hold(&mut self) -> SwapHoldRes {
+        let hold = match self.hold_piece {
+            Some(hold) => hold,
+            None => match self.queue_pieces.pop_front() {
+                Some(piece) => piece,
+                None => return SwapHoldRes::Failed,
+            },
+        };
+        self.hold_piece = Some(self.current_piece.piece_type);
+        self.current_piece.piece_type = hold;
+        self.reset_current_piece();
+        SwapHoldRes::Success
     }
     fn reset_current_piece(&mut self) {
         self.current_piece.reset();
@@ -155,18 +190,13 @@ impl Game {
                 if !self.can_hold {
                     return GameMoveRes::Failed;
                 }
-                let hold = match self.hold_piece {
-                    Some(hold) => hold,
-                    None => match self.queue_pieces.pop_front() {
-                        Some(piece) => piece,
-                        None => return GameMoveRes::Failed,
-                    },
-                };
-                self.hold_piece = Some(self.current_piece.piece_type);
-                self.current_piece.piece_type = hold;
-                self.reset_current_piece();
-                self.can_hold = false;
-                GameMoveRes::SuccessNorm
+                match self.swap_hold() {
+                    SwapHoldRes::Success => {
+                        self.can_hold = false;
+                        GameMoveRes::SuccessNorm
+                    }
+                    SwapHoldRes::Failed => GameMoveRes::Failed,
+                }
             }
             GameMove::SoftDrop => {
                 self.current_piece.soft_drop(&self.board);
@@ -181,7 +211,6 @@ impl Game {
                 let res = self.board.lock(&self.current_piece);
                 self.current_piece.piece_type = self.queue_pieces.pop_front().unwrap();
                 self.reset_current_piece();
-                self.current_piece.shift_down(&self.board);
                 self.can_hold = true;
 
                 GameMoveRes::SuccessDrop(GameDropRes {
@@ -242,7 +271,7 @@ impl Display for Game {
             }
             None => format!(""),
         };
-        const MAX_QUEUE_DISPLAY: usize = 7;
+        const MAX_QUEUE_DISPLAY: usize = 8;
         let queue_text = {
             let mut text = self
                 .queue_pieces
