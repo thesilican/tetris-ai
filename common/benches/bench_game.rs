@@ -3,7 +3,9 @@ extern crate test;
 use common::model::Bag;
 use common::model::Game;
 use common::model::GameMove;
-use common::model::NSDR;
+use common::model::DSDR;
+use common::model::NSNR;
+use common::model::SSSR;
 use test::{black_box, Bencher};
 
 /*
@@ -222,16 +224,43 @@ fn copy_game(b: &mut Bencher) {
 }
 
 /*
-    Progress
-    2021-07-11: 119,021 ns/iter (+/- 5,106)
-    2021-07-11: 64,536 ns/iter (+/- 4,492)
+    Progress:
+    2021-07-11: 419,083 ns/iter (+/- 6,910)
 */
 #[bench]
-fn gen_child_states(b: &mut Bencher) {
+fn gen_child_states_dsdr(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag(&mut bag, true);
     b.iter(|| {
-        let children = game.child_states(NSDR);
+        let children = game.child_states(DSDR);
+        black_box(children);
+    })
+}
+
+/*
+    Progress:
+    2021-07-11: 67,499 ns/iter (+/- 728)
+*/
+#[bench]
+fn gen_child_states_sssr(b: &mut Bencher) {
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag(&mut bag, true);
+    b.iter(|| {
+        let children = game.child_states(SSSR);
+        black_box(children);
+    })
+}
+
+/*
+    Progress:
+    2021-07-11: 10,611 ns/iter (+/- 398)
+*/
+#[bench]
+fn gen_child_states_nsnr(b: &mut Bencher) {
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag(&mut bag, true);
+    b.iter(|| {
+        let children = game.child_states(NSNR);
         black_box(children);
     })
 }

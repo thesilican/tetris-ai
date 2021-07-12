@@ -11,7 +11,7 @@ fn main() -> Result<(), GenericErr> {
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
 
-    let mut bag = Bag::new(0);
+    let mut bag = Bag::new(1);
     let mut game = Game::from_bag(&mut bag, true);
     let mut index = 0;
     let mut child_states = game.child_states(CHILD_STATE_MODE);

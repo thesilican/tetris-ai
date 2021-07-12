@@ -12,3 +12,6 @@ rand = "0.8"
 
 [dev-dependencies]
 termion = "1.5"
+
+[profile.release]
+debug = true

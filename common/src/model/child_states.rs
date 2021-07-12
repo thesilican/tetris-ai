@@ -213,6 +213,7 @@ impl Game {
         let mut visited = HashMap::<PieceKey, usize>::new();
 
         // Big tower of loops
+        // To gain performance, shift the following 18 lines, 14 lines down
         let shift_1_range: &[i8] = match options.final_shift {
             ChildStatesShift::None => &[0],
             ChildStatesShift::Single => &[0, -1, 1],
