@@ -116,7 +116,7 @@ impl Game {
 
     pub fn set_current(&mut self, piece: PieceType) {
         self.current_piece.piece_type = piece;
-        self.reset_current_piece();
+        self.current_piece.reset(&self.board);
         self.can_hold = true;
     }
     pub fn set_hold(&mut self, piece: Option<PieceType>) {
@@ -156,12 +156,8 @@ impl Game {
         };
         self.hold_piece = Some(self.current_piece.piece_type);
         self.current_piece.piece_type = hold;
-        self.reset_current_piece();
+        self.current_piece.reset(&self.board);
         SwapHoldRes::Success
-    }
-    fn reset_current_piece(&mut self) {
-        self.current_piece.reset();
-        self.current_piece.shift_down(&self.board);
     }
 
     pub fn make_move(&mut self, game_move: GameMove) -> GameMoveRes {
@@ -210,7 +206,7 @@ impl Game {
                 self.current_piece.soft_drop(&self.board);
                 let res = self.board.lock(&self.current_piece);
                 self.current_piece.piece_type = self.queue_pieces.pop_front().unwrap();
-                self.reset_current_piece();
+                self.current_piece.reset(&self.board);
                 self.can_hold = true;
 
                 GameMoveRes::SuccessDrop(GameDropRes {

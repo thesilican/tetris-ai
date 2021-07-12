@@ -1,5 +1,5 @@
 use crate::api::json::JsonOutput;
-use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT};
+use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT, NSDR};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use std::time::Instant;
@@ -107,7 +107,7 @@ impl SimpleAi {
 }
 impl TetrisAi for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> TetrisAiRes {
-        let child_states = game.child_states_dr();
+        let child_states = game.child_states(NSDR);
         let mut best_moves = None;
         let mut best_height = BOARD_HEIGHT;
         for (game, moves) in child_states.iter() {

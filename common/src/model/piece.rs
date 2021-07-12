@@ -1,7 +1,7 @@
 use super::board::Board;
 use crate::misc::GenericErr;
-use crate::model::computed::PIECE_INFO;
 use crate::model::consts::*;
+use crate::model::piece_computed::PIECE_INFO;
 use lazy_static::lazy_static;
 use rand::prelude::Distribution;
 use rand::SeedableRng;
@@ -229,9 +229,10 @@ impl Piece {
     }
 }
 impl Piece {
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, board: &Board) {
         self.rotation = 0;
         self.location = *self.get_spawn_location();
+        self.shift_down(&board);
     }
     pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceMoveRes {
         let (old_x, old_y) = self.location;
