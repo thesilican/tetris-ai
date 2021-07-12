@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 // Hold: true/false
 // Rot: 0..4
-// Shift: -4..=5
+// Shift: -5..=5
 // Shift_1: -2..=2
 // Rot_1: 0..4
 // Rot_2: 0..4
@@ -19,7 +19,7 @@ struct ChildTransitionKey {
     pub rot_2: i8,
 }
 struct ChildTransitions {
-    all_transitions: [[[[[[Vec<GameMove>; 4]; 4]; 5]; 10]; 4]; 2],
+    all_transitions: [[[[[[Vec<GameMove>; 4]; 4]; 5]; 11]; 4]; 2],
 }
 impl ChildTransitions {
     pub fn new() -> Self {
@@ -44,14 +44,14 @@ impl ChildTransitions {
             }
         }
 
-        let mut transitions: [[[[[[Vec<GameMove>; 4]; 4]; 5]; 10]; 4]; 2] = Default::default();
+        let mut transitions: [[[[[[Vec<GameMove>; 4]; 4]; 5]; 11]; 4]; 2] = Default::default();
         for hold in 0..2 {
             for rot in 0..4 {
-                for shift in -4i32..=5 {
+                for shift in -5i32..=5 {
                     for shift_1 in -2i32..=2 {
                         for rot_1 in 0..4 {
                             for rot_2 in 0..4 {
-                                let vec = &mut transitions[hold][rot][(shift + 4) as usize]
+                                let vec = &mut transitions[hold][rot][(shift + 5) as usize]
                                     [(shift_1 + 2) as usize][rot_1][rot_2];
                                 if hold == 1 {
                                     vec.push(GameMove::Hold);
@@ -79,7 +79,7 @@ impl ChildTransitions {
     pub fn get(&self, key: ChildTransitionKey) -> &[GameMove] {
         let hold = if key.hold { 1 } else { 0 };
         let rot = key.rot as usize;
-        let shift = (key.shift + 4) as usize;
+        let shift = (key.shift + 5) as usize;
         let shift_1 = (key.shift_1 + 2) as usize;
         let rot_1 = key.rot_1 as usize;
         let rot_2 = key.rot_2 as usize;
