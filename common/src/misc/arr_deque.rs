@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::{convert::TryInto, iter::FromIterator, ops::Index};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6,7 +7,7 @@ pub enum InsertRes {
     Full,
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy)]
 /// Basic stack-based circular buffer
 pub struct ArrDeque<T, const N: usize> {
     head: usize,
@@ -34,6 +35,9 @@ impl<T, const N: usize> ArrDeque<T, N> {
     }
     pub fn len(&self) -> usize {
         self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
     pub fn push_back(&mut self, item: T) -> InsertRes {
         if self.len == N {
@@ -86,7 +90,7 @@ impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
 }
 impl<'a, T: 'a + Copy, const N: usize> Extend<&'a T> for ArrDeque<T, N> {
     fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
-        self.extend(iter.into_iter().map(|x| *x))
+        self.extend(iter.into_iter().copied())
     }
 }
 impl<T, const N: usize> Index<usize> for ArrDeque<T, N> {
@@ -106,6 +110,16 @@ where
     }
 }
 impl<T, const N: usize> Eq for ArrDeque<T, N> where T: Eq {}
+impl<T, const N: usize> Hash for ArrDeque<T, N>
+where
+    T: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for obj in self.arr.iter() {
+            obj.hash(state);
+        }
+    }
+}
 impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut arr = ArrDeque::new();

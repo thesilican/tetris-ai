@@ -59,7 +59,7 @@ pub trait TetrisAi {
         println!("{}\n", game);
         'l: loop {
             let start = Instant::now();
-            let res = self.evaluate(&mut game);
+            let res = self.evaluate(&game);
             let elapsed = start.elapsed();
             match res {
                 TetrisAiRes::Success { moves, score } => {

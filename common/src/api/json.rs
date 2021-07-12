@@ -64,7 +64,7 @@ impl FromStr for Game {
     type Err = GenericErr;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let input = serde_json::from_str::<JsonInput>(&s)?;
+        let input = serde_json::from_str::<JsonInput>(s)?;
         input.try_into()
     }
 }

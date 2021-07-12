@@ -137,7 +137,7 @@ impl Board {
         }
 
         BoardLockRes {
-            lines_cleared: lines_cleared,
+            lines_cleared,
             top_out,
         }
     }

@@ -156,7 +156,7 @@ impl Drop for ThreadPool {
                 errors.push(i);
             }
         }
-        if errors.len() != 0 {
+        if !errors.is_empty() {
             let threads = errors
                 .into_iter()
                 .map(|x| format!("{}", x))

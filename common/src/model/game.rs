@@ -96,7 +96,7 @@ impl Game {
             board: Board::new(),
             current_piece: Piece::from(*iter.next().unwrap()),
             hold_piece: None,
-            queue_pieces: iter.map(|x| *x).collect(),
+            queue_pieces: iter.copied().collect(),
             can_hold: true,
         }
     }

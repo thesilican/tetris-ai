@@ -32,7 +32,7 @@ impl ChildTransitions {
                     res.push(GameMove::ShiftRight);
                 }
             }
-            return res;
+            res
         }
         fn rot_to_vec(rot: usize) -> Vec<GameMove> {
             match rot {
@@ -178,9 +178,9 @@ impl Game {
         fn shifted_piece(mut piece: Piece, board: &Board, shift: i8) -> Piece {
             for _ in 0..shift.abs() {
                 if shift < 0 {
-                    piece.shift_left(&board);
+                    piece.shift_left(board);
                 } else {
-                    piece.shift_right(&board);
+                    piece.shift_right(board);
                 }
             }
             piece
@@ -234,11 +234,7 @@ impl Game {
                     }
                     // Hold
                     for hold in [false, true] {
-                        let piece = if hold {
-                            hold_piece.clone()
-                        } else {
-                            current_piece.clone()
-                        };
+                        let piece = if hold { hold_piece } else { current_piece };
                         // Rotation
                         for rot in 0..4 {
                             let piece = roted_piece(piece, board, rot);
