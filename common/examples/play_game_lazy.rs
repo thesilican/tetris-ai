@@ -11,7 +11,7 @@ fn main() -> Result<(), GenericErr> {
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
 
-    let mut bag = Bag::new(1);
+    let mut bag = Bag::new(0);
     let mut game = Game::from_bag(&mut bag, true);
     let mut index = 0;
     let mut child_states = game.child_states(CHILD_STATE_MODE);
@@ -38,7 +38,7 @@ fn main() -> Result<(), GenericErr> {
                 for game_move in child_states[index].1 {
                     game.make_move(*game_move);
                 }
-                game.refill_queue(&mut bag, true);
+                game.refill_queue_shuffled(&mut bag);
                 child_states = game.child_states(CHILD_STATE_MODE);
                 index = 0;
                 if child_states.len() == 0 {

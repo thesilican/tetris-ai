@@ -200,7 +200,7 @@ fn dt_cannon_loop(b: &mut Bencher) {
         for _ in 0..100 {
             for game_move in moves.iter() {
                 game.make_move(*game_move);
-                game.refill_queue(&mut bag, false);
+                game.refill_queue(&bag);
             }
         }
         black_box(game);
@@ -226,6 +226,7 @@ fn copy_game(b: &mut Bencher) {
 /*
     Progress:
     2021-07-11: 419,083 ns/iter (+/- 6,910)
+    2021-07-13: 416,748 ns/iter (+/- 17,293)
 */
 #[bench]
 fn gen_child_states_dsdr(b: &mut Bencher) {
@@ -240,6 +241,7 @@ fn gen_child_states_dsdr(b: &mut Bencher) {
 /*
     Progress:
     2021-07-11: 67,499 ns/iter (+/- 728)
+    2021-07-13: 63,911 ns/iter (+/- 594)
 */
 #[bench]
 fn gen_child_states_sssr(b: &mut Bencher) {
@@ -254,6 +256,7 @@ fn gen_child_states_sssr(b: &mut Bencher) {
 /*
     Progress:
     2021-07-11: 10,611 ns/iter (+/- 398)
+    2021-07-13: 8,228 ns/iter (+/- 338)
 */
 #[bench]
 fn gen_child_states_nsnr(b: &mut Bencher) {

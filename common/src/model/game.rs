@@ -136,12 +136,16 @@ impl Game {
     pub fn clear_queue(&mut self) {
         self.queue_pieces.clear();
     }
-    pub fn refill_queue(&mut self, bag: &mut Bag, shuffle: bool) {
+    pub fn refill_queue(&mut self, bag: &Bag) {
         const THRESHOLD: usize = GAME_MAX_QUEUE_LEN - BAG_LEN;
         if self.queue_pieces.len() <= THRESHOLD {
-            if shuffle {
-                bag.shuffle()
-            }
+            self.extend_queue(bag.pieces());
+        }
+    }
+    pub fn refill_queue_shuffled(&mut self, bag: &mut Bag) {
+        const THRESHOLD: usize = GAME_MAX_QUEUE_LEN - BAG_LEN;
+        if self.queue_pieces.len() <= THRESHOLD {
+            bag.shuffle();
             self.extend_queue(bag.pieces());
         }
     }

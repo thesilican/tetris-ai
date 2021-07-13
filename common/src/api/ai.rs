@@ -1,8 +1,8 @@
 use crate::api::json::JsonOutput;
-use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT, NSDR};
+use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT, SSSR};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
 pub enum TetrisAiRes {
@@ -94,8 +94,38 @@ pub trait TetrisAi {
                     break;
                 }
             }
-            game.refill_queue(&mut bag, true);
+            game.refill_queue_shuffled(&mut bag);
         }
+    }
+    /// Easy way to benchmark the performance of an Ai
+    fn bench_ai(&mut self, eval_count: u32, seed: u64) {
+        let mut bag = Bag::new(seed);
+        let mut game = Game::from_bag(&mut bag, true);
+
+        let mut total_time = Duration::new(0, 0);
+
+        for _ in 0..eval_count {
+            let start = Instant::now();
+            let res = self.evaluate(&game);
+            let elapsed = start.elapsed();
+            total_time += elapsed;
+
+            match res {
+                TetrisAiRes::Success { moves, .. } => {
+                    for game_move in moves {
+                        game.make_move(game_move);
+                    }
+                    game.refill_queue_shuffled(&mut bag);
+                }
+                TetrisAiRes::Fail { .. } => {
+                    // Reset game
+                    game = Game::from_bag(&mut bag, true);
+                }
+            }
+        }
+        println!("Total evaluations: {}", eval_count);
+        println!("Total time: {:?}", total_time);
+        println!("Time per evaluation: {:?}", total_time / eval_count);
     }
 }
 
@@ -107,7 +137,7 @@ impl SimpleAi {
 }
 impl TetrisAi for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> TetrisAiRes {
-        let child_states = game.child_states(NSDR);
+        let child_states = game.child_states(SSSR);
         let mut best_moves = None;
         let mut best_height = BOARD_HEIGHT;
         for (game, moves) in child_states.iter() {

@@ -206,6 +206,25 @@ impl Game {
             hold.reset(&self.board);
             hold
         };
+        // Precomputed games: BYO locked tetris piece
+        let current_game = {
+            let mut game = self.clone();
+            game.current_piece.piece_type = game.queue_pieces.pop_front().unwrap();
+            // Don't soft drop until end (for consistency)
+            game.current_piece.rotation = 0;
+            game.current_piece.location = *game.current_piece.get_spawn_location();
+            game.can_hold = true;
+            game
+        };
+        let hold_game = {
+            let mut game = self.clone();
+            game.swap_hold();
+            game.current_piece.piece_type = game.queue_pieces.pop_front().unwrap();
+            game.current_piece.rotation = 0;
+            game.current_piece.location = *game.current_piece.get_spawn_location();
+            game.can_hold = true;
+            game
+        };
 
         // Return value
         let mut res = Vec::<ChildState>::new();
@@ -270,10 +289,10 @@ impl Game {
                                     }
                                     None => {
                                         // Get child
-                                        let mut game = self.clone();
-                                        for game_move in perm {
-                                            game.make_move(*game_move);
-                                        }
+                                        let mut game = if hold { hold_game } else { current_game };
+                                        game.board.lock(&piece);
+                                        game.current_piece.shift_down(&game.board);
+
                                         if !game.board.topped_out() {
                                             visited.insert(key, res.len());
                                             res.push((game, perm))

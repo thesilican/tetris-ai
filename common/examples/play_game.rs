@@ -53,7 +53,7 @@ fn main() -> Result<(), GenericErr> {
             _ => {}
         }
 
-        game.refill_queue(&mut bag, true);
+        game.refill_queue_shuffled(&mut bag);
         println!("{}", game);
         stdout.activate_raw_mode()?;
     }

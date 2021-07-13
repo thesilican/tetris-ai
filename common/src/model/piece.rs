@@ -188,7 +188,7 @@ impl Piece {
     pub fn info_location_bounds(piece_type: PieceType, rotation: i8) -> &'static (i8, i8, i8, i8) {
         &PIECE_INFO.location_bounds[i32::from(piece_type) as usize][rotation as usize]
     }
-    pub fn info_kick_table(piece_type: PieceType, from: i8, to: i8) -> &'static Vec<(i8, i8)> {
+    pub fn info_kick_table(piece_type: PieceType, from: i8, to: i8) -> &'static [(i8, i8)] {
         &PIECE_INFO.kick_table[i32::from(piece_type) as usize][from as usize][to as usize]
     }
 
@@ -224,7 +224,7 @@ impl Piece {
     pub fn get_location_bounds(&self, rotation: Option<i8>) -> &'static (i8, i8, i8, i8) {
         Piece::info_location_bounds(self.piece_type, rotation.unwrap_or(self.rotation))
     }
-    pub fn get_kick_table(&self, from: Option<i8>, to: i8) -> &'static Vec<(i8, i8)> {
+    pub fn get_kick_table(&self, from: Option<i8>, to: i8) -> &'static [(i8, i8)] {
         Piece::info_kick_table(self.piece_type, from.unwrap_or(self.rotation), to)
     }
 }
@@ -333,7 +333,7 @@ impl Piece {
         }
         // Keep shifting down while possible
         while let PieceMoveRes::Success = self.shift_down(&board) {}
-        PieceMoveRes::Failed
+        PieceMoveRes::Success
     }
 }
 impl Display for Piece {
