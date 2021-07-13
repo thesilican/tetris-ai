@@ -214,7 +214,7 @@ fn dt_cannon_loop(b: &mut Bencher) {
 #[bench]
 fn copy_game(b: &mut Bencher) {
     let mut bag = Bag::new(0);
-    let game = Game::from_bag(&mut bag, true);
+    let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
         for _ in 0..1000 {
             let copy = game;
@@ -231,7 +231,7 @@ fn copy_game(b: &mut Bencher) {
 #[bench]
 fn gen_child_states_dsdr(b: &mut Bencher) {
     let mut bag = Bag::new(0);
-    let game = Game::from_bag(&mut bag, true);
+    let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
         let children = game.child_states(DSDR);
         black_box(children);
@@ -246,7 +246,7 @@ fn gen_child_states_dsdr(b: &mut Bencher) {
 #[bench]
 fn gen_child_states_sssr(b: &mut Bencher) {
     let mut bag = Bag::new(0);
-    let game = Game::from_bag(&mut bag, true);
+    let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
         let children = game.child_states(SSSR);
         black_box(children);
@@ -261,7 +261,7 @@ fn gen_child_states_sssr(b: &mut Bencher) {
 #[bench]
 fn gen_child_states_nsnr(b: &mut Bencher) {
     let mut bag = Bag::new(0);
-    let game = Game::from_bag(&mut bag, true);
+    let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
         let children = game.child_states(NSNR);
         black_box(children);

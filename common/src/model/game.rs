@@ -87,10 +87,7 @@ pub struct Game {
     pub can_hold: bool,
 }
 impl Game {
-    pub fn from_bag(bag: &mut Bag, shuffle: bool) -> Self {
-        if shuffle {
-            bag.shuffle()
-        }
+    pub fn from_bag(bag: &Bag) -> Self {
         let mut iter = bag.pieces().iter();
         Game {
             board: Board::new(),
@@ -99,6 +96,10 @@ impl Game {
             queue_pieces: iter.copied().collect(),
             can_hold: true,
         }
+    }
+    pub fn from_bag_shuffled(bag: &mut Bag) -> Self {
+        bag.shuffle();
+        Game::from_bag(bag)
     }
     pub fn from_pieces(
         current_piece: PieceType,

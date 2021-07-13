@@ -113,9 +113,9 @@ impl Board {
         // Recalcluate metadatas
         // TODO: Figure out an efficient method for this
         let mut height_map_max = i8::MIN;
-        for height in &self.height_map {
-            if *height > height_map_max {
-                height_map_max = *height;
+        for height in self.height_map {
+            if height > height_map_max {
+                height_map_max = height;
             }
         }
         let max_height = std::cmp::min(

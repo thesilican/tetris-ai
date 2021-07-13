@@ -13,7 +13,7 @@ fn main() -> Result<(), GenericErr> {
     stdout.suspend_raw_mode()?;
 
     let mut bag = Bag::new(0);
-    let mut game = Game::from_bag(&mut bag, true);
+    let mut game = Game::from_bag_shuffled(&mut bag);
     println!("{}", game);
 
     stdout.activate_raw_mode()?;

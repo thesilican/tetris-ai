@@ -179,8 +179,8 @@ fn main() {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let mut bag = Bag::new(0);
-    let mut game = Game::from_bag(&mut bag, false);
+    let bag = Bag::new(0);
+    let mut game = Game::from_bag(&bag);
     game.swap_hold();
     for _ in 0..10_000 {
         for game_move in moves.iter() {

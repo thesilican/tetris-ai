@@ -1,4 +1,4 @@
-use common::thread::ThreadPool;
+use common::misc::ThreadPool;
 
 fn main() {
     let mut thread_pool = ThreadPool::new(50);

@@ -55,7 +55,7 @@ pub trait TetrisAi {
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
         let mut bag = Bag::new(seed);
-        let mut game = Game::from_bag(&mut bag, true);
+        let mut game = Game::from_bag_shuffled(&mut bag);
         println!("{}\n", game);
         'l: loop {
             let start = Instant::now();
@@ -100,7 +100,7 @@ pub trait TetrisAi {
     /// Easy way to benchmark the performance of an Ai
     fn bench_ai(&mut self, eval_count: u32, seed: u64) {
         let mut bag = Bag::new(seed);
-        let mut game = Game::from_bag(&mut bag, true);
+        let mut game = Game::from_bag_shuffled(&mut bag);
 
         let mut total_time = Duration::new(0, 0);
 
@@ -119,7 +119,7 @@ pub trait TetrisAi {
                 }
                 TetrisAiRes::Fail { .. } => {
                     // Reset game
-                    game = Game::from_bag(&mut bag, true);
+                    game = Game::from_bag_shuffled(&mut bag);
                 }
             }
         }
