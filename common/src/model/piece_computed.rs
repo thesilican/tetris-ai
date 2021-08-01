@@ -28,8 +28,9 @@ pub struct PieceInfo {
     /// Min/Max x/y positions for a piece (min x, max x, min y, max y)
     pub location_bounds:
         [[(i8, i8, i8, i8); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
-    /// How much a piece can shift from its spawn position
+    /// How much a piece can shift from its spawn position (left and right)
     pub shift_bounds: [[(i8, i8); PIECE_NUM_ROTATION as usize]; PIECE_NUM_TYPES as usize],
+    /// (x, y) shifts when doing kicks
     pub kick_table: [[[Vec<(i8, i8)>; PIECE_NUM_ROTATION as usize]; PIECE_NUM_ROTATION as usize];
         PIECE_NUM_TYPES as usize],
 }
@@ -51,13 +52,13 @@ impl PieceInfo {
 
         let sizes = [2, 4, 3, 3, 3, 3, 3];
         let spawn_locations = [
+            (PIECE_SPAWN_COLUMN as i8, 20),
             (PIECE_SPAWN_COLUMN as i8, 19),
-            (PIECE_SPAWN_COLUMN as i8, 18),
-            (PIECE_SPAWN_COLUMN as i8, 19),
-            (PIECE_SPAWN_COLUMN as i8, 19),
-            (PIECE_SPAWN_COLUMN as i8, 19),
-            (PIECE_SPAWN_COLUMN as i8, 19),
-            (PIECE_SPAWN_COLUMN as i8, 19),
+            (PIECE_SPAWN_COLUMN as i8, 20),
+            (PIECE_SPAWN_COLUMN as i8, 20),
+            (PIECE_SPAWN_COLUMN as i8, 20),
+            (PIECE_SPAWN_COLUMN as i8, 20),
+            (PIECE_SPAWN_COLUMN as i8, 20),
         ];
         let base_shapes = [
             // O
@@ -317,6 +318,7 @@ impl PieceInfo {
             tljsz_kick_table.clone(),
             tljsz_kick_table,
         ];
+        println!("{}", std::mem::size_of::<Self>());
         PieceInfo {
             spawn_locations,
             shapes,

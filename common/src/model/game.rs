@@ -150,7 +150,9 @@ impl Game {
             self.extend_queue(bag.pieces());
         }
     }
-
+    pub fn set_can_hold(&mut self, can_hold: bool) {
+        self.can_hold = can_hold;
+    }
     pub fn swap_hold(&mut self) -> SwapHoldRes {
         let hold = match self.hold_piece {
             Some(hold) => hold,
@@ -251,15 +253,10 @@ impl Display for Game {
             }
             writeln!(f)?;
         }
-        // Board height/holes info
+        // Board height info
         for i in 0..BOARD_WIDTH {
             let height = self.board.height_map[i as usize];
             write!(f, "{:2}", height)?;
-        }
-        writeln!(f)?;
-        for i in 0..BOARD_WIDTH {
-            let hole = self.board.holes[i as usize];
-            write!(f, "{:2}", hole)?;
         }
         writeln!(f)?;
 

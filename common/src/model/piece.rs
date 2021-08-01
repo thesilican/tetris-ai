@@ -156,6 +156,7 @@ pub struct Piece {
     pub rotation: i8,
     pub location: (i8, i8),
 }
+// Piece info stuff
 impl Piece {
     pub fn info_spawn_location(piece_type: PieceType) -> &'static (i8, i8) {
         &PIECE_INFO.spawn_locations[i32::from(piece_type) as usize]

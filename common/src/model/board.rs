@@ -12,14 +12,12 @@ pub struct BoardLockRes {
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT as usize],
     pub height_map: [i8; BOARD_WIDTH as usize],
-    pub holes: [i8; BOARD_WIDTH as usize],
 }
 impl Board {
     pub fn new() -> Self {
         Board {
             matrix: [0; BOARD_HEIGHT as usize],
             height_map: [0; BOARD_WIDTH as usize],
-            holes: [0; BOARD_WIDTH as usize],
         }
     }
     pub fn get(&self, x: i32, y: i32) -> bool {
@@ -46,7 +44,6 @@ impl Board {
             }
         }
         self.height_map[x as usize] = height as i8;
-        self.holes[x as usize] = 0;
     }
     pub fn set_cols(&mut self, heights: [i32; BOARD_WIDTH as usize]) {
         for i in 0..BOARD_WIDTH {
@@ -150,21 +147,15 @@ impl Board {
         // is empty
         let mut encountered = false;
         let mut height = 0;
-        let mut holes = 0;
         for j in (0..max_height).rev() {
             if self.matrix[j as usize] & (1 << x) != 0 {
                 if !encountered {
                     encountered = true;
                     height = (j + 1) as i8;
                 }
-            } else {
-                if encountered {
-                    holes += 1
-                }
             }
         }
         self.height_map[x as usize] = height;
-        self.holes[x as usize] = holes;
     }
 }
 // Only compare matrix, other fields are only metadata

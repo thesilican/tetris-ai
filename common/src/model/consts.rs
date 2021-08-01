@@ -9,10 +9,16 @@ pub const PIECE_SPAWN_COLUMN: i32 = 3;
 /// Max shift (max a piece can shift left or shift right)
 pub const PIECE_MAX_X_SHIFT: i32 = 5;
 
+/// Width of the board
 pub const BOARD_WIDTH: i32 = 10;
+/// Height of the board
 pub const BOARD_HEIGHT: i32 = 24;
+/// Visible height of the board
+/// Any pieces placed above this is considered a top-out
 pub const BOARD_VISIBLE_HEIGHT: i32 = 20;
 
-pub const BAG_LEN: usize = 7;
+/// Size of the bag queue
+pub const BAG_LEN: usize = PIECE_NUM_TYPES as usize;
 
+/// Maximum number of pieces in the queue
 pub const GAME_MAX_QUEUE_LEN: usize = 8;
