@@ -1,4 +1,4 @@
-use crate::api::ai::TetrisAiRes;
+use crate::api::ai::AiRes;
 use crate::misc::GenericErr;
 use crate::model::Game;
 use crate::model::PieceType;
@@ -10,16 +10,16 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::str::FromStr;
 
-#[derive(Deserialize)]
-struct JsonInput {
+#[derive(Serialize, Deserialize)]
+struct JsonGame {
     pub current: i32,
     pub hold: Option<i32>,
     pub queue: Vec<i32>,
     pub matrix: Vec<Vec<bool>>,
 }
-impl TryFrom<JsonInput> for Game {
+impl TryFrom<JsonGame> for Game {
     type Error = GenericErr;
-    fn try_from(input: JsonInput) -> Result<Game, GenericErr> {
+    fn try_from(input: JsonGame) -> Result<Game, GenericErr> {
         fn try_parse_piece(num: i32) -> Result<PieceType, GenericErr> {
             let piece_type = match PieceType::try_from(num) {
                 Ok(p) => p,
@@ -64,14 +64,39 @@ impl FromStr for Game {
     type Err = GenericErr;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let input = serde_json::from_str::<JsonInput>(s)?;
+        let input = serde_json::from_str::<JsonGame>(s)?;
         input.try_into()
+    }
+}
+impl From<Game> for JsonGame {
+    fn from(game: Game) -> Self {
+        let mut matrix = Vec::new();
+        for j in 0..BOARD_WIDTH {
+            let mut col = Vec::new();
+            for i in 0..BOARD_HEIGHT {
+                let cell = game.board.get(i, j);
+                col.push(cell);
+            }
+            matrix.push(col);
+        }
+        JsonGame {
+            current: game.current_piece.piece_type.into(),
+            hold: game.hold_piece.map(|x| x.into()),
+            queue: game.queue_pieces.iter().map(|x| (*x).into()).collect(),
+            matrix,
+        }
+    }
+}
+impl Game {
+    pub fn serialize(&self) -> String {
+        let json = JsonGame::from(*self);
+        serde_json::to_string(&json).unwrap()
     }
 }
 
 #[derive(Serialize)]
 #[serde(untagged)]
-pub(crate) enum JsonOutput {
+pub(crate) enum JsonAiRes {
     Success {
         success: bool,
         moves: Vec<String>,
@@ -82,24 +107,24 @@ pub(crate) enum JsonOutput {
         reason: String,
     },
 }
-impl From<TetrisAiRes> for JsonOutput {
-    fn from(eval: TetrisAiRes) -> Self {
+impl From<AiRes> for JsonAiRes {
+    fn from(eval: AiRes) -> Self {
         match eval {
-            TetrisAiRes::Success { moves, score } => JsonOutput::Success {
+            AiRes::Success { moves, score } => JsonAiRes::Success {
                 success: true,
                 moves: moves.into_iter().map(|x| x.to_string()).collect(),
                 score,
             },
-            TetrisAiRes::Fail { reason } => JsonOutput::Fail {
+            AiRes::Fail { reason } => JsonAiRes::Fail {
                 success: false,
                 reason,
             },
         }
     }
 }
-impl TetrisAiRes {
+impl AiRes {
     pub fn to_json(self) -> String {
-        let output = JsonOutput::from(self);
+        let output = JsonAiRes::from(self);
         serde_json::to_string(&output).unwrap()
     }
 }

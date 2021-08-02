@@ -1,12 +1,10 @@
 use common::misc::GenericErr;
-use common::model::{Bag, ChildStatesOptions, Game, DSDR};
+use common::model::{Bag, Game, MOVES_3F};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 fn main() -> Result<(), GenericErr> {
-    const CHILD_STATE_MODE: ChildStatesOptions = DSDR;
-
     let stdin = std::io::stdin();
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
@@ -14,12 +12,12 @@ fn main() -> Result<(), GenericErr> {
     let mut bag = Bag::new(0);
     let mut game = Game::from_bag_shuffled(&mut bag);
     let mut index = 0;
-    let mut child_states = game.child_states(CHILD_STATE_MODE);
+    let mut child_states = game.child_states(&MOVES_3F);
 
     println!(
         "{}\n{:?}\n{} of {}",
-        child_states[index].0,
-        child_states[index].1,
+        child_states[index].game,
+        child_states[index].moves,
         index + 1,
         child_states.len()
     );
@@ -35,11 +33,11 @@ fn main() -> Result<(), GenericErr> {
                 index = (index + 1) % child_states.len();
             }
             Key::Char(' ') => {
-                for game_move in child_states[index].1 {
+                for game_move in child_states[index].moves {
                     game.make_move(*game_move);
                 }
                 game.refill_queue_shuffled(&mut bag);
-                child_states = game.child_states(CHILD_STATE_MODE);
+                child_states = game.child_states(&MOVES_3F);
                 index = 0;
                 if child_states.len() == 0 {
                     println!("No valid child states");
@@ -50,8 +48,8 @@ fn main() -> Result<(), GenericErr> {
         }
         println!(
             "{}\n{:?}\n{} of {}",
-            child_states[index].0,
-            child_states[index].1,
+            child_states[index].game,
+            child_states[index].moves,
             index + 1,
             child_states.len()
         );

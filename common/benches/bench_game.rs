@@ -3,9 +3,9 @@ extern crate test;
 use common::model::Bag;
 use common::model::Game;
 use common::model::GameMove;
-use common::model::DSDR;
-use common::model::NSNR;
-use common::model::SSSR;
+use common::model::MOVES_0F;
+use common::model::MOVES_2F;
+use common::model::MOVES_4F;
 use test::{black_box, Bencher};
 
 /*
@@ -193,9 +193,9 @@ fn dt_cannon_loop(b: &mut Bencher) {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let mut bag = Bag::new(0);
+    let bag = Bag::new(0);
     b.iter(|| {
-        let mut game = Game::from_bag(&mut bag, false);
+        let mut game = Game::from_bag(&bag);
         game.swap_hold();
         for _ in 0..100 {
             for game_move in moves.iter() {
@@ -229,11 +229,11 @@ fn copy_game(b: &mut Bencher) {
     2021-07-13: 416,748 ns/iter (+/- 17,293)
 */
 #[bench]
-fn gen_child_states_dsdr(b: &mut Bencher) {
+fn gen_child_states_f4(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
-        let children = game.child_states(DSDR);
+        let children = game.child_states(&MOVES_4F);
         black_box(children);
     })
 }
@@ -244,11 +244,11 @@ fn gen_child_states_dsdr(b: &mut Bencher) {
     2021-07-13: 63,911 ns/iter (+/- 594)
 */
 #[bench]
-fn gen_child_states_sssr(b: &mut Bencher) {
+fn gen_child_states_f2(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
-        let children = game.child_states(SSSR);
+        let children = game.child_states(&MOVES_2F);
         black_box(children);
     })
 }
@@ -259,11 +259,11 @@ fn gen_child_states_sssr(b: &mut Bencher) {
     2021-07-13: 8,228 ns/iter (+/- 338)
 */
 #[bench]
-fn gen_child_states_nsnr(b: &mut Bencher) {
+fn gen_child_states_0f(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
-        let children = game.child_states(NSNR);
+        let children = game.child_states(&MOVES_0F);
         black_box(children);
     })
 }

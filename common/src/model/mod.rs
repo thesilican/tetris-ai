@@ -7,10 +7,7 @@ mod piece_computed;
 
 // Re-exports
 pub use board::{Board, BoardLockRes};
-pub use child_states::{
-    ChildStatesOptions, ChildStatesRot, ChildStatesShift, DSDR, DSNR, DSSR, NSDR, NSNR, NSSR, SSDR,
-    SSNR, SSSR,
-};
+pub use child_states::{ChildState, MOVES_0F, MOVES_1F, MOVES_2F, MOVES_3F, MOVES_4F};
 pub use consts::*;
-pub use game::{Game, GameDropRes, GameMove, GameMoveRes};
-pub use piece::{Bag, Piece, PieceMoveRes, PieceType};
+pub use game::{Game, GameDropInfo, GameMove, GameMoveRes};
+pub use piece::{Bag, Piece, PieceMove, PieceMoveRes, PieceType};

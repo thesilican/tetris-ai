@@ -4,11 +4,9 @@ use crate::model::consts::PIECE_NUM_TYPES;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::consts::PIECE_SPAWN_COLUMN;
 use crate::model::consts::{BOARD_WIDTH, PIECE_MAX_X_SHIFT};
-use lazy_static::lazy_static;
+use std::lazy::SyncLazy;
 
-lazy_static! {
-    pub static ref PIECE_INFO: PieceInfo = PieceInfo::new();
-}
+pub static PIECE_INFO: SyncLazy<PieceInfo> = SyncLazy::new(|| PieceInfo::new());
 
 /// Precomputed constants for a piece
 pub struct PieceInfo {

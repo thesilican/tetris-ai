@@ -6,6 +6,7 @@ use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
+use std::convert::TryInto;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
@@ -13,7 +14,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
 
-use super::piece::Bag;
+use super::piece::{Bag, PieceMove};
 use super::GAME_MAX_QUEUE_LEN;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -23,7 +24,7 @@ pub enum SwapHoldRes {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct GameDropRes {
+pub struct GameDropInfo {
     pub lines_cleared: i32,
     pub top_out: bool,
 }
@@ -31,7 +32,7 @@ pub struct GameDropRes {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameMoveRes {
     SuccessNorm,
-    SuccessDrop(GameDropRes),
+    SuccessDrop(GameDropInfo),
     Failed,
 }
 
@@ -39,11 +40,12 @@ pub enum GameMoveRes {
 pub enum GameMove {
     ShiftLeft,
     ShiftRight,
+    ShiftDown,
     RotateLeft,
     RotateRight,
     Rotate180,
-    Hold,
     SoftDrop,
+    Hold,
     HardDrop,
 }
 impl FromStr for GameMove {
@@ -53,6 +55,7 @@ impl FromStr for GameMove {
         match s {
             "shiftLeft" => Ok(GameMove::ShiftLeft),
             "shiftRight" => Ok(GameMove::ShiftRight),
+            "shiftDown" => Ok(GameMove::ShiftDown),
             "rotateLeft" => Ok(GameMove::RotateLeft),
             "rotateRight" => Ok(GameMove::RotateRight),
             "rotate180" => Ok(GameMove::Rotate180),
@@ -68,12 +71,26 @@ impl Display for GameMove {
         match self {
             GameMove::ShiftLeft => write!(f, "shiftLeft"),
             GameMove::ShiftRight => write!(f, "shiftRight"),
+            GameMove::ShiftDown => write!(f, "shiftDown"),
             GameMove::RotateLeft => write!(f, "rotateLeft"),
             GameMove::RotateRight => write!(f, "rotateRight"),
             GameMove::Rotate180 => write!(f, "rotate180"),
             GameMove::Hold => write!(f, "hold"),
             GameMove::SoftDrop => write!(f, "softDrop"),
             GameMove::HardDrop => write!(f, "hardDrop"),
+        }
+    }
+}
+impl From<PieceMove> for GameMove {
+    fn from(val: PieceMove) -> Self {
+        match val {
+            PieceMove::ShiftLeft => GameMove::ShiftLeft,
+            PieceMove::ShiftRight => GameMove::ShiftRight,
+            PieceMove::ShiftDown => GameMove::ShiftDown,
+            PieceMove::RotateLeft => GameMove::RotateLeft,
+            PieceMove::Rotate180 => GameMove::Rotate180,
+            PieceMove::RotateRight => GameMove::RotateRight,
+            PieceMove::SoftDrop => GameMove::SoftDrop,
         }
     }
 }
@@ -169,24 +186,15 @@ impl Game {
 
     pub fn make_move(&mut self, game_move: GameMove) -> GameMoveRes {
         match game_move {
-            GameMove::ShiftLeft => {
-                self.current_piece.shift_left(&self.board);
-                GameMoveRes::SuccessNorm
-            }
-            GameMove::ShiftRight => {
-                self.current_piece.shift_right(&self.board);
-                GameMoveRes::SuccessNorm
-            }
-            GameMove::RotateLeft => {
-                self.current_piece.rotate_left(&self.board);
-                GameMoveRes::SuccessNorm
-            }
-            GameMove::RotateRight => {
-                self.current_piece.rotate_right(&self.board);
-                GameMoveRes::SuccessNorm
-            }
-            GameMove::Rotate180 => {
-                self.current_piece.rotate_180(&self.board);
+            GameMove::ShiftLeft
+            | GameMove::ShiftRight
+            | GameMove::ShiftDown
+            | GameMove::RotateLeft
+            | GameMove::Rotate180
+            | GameMove::RotateRight
+            | GameMove::SoftDrop => {
+                let piece_move = game_move.try_into().unwrap();
+                self.current_piece.make_move(piece_move, &self.board);
                 GameMoveRes::SuccessNorm
             }
             GameMove::Hold => {
@@ -201,10 +209,6 @@ impl Game {
                     SwapHoldRes::Failed => GameMoveRes::Failed,
                 }
             }
-            GameMove::SoftDrop => {
-                self.current_piece.soft_drop(&self.board);
-                GameMoveRes::SuccessNorm
-            }
             GameMove::HardDrop => {
                 if self.queue_pieces.len() == 0 {
                     return GameMoveRes::Failed;
@@ -216,7 +220,7 @@ impl Game {
                 self.current_piece.reset(&self.board);
                 self.can_hold = true;
 
-                GameMoveRes::SuccessDrop(GameDropRes {
+                GameMoveRes::SuccessDrop(GameDropInfo {
                     lines_cleared: res.lines_cleared,
                     top_out: res.top_out,
                 })

@@ -1,14 +1,15 @@
 use super::board::Board;
+use super::GameMove;
 use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
-use lazy_static::lazy_static;
 use rand::prelude::Distribution;
 use rand::SeedableRng;
 use rand::{distributions::Uniform, rngs::StdRng};
 use std::convert::TryInto;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
+use std::lazy::SyncLazy;
 use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,8 +28,9 @@ pub enum PieceType {
     S,
     Z,
 }
-lazy_static! {
-    static ref ALL_PIECE_TYPES: Vec<PieceType> = vec![
+
+static ALL_PIECE_TYPES: SyncLazy<Vec<PieceType>> = SyncLazy::new(|| {
+    vec![
         PieceType::O,
         PieceType::I,
         PieceType::T,
@@ -36,8 +38,9 @@ lazy_static! {
         PieceType::J,
         PieceType::S,
         PieceType::Z,
-    ];
-}
+    ]
+});
+
 impl PieceType {
     pub fn all() -> &'static [PieceType] {
         &ALL_PIECE_TYPES
@@ -147,6 +150,34 @@ impl Bag {
     }
     pub fn pieces(&self) -> &[PieceType] {
         &self.arr
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum PieceMove {
+    ShiftLeft,
+    ShiftRight,
+    ShiftDown,
+    RotateLeft,
+    Rotate180,
+    RotateRight,
+    SoftDrop,
+}
+impl TryFrom<GameMove> for PieceMove {
+    type Error = ();
+
+    fn try_from(value: GameMove) -> Result<Self, Self::Error> {
+        match value {
+            GameMove::ShiftLeft => Ok(PieceMove::ShiftLeft),
+            GameMove::ShiftRight => Ok(PieceMove::ShiftRight),
+            GameMove::ShiftDown => Ok(PieceMove::ShiftDown),
+            GameMove::RotateLeft => Ok(PieceMove::RotateLeft),
+            GameMove::RotateRight => Ok(PieceMove::RotateRight),
+            GameMove::Rotate180 => Ok(PieceMove::Rotate180),
+            GameMove::SoftDrop => Ok(PieceMove::SoftDrop),
+            GameMove::Hold => Err(()),
+            GameMove::HardDrop => Err(()),
+        }
     }
 }
 
@@ -335,6 +366,17 @@ impl Piece {
         // Keep shifting down while possible
         while let PieceMoveRes::Success = self.shift_down(&board) {}
         PieceMoveRes::Success
+    }
+    pub fn make_move(&mut self, piece_move: PieceMove, board: &Board) -> PieceMoveRes {
+        match piece_move {
+            PieceMove::ShiftLeft => self.shift_left(board),
+            PieceMove::ShiftRight => self.shift_right(board),
+            PieceMove::ShiftDown => self.shift_down(board),
+            PieceMove::RotateLeft => self.rotate_left(board),
+            PieceMove::Rotate180 => self.rotate_180(board),
+            PieceMove::RotateRight => self.rotate_right(board),
+            PieceMove::SoftDrop => self.soft_drop(board),
+        }
     }
 }
 impl Display for Piece {

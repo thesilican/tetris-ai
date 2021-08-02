@@ -1,11 +1,11 @@
-use crate::api::json::JsonOutput;
-use crate::model::{Bag, Game, GameMove, GameMoveRes, BOARD_HEIGHT, SSSR};
+use crate::api::json::JsonAiRes;
+use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, BOARD_HEIGHT, MOVES_2F};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
-pub enum TetrisAiRes {
+pub enum AiRes {
     Success {
         moves: Vec<GameMove>,
         score: Option<f64>,
@@ -14,10 +14,10 @@ pub enum TetrisAiRes {
         reason: String,
     },
 }
-impl Display for TetrisAiRes {
+impl Display for AiRes {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            TetrisAiRes::Success { moves, score } => {
+            AiRes::Success { moves, score } => {
                 let score = match score {
                     Some(score) => format!("{:.2}", score),
                     None => String::from("None"),
@@ -29,20 +29,20 @@ impl Display for TetrisAiRes {
                     .join(", ");
                 write!(f, "Eval Score: {} Moves: [{}]", score, moves)
             }
-            TetrisAiRes::Fail { reason } => {
+            AiRes::Fail { reason } => {
                 write!(f, "Eval Failed: {}", reason)
             }
         }
     }
 }
 
-pub trait TetrisAi {
-    fn evaluate(&mut self, game: &Game) -> TetrisAiRes;
+pub trait Ai {
+    fn evaluate(&mut self, game: &Game) -> AiRes;
     fn api_evaluate(&mut self, req: String) -> String {
         let game = match Game::from_str(&req) {
             Ok(game) => game,
             Err(parse_err) => {
-                let output = JsonOutput::Fail {
+                let output = JsonAiRes::Fail {
                     success: false,
                     reason: format!("Invalid request: {}", parse_err),
                 };
@@ -62,7 +62,7 @@ pub trait TetrisAi {
             let res = self.evaluate(&game);
             let elapsed = start.elapsed();
             match res {
-                TetrisAiRes::Success { moves, score } => {
+                AiRes::Success { moves, score } => {
                     for game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(*game_move);
@@ -89,7 +89,7 @@ pub trait TetrisAi {
                         game, score, moves, elapsed
                     );
                 }
-                TetrisAiRes::Fail { reason } => {
+                AiRes::Fail { reason } => {
                     println!("Evaluation failed: {}", reason);
                     break;
                 }
@@ -111,13 +111,13 @@ pub trait TetrisAi {
             total_time += elapsed;
 
             match res {
-                TetrisAiRes::Success { moves, .. } => {
+                AiRes::Success { moves, .. } => {
                     for game_move in moves {
                         game.make_move(game_move);
                     }
                     game.refill_queue_shuffled(&mut bag);
                 }
-                TetrisAiRes::Fail { .. } => {
+                AiRes::Fail { .. } => {
                     // Reset game
                     game = Game::from_bag_shuffled(&mut bag);
                 }
@@ -135,12 +135,13 @@ impl SimpleAi {
         SimpleAi
     }
 }
-impl TetrisAi for SimpleAi {
-    fn evaluate(&mut self, game: &Game) -> TetrisAiRes {
-        let child_states = game.child_states(SSSR);
+impl Ai for SimpleAi {
+    fn evaluate(&mut self, game: &Game) -> AiRes {
+        let child_states = game.child_states(&MOVES_2F);
         let mut best_moves = None;
         let mut best_height = BOARD_HEIGHT;
-        for (game, moves) in child_states.iter() {
+        for child_state in child_states.iter() {
+            let ChildState { game, moves } = child_state;
             let max_height = game.board.height_map.iter().fold(0, |a, b| a.max(*b)) as i32;
             if max_height < best_height {
                 best_height = max_height;
@@ -148,11 +149,11 @@ impl TetrisAi for SimpleAi {
             }
         }
         match best_moves {
-            Some(moves) => TetrisAiRes::Success {
+            Some(moves) => AiRes::Success {
                 moves: Vec::from(moves),
                 score: Some(child_states.len() as f64),
             },
-            None => TetrisAiRes::Fail {
+            None => AiRes::Fail {
                 reason: "No valid moves".into(),
             },
         }

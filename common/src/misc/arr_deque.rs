@@ -106,7 +106,12 @@ where
     T: PartialEq<T>,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.arr == other.arr
+        for i in 0..self.len() {
+            if self[i] != other[i] {
+                return false;
+            }
+        }
+        true
     }
 }
 impl<T, const N: usize> Eq for ArrDeque<T, N> where T: Eq {}
@@ -115,8 +120,8 @@ where
     T: Hash,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for obj in self.arr.iter() {
-            obj.hash(state);
+        for i in 0..self.len() {
+            self[i].hash(state);
         }
     }
 }

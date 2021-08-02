@@ -1,4 +1,4 @@
 mod ai;
 mod json;
 
-pub use ai::{SimpleAi, TetrisAi, TetrisAiRes};
+pub use ai::{Ai, AiRes, SimpleAi};
