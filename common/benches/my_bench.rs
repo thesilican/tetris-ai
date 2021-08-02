@@ -1,18 +1,11 @@
-#![feature(test)]
-extern crate test;
 use common::model::Bag;
 use common::model::Game;
 use common::model::GameMove;
 use common::model::MOVES_0F;
 use common::model::MOVES_2F;
 use common::model::MOVES_4F;
-use test::{black_box, Bencher};
+use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
-/*
-    Progress:
-    2021-07-11: 449,750 ns/iter (+/- 7,400)
-*/
-#[bench]
 fn dt_cannon_loop(b: &mut Bencher) {
     // moves is 175 GameMoves long
     // Assumption: Queue starts with [O] I T L ...
@@ -207,11 +200,6 @@ fn dt_cannon_loop(b: &mut Bencher) {
     })
 }
 
-/*
-    Progress:
-    2021-07-11: 1,464 ns/iter (+/- 13)
-*/
-#[bench]
 fn copy_game(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
@@ -223,12 +211,6 @@ fn copy_game(b: &mut Bencher) {
     })
 }
 
-/*
-    Progress:
-    2021-07-11: 419,083 ns/iter (+/- 6,910)
-    2021-07-13: 416,748 ns/iter (+/- 17,293)
-*/
-#[bench]
 fn gen_child_states_f4(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
@@ -238,12 +220,6 @@ fn gen_child_states_f4(b: &mut Bencher) {
     })
 }
 
-/*
-    Progress:
-    2021-07-11: 67,499 ns/iter (+/- 728)
-    2021-07-13: 63,911 ns/iter (+/- 594)
-*/
-#[bench]
 fn gen_child_states_f2(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
@@ -253,13 +229,7 @@ fn gen_child_states_f2(b: &mut Bencher) {
     })
 }
 
-/*
-    Progress:
-    2021-07-11: 10,611 ns/iter (+/- 398)
-    2021-07-13: 8,228 ns/iter (+/- 338)
-*/
-#[bench]
-fn gen_child_states_0f(b: &mut Bencher) {
+fn gen_child_states_f0(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
@@ -267,3 +237,13 @@ fn gen_child_states_0f(b: &mut Bencher) {
         black_box(children);
     })
 }
+pub fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function("dt_cannon_loop", dt_cannon_loop);
+    c.bench_function("copy_game", copy_game);
+    c.bench_function("gen_child_states_f4", gen_child_states_f4);
+    c.bench_function("gen_child_states_f2", gen_child_states_f2);
+    c.bench_function("gen_child_states_f0", gen_child_states_f0);
+}
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);

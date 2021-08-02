@@ -11,6 +11,11 @@ rand = "0.8"
 
 [dev-dependencies]
 termion = "1.5"
+criterion = { version = "0.3", features = ["html_reports"] }
 
 [profile.release]
 debug = true
+
+[[bench]]
+name = "my_bench"
+harness = false
