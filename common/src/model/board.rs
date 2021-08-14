@@ -75,6 +75,25 @@ impl Board {
             self.recalculate_metadata(i, BOARD_HEIGHT);
         }
     }
+    pub fn add_garbage(&mut self, col: i32, height: i32) {
+        assert!(col >= 0 && col < BOARD_WIDTH);
+        assert!(height >= 0 && height < BOARD_HEIGHT);
+        // Copy rows up
+        for j in (height..BOARD_HEIGHT).rev() {
+            self.matrix[j as usize] = self.matrix[(j - height) as usize];
+        }
+        // Set garbage rows
+        let garbage_row: u16 = ((1 << BOARD_WIDTH) - 1) & !(1 << col);
+        for j in 0..height {
+            self.matrix[j as usize] = garbage_row;
+        }
+        // Update Metadata
+        for i in 0..BOARD_WIDTH {
+            let max_height =
+                std::cmp::min(self.height_map[i as usize] as i32 + height, BOARD_HEIGHT);
+            self.recalculate_metadata(i, max_height);
+        }
+    }
     pub fn intersects_with(&self, piece: &Piece) -> bool {
         let p_y = piece.location.1 as i32;
         let shape = piece.get_bit_shape(None, None);
@@ -115,19 +134,20 @@ impl Board {
         // Check for top-out
         let top_out = self.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0;
 
-        // Recalcluate metadatas
-        // TODO: Figure out an efficient method for this
+        // Recalculate height map
         let mut height_map_max = i8::MIN;
         for height in self.height_map {
             if height > height_map_max {
                 height_map_max = height;
             }
         }
+        // Current maximum possible height of the board
         let max_height = std::cmp::min(
             height_map_max as i32 + PIECE_SHAPE_SIZE - lines_cleared,
             BOARD_HEIGHT,
         );
         if lines_cleared == 0 {
+            // Only check metadata for the columns that the piece dropped in
             for i in 0..PIECE_SHAPE_SIZE {
                 let x = i + (p_x as i32);
                 if x < 0 || x >= BOARD_WIDTH {
@@ -136,6 +156,7 @@ impl Board {
                 self.recalculate_metadata(x, max_height);
             }
         } else {
+            // Check all columns
             for x in 0..BOARD_WIDTH {
                 self.recalculate_metadata(x, max_height);
             }
@@ -151,8 +172,8 @@ impl Board {
     }
 
     fn recalculate_metadata(&mut self, x: i32, max_height: i32) {
-        // max_height - assert that all cells above (x, max_height)
-        // is empty
+        // max_height - assert that the cell (x, max_height)
+        // and all the cells above it are empty
         for j in (0..max_height).rev() {
             if self.get(x, j) {
                 self.height_map[x as usize] = (j + 1) as i8;

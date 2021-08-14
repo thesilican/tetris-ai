@@ -50,6 +50,7 @@ fn main() -> Result<(), GenericErr> {
             Key::Char('c') => {
                 game.make_move(GameMove::Hold);
             }
+            Key::Char('g') => game.board.add_garbage(6, 2),
             _ => {}
         }
 
