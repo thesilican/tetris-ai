@@ -133,7 +133,19 @@ function main(app: any) {
   startButton.addEventListener("click", async () => {
     startButton.innerText = "Recording...";
     const frames = await captureFrames(app);
-    downloadJSON(`${getFrameName()}.json`, frames);
+    // Process frames
+    // FrameJSON Schema:
+    // board: (0|1)[][]
+    // active: (0|1)[][]
+    // hold: [0-6|null, bool] <-- canHold (!isGray)
+    // queue: (0-6)[]
+    const framesJSON = frames.map((frame) => ({
+      board: frame.board.map((col) => col.map((x) => (x === null ? 0 : 1))),
+      active: frame.active.map((col) => col.map((x) => (x === null ? 0 : 1))),
+      hold: [frame.hold[0], !frame.hold[1]],
+      queue: frame.queue,
+    }));
+    downloadJSON(`${getFrameName()}.json`, framesJSON);
     startButton.innerText = "Record frames";
   });
 }
