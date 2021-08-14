@@ -160,7 +160,6 @@ impl Bag {
 pub enum PieceMove {
     ShiftLeft,
     ShiftRight,
-    ShiftDown,
     RotateLeft,
     Rotate180,
     RotateRight,
@@ -173,7 +172,6 @@ impl TryFrom<GameMove> for PieceMove {
         match value {
             GameMove::ShiftLeft => Ok(PieceMove::ShiftLeft),
             GameMove::ShiftRight => Ok(PieceMove::ShiftRight),
-            GameMove::ShiftDown => Ok(PieceMove::ShiftDown),
             GameMove::RotateLeft => Ok(PieceMove::RotateLeft),
             GameMove::RotateRight => Ok(PieceMove::RotateRight),
             GameMove::Rotate180 => Ok(PieceMove::Rotate180),
@@ -377,7 +375,6 @@ impl Piece {
         match piece_move {
             PieceMove::ShiftLeft => self.shift_left(board),
             PieceMove::ShiftRight => self.shift_right(board),
-            PieceMove::ShiftDown => self.shift_down(board),
             PieceMove::RotateLeft => self.rotate_left(board),
             PieceMove::Rotate180 => self.rotate_180(board),
             PieceMove::RotateRight => self.rotate_right(board),
