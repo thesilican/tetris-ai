@@ -316,7 +316,6 @@ impl PieceInfo {
             tljsz_kick_table.clone(),
             tljsz_kick_table,
         ];
-        println!("{}", std::mem::size_of::<Self>());
         PieceInfo {
             spawn_locations,
             shapes,

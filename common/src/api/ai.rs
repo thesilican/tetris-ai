@@ -1,10 +1,11 @@
-use crate::api::json::JsonAiRes;
 use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, BOARD_HEIGHT, MOVES_2F};
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(from = "AiResSer")]
+#[serde(into = "AiResSer")]
 pub enum AiRes {
     Success {
         moves: Vec<GameMove>,
@@ -36,21 +37,59 @@ impl Display for AiRes {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+// Tagged version of AiResSer, used for ser/de
+enum AiResSer {
+    Success {
+        success: bool,
+        moves: Vec<GameMove>,
+        score: Option<f64>,
+    },
+    Fail {
+        success: bool,
+        reason: String,
+    },
+}
+impl From<AiRes> for AiResSer {
+    fn from(ai_res: AiRes) -> Self {
+        match ai_res {
+            AiRes::Success { moves, score } => AiResSer::Success {
+                success: true,
+                moves,
+                score,
+            },
+            AiRes::Fail { reason } => AiResSer::Fail {
+                success: false,
+                reason,
+            },
+        }
+    }
+}
+impl From<AiResSer> for AiRes {
+    fn from(ai_res_ser: AiResSer) -> Self {
+        match ai_res_ser {
+            AiResSer::Success { moves, score, .. } => AiRes::Success { moves, score },
+            AiResSer::Fail { reason, .. } => AiRes::Fail { reason },
+        }
+    }
+}
+
 pub trait Ai {
     fn evaluate(&mut self, game: &Game) -> AiRes;
-    fn api_evaluate(&mut self, req: String) -> String {
-        let game = match Game::from_str(&req) {
+    /// Same as ai.evaluate() but using JSON as input/output
+    fn api_evaluate(&mut self, req: &str) -> String {
+        let game = match serde_json::from_str(&req) {
             Ok(game) => game,
             Err(parse_err) => {
-                let output = JsonAiRes::Fail {
-                    success: false,
+                let output = AiRes::Fail {
                     reason: format!("Invalid request: {}", parse_err),
                 };
                 return serde_json::to_string(&output).unwrap();
             }
         };
         let res = self.evaluate(&game);
-        res.serialize()
+        serde_json::to_string(&res).unwrap()
     }
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
@@ -129,6 +168,10 @@ pub trait Ai {
     }
 }
 
+/// A very simple ai, useful for testing.
+///
+/// Algorithm: Get all child states, pick first child state with the lowest
+/// max board height.
 pub struct SimpleAi;
 impl SimpleAi {
     pub fn new() -> Self {

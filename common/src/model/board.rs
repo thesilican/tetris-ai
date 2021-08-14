@@ -1,5 +1,6 @@
 use super::piece::Piece;
 use crate::model::consts::*;
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8,7 +9,9 @@ pub struct BoardLockRes {
     pub lines_cleared: i32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(from = "BoardSer")]
+#[serde(into = "BoardSer")]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT as usize],
     pub height_map: [i8; BOARD_WIDTH as usize],
@@ -19,6 +22,11 @@ impl Board {
             matrix: [0; BOARD_HEIGHT as usize],
             height_map: [0; BOARD_WIDTH as usize],
         }
+    }
+    pub fn from_matrix(matrix: [u16; BOARD_HEIGHT as usize]) -> Self {
+        let mut board = Board::new();
+        board.set_matrix(matrix);
+        board
     }
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.matrix[y as usize] & (1 << x) != 0
@@ -32,7 +40,7 @@ impl Board {
         } else {
             self.matrix[y as usize] &= !(1 << x);
         }
-        let max_height = std::cmp::max(y, self.height_map[x as usize] as i32);
+        let max_height = std::cmp::max(y + 1, self.height_map[x as usize] as i32);
         self.recalculate_metadata(x, max_height);
     }
     pub fn set_col(&mut self, x: i32, height: i32) {
@@ -145,17 +153,13 @@ impl Board {
     fn recalculate_metadata(&mut self, x: i32, max_height: i32) {
         // max_height - assert that all cells above (x, max_height)
         // is empty
-        let mut encountered = false;
-        let mut height = 0;
         for j in (0..max_height).rev() {
-            if self.matrix[j as usize] & (1 << x) != 0 {
-                if !encountered {
-                    encountered = true;
-                    height = (j + 1) as i8;
-                }
+            if self.get(x, j) {
+                self.height_map[x as usize] = (j + 1) as i8;
+                return;
             }
         }
-        self.height_map[x as usize] = height;
+        self.height_map[x as usize] = 0;
     }
 }
 // Only compare matrix, other fields are only metadata
@@ -168,5 +172,38 @@ impl Eq for Board {}
 impl Hash for Board {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.matrix.hash(state);
+    }
+}
+
+// Small type used for ser/de
+type BoardSer = [[u8; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
+impl From<BoardSer> for Board {
+    fn from(ser: BoardSer) -> Self {
+        let mut board = Board::new();
+        for (i, col) in ser.iter().enumerate() {
+            for (j, cell) in col.iter().enumerate() {
+                let val = match cell {
+                    0 => false,
+                    _ => true,
+                };
+                board.set(i as i32, j as i32, val);
+            }
+        }
+        board
+    }
+}
+impl From<Board> for BoardSer {
+    fn from(board: Board) -> Self {
+        let mut ser: BoardSer = Default::default();
+        for i in 0..BOARD_WIDTH {
+            for j in 0..BOARD_HEIGHT {
+                let val = match board.get(i, j) {
+                    false => 0,
+                    true => 1,
+                };
+                ser[i as usize][j as usize] = val;
+            }
+        }
+        ser
     }
 }

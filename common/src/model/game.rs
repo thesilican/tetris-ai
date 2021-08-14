@@ -6,12 +6,12 @@ use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
 use std::hash::Hash;
-use std::hash::Hasher;
 use std::str::FromStr;
 
 use super::piece::{Bag, PieceMove};
@@ -36,7 +36,8 @@ pub enum GameMoveRes {
     Failed,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum GameMove {
     ShiftLeft,
     ShiftRight,
@@ -95,12 +96,16 @@ impl From<PieceMove> for GameMove {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Game {
     pub board: Board,
+    #[serde(rename = "current")]
     pub current_piece: Piece,
+    #[serde(rename = "hold")]
     pub hold_piece: Option<PieceType>,
+    #[serde(rename = "queue")]
     pub queue_pieces: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
+    #[serde(rename = "canHold")]
     pub can_hold: bool,
 }
 impl Game {
@@ -291,21 +296,5 @@ impl Display for Game {
         write!(f, "[{1}] ({0}) {2}", curr, hold, queue_text)?;
 
         Ok(())
-    }
-}
-impl PartialEq for Game {
-    fn eq(&self, other: &Self) -> bool {
-        self.board == other.board
-            && self.current_piece == other.current_piece
-            && self.hold_piece == other.hold_piece
-            && self.queue_pieces == other.queue_pieces
-    }
-}
-impl Hash for Game {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.board.hash(state);
-        self.current_piece.hash(state);
-        self.hold_piece.hash(state);
-        self.queue_pieces.hash(state);
     }
 }

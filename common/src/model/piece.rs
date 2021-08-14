@@ -6,6 +6,7 @@ use crate::model::piece_computed::PIECE_INFO;
 use rand::prelude::Distribution;
 use rand::SeedableRng;
 use rand::{distributions::Uniform, rngs::StdRng};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
@@ -18,7 +19,9 @@ pub enum PieceMoveRes {
     Failed,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "i32")]
+#[serde(into = "i32")]
 pub enum PieceType {
     O,
     I,
@@ -181,10 +184,13 @@ impl TryFrom<GameMove> for PieceMove {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Piece {
+    #[serde(rename = "type")]
     pub piece_type: PieceType,
+    #[serde(rename = "rot")]
     pub rotation: i8,
+    #[serde(rename = "loc")]
     pub location: (i8, i8),
 }
 // Piece info stuff

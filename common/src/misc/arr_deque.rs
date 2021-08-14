@@ -1,5 +1,9 @@
+use serde::de::{Error, SeqAccess, Visitor};
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-use std::{convert::TryInto, iter::FromIterator, ops::Index};
+use std::marker::PhantomData;
+use std::{iter::FromIterator, ops::Index};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InsertRes {
@@ -21,12 +25,7 @@ impl<T, const N: usize> ArrDeque<T, N> {
         // Work around so that T does not need to be Copy
         // Initializes the array with None
         // Slow but at least doesn't require unsafe
-        let arr = (0..N)
-            .map(|_| None)
-            .collect::<Vec<Option<T>>>()
-            .try_into()
-            .ok()
-            .unwrap();
+        let arr = [(); N].map(|_| None);
         ArrDeque {
             head: 0,
             len: 0,
@@ -144,5 +143,69 @@ where
             }
         }
         arr
+    }
+}
+
+// Manually implement ser/de (because derive doesn't seem to work)
+impl<T, const N: usize> Serialize for ArrDeque<T, N>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.len()))?;
+        for val in self.iter() {
+            state.serialize_element(val)?;
+        }
+        state.end()
+    }
+}
+struct ArrDequeVisitor<T, const N: usize> {
+    marker: PhantomData<fn() -> ArrDeque<T, N>>,
+}
+impl<T, const N: usize> ArrDequeVisitor<T, N> {
+    fn new() -> Self {
+        ArrDequeVisitor {
+            marker: PhantomData,
+        }
+    }
+}
+impl<'de, T, const N: usize> Visitor<'de> for ArrDequeVisitor<T, N>
+where
+    T: Deserialize<'de>,
+{
+    type Value = ArrDeque<T, N>;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "ring-vector with max capacity {}", N)
+    }
+    fn visit_seq<S>(self, mut access: S) -> Result<Self::Value, S::Error>
+    where
+        S: SeqAccess<'de>,
+    {
+        let mut arr = ArrDeque::<T, N>::new();
+        while let Some(val) = access.next_element::<T>()? {
+            if let InsertRes::Full = arr.push_back(val) {
+                return Err(S::Error::custom(format!(
+                    "supplied value longer than max capacity: {}",
+                    N
+                )));
+            }
+        }
+        Ok(arr)
+    }
+}
+
+impl<'de, T, const N: usize> Deserialize<'de> for ArrDeque<T, N>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(ArrDequeVisitor::new())
     }
 }

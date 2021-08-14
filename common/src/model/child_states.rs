@@ -10,6 +10,9 @@ pub struct ChildState<'a> {
 }
 
 impl Game {
+    // Given a list of list of moves: &[Vec<GameMove>]
+    // Return an array of unique child states
+    // Which includes a game state plus a list of moves used to get there
     pub fn child_states<'a>(&self, moves_list: &'a [Vec<GameMove>]) -> Vec<ChildState<'a>> {
         let mut child_states = Vec::<ChildState<'a>>::new();
         let mut map = HashMap::<Game, usize>::new();
@@ -17,6 +20,10 @@ impl Game {
             let mut game = self.clone();
             for game_move in moves {
                 game.make_move(*game_move);
+            }
+            // Ignore topped-out games
+            if game.board.topped_out() {
+                continue;
             }
             match map.entry(game) {
                 Entry::Occupied(entry) => {
