@@ -15,7 +15,7 @@ struct JsonGame {
     pub current: i32,
     pub hold: Option<i32>,
     pub queue: Vec<i32>,
-    pub matrix: Vec<Vec<bool>>,
+    pub matrix: [[bool; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
 }
 impl TryFrom<JsonGame> for Game {
     type Error = GenericErr;
@@ -38,19 +38,11 @@ impl TryFrom<JsonGame> for Game {
         for piece in input.queue {
             queue.push(try_parse_piece(piece)?);
         }
-        let matrix_w = input.matrix.len();
-        let matrix_h = input.matrix.get(0).map(|x| x.len()).unwrap_or(0);
-        if matrix_w != BOARD_WIDTH as usize || matrix_h != BOARD_VISIBLE_HEIGHT as usize {
-            return Err(format!(
-                "Error parsing JSON: Invalid matrix dimensions {}x{}",
-                matrix_w, matrix_h
-            )
-            .into());
-        }
+
         let mut matrix = [0; BOARD_HEIGHT as usize];
-        for (i, row) in input.matrix.into_iter().enumerate() {
-            for (j, cell) in row.into_iter().enumerate() {
-                if cell {
+        for (i, row) in input.matrix.iter().enumerate() {
+            for (j, cell) in row.iter().enumerate() {
+                if *cell {
                     matrix[j] |= 1 << i;
                 }
             }
@@ -70,14 +62,12 @@ impl FromStr for Game {
 }
 impl From<Game> for JsonGame {
     fn from(game: Game) -> Self {
-        let mut matrix = Vec::new();
+        let mut matrix = [[false; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
         for j in 0..BOARD_WIDTH {
-            let mut col = Vec::new();
             for i in 0..BOARD_HEIGHT {
                 let cell = game.board.get(i, j);
-                col.push(cell);
+                matrix[i as usize][j as usize] = cell;
             }
-            matrix.push(col);
         }
         JsonGame {
             current: game.current_piece.piece_type.into(),
@@ -123,7 +113,7 @@ impl From<AiRes> for JsonAiRes {
     }
 }
 impl AiRes {
-    pub fn to_json(self) -> String {
+    pub fn serialize(self) -> String {
         let output = JsonAiRes::from(self);
         serde_json::to_string(&output).unwrap()
     }

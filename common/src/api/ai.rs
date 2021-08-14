@@ -50,7 +50,7 @@ pub trait Ai {
             }
         };
         let res = self.evaluate(&game);
-        res.to_json()
+        res.serialize()
     }
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
