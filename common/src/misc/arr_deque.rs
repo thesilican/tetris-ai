@@ -35,6 +35,9 @@ impl<T, const N: usize> ArrDeque<T, N> {
     pub fn len(&self) -> usize {
         self.len
     }
+    pub fn capacity(&self) -> usize {
+        N
+    }
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
