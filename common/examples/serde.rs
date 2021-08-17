@@ -18,13 +18,13 @@ fn main() {
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         ],
         "current": {
-            "type": 1,
+            "type": "O",
             "rot": 0,
             "loc": [3, 19]
         },
         "hold": null,
         "canHold": true,
-        "queue": [0, 2, 3, 4, 5, 6, 6, 6]
+        "queue": ["O", "I", "J", "L", "Z"]
     }"#;
     let mut game: Game = serde_json::from_str(req).unwrap();
     println!("{}", std::mem::size_of::<Game>());

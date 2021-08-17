@@ -20,8 +20,8 @@ pub enum PieceMoveRes {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "i32")]
-#[serde(into = "i32")]
+#[serde(try_from = "char")]
+#[serde(into = "char")]
 pub enum PieceType {
     O,
     I,
