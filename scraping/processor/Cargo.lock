@@ -60,6 +60,9 @@ name = "processor"
 version = "0.1.0"
 dependencies = [
  "common",
+ "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
