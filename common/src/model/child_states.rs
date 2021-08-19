@@ -44,9 +44,9 @@ impl Game {
     }
 }
 
-static FRAGMENT_HOLD: SyncLazy<Vec<Vec<GameMove>>> =
+pub static FRAGMENT_HOLD: SyncLazy<Vec<Vec<GameMove>>> =
     SyncLazy::new(|| vec![vec![], vec![GameMove::Hold]]);
-static FRAGMENT_ROT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static FRAGMENT_ROT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     vec![
         vec![],
         vec![GameMove::RotateRight],
@@ -54,7 +54,7 @@ static FRAGMENT_ROT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
         vec![GameMove::RotateLeft],
     ]
 });
-static FRAGMENT_SHIFT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static FRAGMENT_SHIFT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     vec![
         vec![GameMove::ShiftLeft; 5],
         vec![GameMove::ShiftLeft; 4],
@@ -69,7 +69,7 @@ static FRAGMENT_SHIFT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
         vec![GameMove::ShiftRight; 5],
     ]
 });
-static FRAGMENT_FINAL: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static FRAGMENT_FINAL: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     vec![
         vec![],
         vec![GameMove::ShiftLeft],
