@@ -1,6 +1,6 @@
-use processor::load_frames;
+use processor::{frames_to_replay, load_frames};
 
 fn main() {
     let frames = load_frames();
-    dbg!(frames[0].frames.len());
+    let replay = frames_to_replay(&frames[0]);
 }

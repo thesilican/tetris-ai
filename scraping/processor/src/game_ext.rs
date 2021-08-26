@@ -1,11 +1,16 @@
-use common::model::{Game, GameDropInfo, GameMove, GameMoveRes, PieceType, GAME_MAX_QUEUE_LEN};
+use common::{
+    misc::ArrDeque,
+    model::{
+        Board, Game, GameDropInfo, GameMove, GameMoveRes, Piece, PieceType, GAME_MAX_QUEUE_LEN,
+    },
+};
 use std::{
-    collections::VecDeque,
+    collections::{hash_map::Entry, HashMap, VecDeque},
     convert::{TryFrom, TryInto},
     iter::FromIterator,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameAction {
     ShiftLeft,
     ShiftRight,
@@ -17,6 +22,20 @@ pub enum GameAction {
     SoftDrop,
     HardDrop,
     AddGarbage { col: i32, height: i32 },
+}
+impl From<GameMove> for GameAction {
+    fn from(value: GameMove) -> Self {
+        match value {
+            GameMove::ShiftLeft => GameAction::ShiftLeft,
+            GameMove::ShiftRight => GameAction::ShiftRight,
+            GameMove::RotateLeft => GameAction::RotateLeft,
+            GameMove::RotateRight => GameAction::RotateRight,
+            GameMove::Rotate180 => GameAction::Rotate180,
+            GameMove::SoftDrop => GameAction::SoftDrop,
+            GameMove::Hold => GameAction::Hold,
+            GameMove::HardDrop => GameAction::HardDrop,
+        }
+    }
 }
 impl TryFrom<GameAction> for GameMove {
     type Error = ();
@@ -65,6 +84,9 @@ impl LongQueue {
     pub fn dequeue(&mut self) -> Option<PieceType> {
         self.0.pop_front()
     }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 impl FromIterator<PieceType> for LongQueue {
     fn from_iter<T: IntoIterator<Item = PieceType>>(iter: T) -> Self {
@@ -72,10 +94,21 @@ impl FromIterator<PieceType> for LongQueue {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChildStateAction<'a> {
+    pub game: Game,
+    pub actions: &'a [GameAction],
+}
+
 // Workaround for https://doc.rust-lang.org/error-index.html#E0116
 pub trait GameExt {
+    fn from_long_queue(queue: &mut LongQueue) -> Self;
     fn apply_action(&mut self, action: GameAction) -> GameActionRes;
     fn refill_long_queue(&mut self, queue: &mut LongQueue);
+    fn child_states_action<'a>(
+        &self,
+        moves_list: &'a [Vec<GameAction>],
+    ) -> Vec<ChildStateAction<'a>>;
 }
 
 impl GameExt for Game {
@@ -104,8 +137,54 @@ impl GameExt for Game {
         }
     }
     fn refill_long_queue(&mut self, queue: &mut LongQueue) {
-        while self.queue_pieces.len() < GAME_MAX_QUEUE_LEN {
+        while self.queue_pieces.len() < GAME_MAX_QUEUE_LEN && queue.len() > 0 {
             self.queue_pieces.push_back(queue.dequeue().unwrap());
         }
+    }
+
+    fn from_long_queue(queue: &mut LongQueue) -> Self {
+        Game {
+            board: Board::new(),
+            current_piece: Piece::from(queue.dequeue().unwrap()),
+            hold_piece: None,
+            queue_pieces: {
+                let mut arr = ArrDeque::new();
+                while arr.len() < GAME_MAX_QUEUE_LEN {
+                    arr.push_back(queue.dequeue().unwrap());
+                }
+                arr
+            },
+            can_hold: true,
+        }
+    }
+
+    // Basically copy pasted game.child_states(), but using GameAction
+    fn child_states_action<'a>(
+        &self,
+        actions_list: &'a [Vec<GameAction>],
+    ) -> Vec<ChildStateAction<'a>> {
+        let mut child_states = Vec::<ChildStateAction<'a>>::new();
+        let mut map = HashMap::<Game, usize>::new();
+        for actions in actions_list {
+            let mut game = self.clone();
+            for game_action in actions {
+                game.apply_action(*game_action);
+            }
+            match map.entry(game) {
+                Entry::Occupied(entry) => {
+                    let index = entry.get();
+                    let other_actions = child_states[*index].actions;
+                    if actions.len() < other_actions.len() {
+                        // Replace with faster actions
+                        child_states[*index].actions = actions;
+                    }
+                }
+                Entry::Vacant(entry) => {
+                    child_states.push(ChildStateAction { game, actions });
+                    entry.insert(child_states.len() - 1);
+                }
+            }
+        }
+        child_states
     }
 }

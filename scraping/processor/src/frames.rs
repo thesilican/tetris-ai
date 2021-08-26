@@ -1,67 +1,57 @@
 use common::model::*;
-use serde::Deserialize;
-use std::fs;
+use std::{ffi::OsStr, fs};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FrameCollection {
     pub name: String,
-    pub frames: Vec<Frame>,
+    pub frames: Vec<Game>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(from = "FrameJson")]
-pub struct Frame {
-    board: [u16; BOARD_HEIGHT as usize],
-    active: [u16; BOARD_HEIGHT as usize],
-    hold: Option<PieceType>,
-    can_hold: bool,
-    queue: Vec<PieceType>,
-}
-
-// Utility for deserializing frame JSONs
-#[derive(Debug, Deserialize)]
-struct FrameJson {
-    board: [[i8; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
-    active: [[i8; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
-    hold: (Option<PieceType>, bool),
-    queue: Vec<PieceType>,
-}
-impl From<FrameJson> for Frame {
-    fn from(frame_json: FrameJson) -> Self {
-        let mut board = [0; BOARD_HEIGHT as usize];
-        let mut active = [0; BOARD_HEIGHT as usize];
-        for i in 0..BOARD_WIDTH as usize {
-            for j in 0..BOARD_HEIGHT as usize {
-                if frame_json.active[i][j] == 1 {
-                    active[j] |= 1 << i;
-                }
-                if frame_json.board[i][j] == 1 {
-                    board[j] |= 1 << i;
-                }
-            }
+// Some frames are when the piece spawns then immediately shifts one space down
+// Remove the first of these pair of frames
+pub fn remove_shift_down_frames(frame_collection: &mut FrameCollection) {
+    let mut to_remove = Vec::new();
+    for (i, frame) in frame_collection.frames.iter().enumerate() {
+        if i == 0 {
+            continue;
         }
-        Frame {
-            board,
-            active,
-            hold: frame_json.hold.0,
-            queue: frame_json.queue,
-            can_hold: frame_json.hold.1,
+        let mut prev_frame = frame_collection.frames[i - 1];
+        if prev_frame.current_piece.location != *prev_frame.current_piece.get_spawn_location() {
+            continue;
         }
+        prev_frame.current_piece.shift_down(&prev_frame.board);
+        if prev_frame != *frame {
+            continue;
+        }
+        to_remove.push(i - 1);
+    }
+    for i in to_remove.into_iter().rev() {
+        frame_collection.frames.remove(i);
     }
 }
 
 pub fn load_frames() -> Vec<FrameCollection> {
+    println!("Loading frames...");
     let paths = fs::read_dir("data/frames").unwrap();
     let mut frame_collections = Vec::new();
     for path in paths {
         let path = path.unwrap();
         let file_name = path.path();
+        // println!("{:?} {:?}", file_name, file_name.extension());
+        if file_name.extension() != Some(OsStr::new("json")) {
+            continue;
+        }
         let text = fs::read_to_string(file_name).unwrap();
-        let frames = serde_json::from_str::<Vec<Frame>>(&text).unwrap();
-        frame_collections.push(FrameCollection {
-            name: path.file_name().to_str().unwrap().to_string(),
+        let frames = serde_json::from_str(&text).unwrap();
+        let mut frame_collection = FrameCollection {
+            name: path.path().file_stem().unwrap().to_str().unwrap().into(),
             frames,
-        });
+        };
+        remove_shift_down_frames(&mut frame_collection);
+        frame_collections.push(frame_collection);
     }
+    // Sort by name alphabetically
+    frame_collections.sort_by(|a, b| a.name.cmp(&b.name));
+    println!("Loaded {} frame collections", frame_collections.len());
     frame_collections
 }
