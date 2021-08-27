@@ -182,12 +182,15 @@ impl Ai for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
         let child_states = game.child_states(&MOVES_2F);
         let mut best_moves = None;
-        let mut best_height = BOARD_HEIGHT;
-        for child_state in child_states.iter() {
+        let mut best_height = i32::MAX;
+        let mut best_holes = i32::MAX;
+        for child_state in child_states.iter().rev() {
             let ChildState { game, moves } = child_state;
-            let max_height = game.board.height_map.iter().fold(0, |a, b| a.max(*b)) as i32;
-            if max_height < best_height {
-                best_height = max_height;
+            let height = game.board.height_map.iter().map(|x| *x as i32).sum();
+            let holes = game.board.calculate_holes().iter().sum();
+            if height < best_height || (height == best_height && holes < best_holes) {
+                best_height = height;
+                best_holes = holes;
                 best_moves = Some(*moves);
             }
         }

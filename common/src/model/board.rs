@@ -170,6 +170,17 @@ impl Board {
     pub fn topped_out(&self) -> bool {
         self.matrix[BOARD_VISIBLE_HEIGHT as usize] != 0
     }
+    pub fn calculate_holes(&self) -> [i32; BOARD_WIDTH as usize] {
+        let mut holes = [0; BOARD_WIDTH as usize];
+        for j in 0..BOARD_WIDTH as usize {
+            for i in 0..self.height_map[j] as usize {
+                if self.get(i as i32, j as i32) {
+                    holes[j] += 1;
+                }
+            }
+        }
+        holes
+    }
 
     fn recalculate_metadata(&mut self, x: i32, max_height: i32) {
         // max_height - assert that the cell (x, max_height)
