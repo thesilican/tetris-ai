@@ -2,6 +2,7 @@
 mod frames;
 mod game_ext;
 mod replay;
+mod training_data;
 mod transitions;
 
 pub use frames::{load_frames, FrameCollection};
