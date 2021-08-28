@@ -169,9 +169,7 @@ pub trait Ai {
 }
 
 /// A very simple ai, useful for testing.
-///
-/// Algorithm: Get all child states, pick first child state with the lowest
-/// max board height.
+/// Should never top out...
 pub struct SimpleAi;
 impl SimpleAi {
     pub fn new() -> Self {
@@ -186,7 +184,16 @@ impl Ai for SimpleAi {
         let mut best_holes = i32::MAX;
         for child_state in child_states.iter().rev() {
             let ChildState { game, moves } = child_state;
-            let height = game.board.height_map.iter().map(|x| *x as i32).sum();
+            let height = game
+                .board
+                .height_map
+                .iter()
+                .map(|x| {
+                    // Square so that higher heights are punished more
+                    let x = *x as i32;
+                    x * x
+                })
+                .sum();
             let holes = game.board.calculate_holes().iter().sum();
             if height < best_height || (height == best_height && holes < best_holes) {
                 best_height = height;
