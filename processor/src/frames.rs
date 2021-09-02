@@ -30,7 +30,7 @@ pub fn remove_shift_down_frames(frame_collection: &mut FrameCollection) {
     }
 }
 
-pub fn load_frames() -> Vec<FrameCollection> {
+pub fn load_frame_collections() -> Vec<FrameCollection> {
     println!("Loading frames...");
     let paths = fs::read_dir("data/frames").unwrap();
     let mut frame_collections = Vec::new();

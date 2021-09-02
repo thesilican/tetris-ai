@@ -3,9 +3,7 @@ mod frames;
 mod game_ext;
 mod replay;
 mod training_data;
-mod transitions;
 
-pub use frames::{load_frames, FrameCollection};
+pub use frames::{load_frame_collections, FrameCollection};
 pub use game_ext::{GameAction, GameExt};
-pub use replay::{frames_to_replay, Replay};
-pub use transitions::{replay_to_transition_chain, TransitionChain};
+pub use replay::{frame_collection_to_replay, Replay};

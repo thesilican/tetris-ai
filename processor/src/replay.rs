@@ -4,6 +4,7 @@ use common::model::{
     FRAGMENT_ROT, FRAGMENT_SHIFT, MOVES_4F,
 };
 use std::collections::HashSet;
+use std::fmt::{self, Display, Formatter};
 use std::lazy::SyncLazy;
 use std::{collections::VecDeque, convert::TryInto, iter::FromIterator};
 
@@ -12,6 +13,7 @@ pub struct Replay {
     pub name: String,
     pub queue: LongQueue,
     pub actions: Vec<GameAction>,
+    pub keyframes: Vec<KeyFrame>,
 }
 
 // Extract the queue from a game replay
@@ -51,22 +53,38 @@ fn frames_to_queue(frames: &FrameCollection) -> LongQueue {
     LongQueue::from_iter(pieces)
 }
 
-/// Keyframes are basically the first and last frame in between hard-drops
-#[derive(Debug)]
-struct Keyframe {
+// Keyframes are basically the first and last frame in between hard-drops
+// start is the frame directly after a hard drop and subsiquent garbage
+// end is the frame after all normal moves and before the first hard drop
+//      after the start frame
+// It is possible for start and end to be equal, if no moves were made
+//      between two hard drops
+#[derive(Debug, Clone)]
+pub struct KeyFrame {
     start: Game,
     end: Game,
 }
+impl Display for KeyFrame {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let game_1 = format!("{}", self.start);
+        let game_2 = format!("{}", self.end);
+        for (i, (a, b)) in game_1.lines().zip(game_2.lines()).enumerate() {
+            let sep = if i == 10 { "=>    " } else { "      " };
+            writeln!(f, "{: <24}{}{}", a, sep, b)?;
+        }
+        Ok(())
+    }
+}
 
 // Extracts the keyframes from a frame collection
-fn frames_to_keyframes(frames: &FrameCollection) -> Vec<Keyframe> {
+fn frames_to_keyframes(frames: &FrameCollection) -> Vec<KeyFrame> {
     let mut keyframes = Vec::new();
     let mut first_frame = frames.frames[0];
     let mut prev_frame = frames.frames[0];
     for frame in &frames.frames {
         let frame = *frame;
         if frame.board != prev_frame.board {
-            keyframes.push(Keyframe {
+            keyframes.push(KeyFrame {
                 start: first_frame,
                 end: prev_frame,
             });
@@ -74,10 +92,6 @@ fn frames_to_keyframes(frames: &FrameCollection) -> Vec<Keyframe> {
         }
         prev_frame = frame;
     }
-    // keyframes.push(Keyframe {
-    //     start: first_frame,
-    //     end: prev_frame,
-    // });
     keyframes
 }
 
@@ -164,7 +178,7 @@ static ACTIONS: SyncLazy<Vec<Vec<GameAction>>> = SyncLazy::new(|| {
 // Method do be kinda thick but whatever
 // Replay basically ensures that it is possible to have
 // a string of GameActions that intersects at every keyframe
-fn keyframes_queue_to_replay(name: String, keyframes: Vec<Keyframe>, queue: LongQueue) -> Replay {
+fn keyframes_queue_to_replay(name: String, keyframes: Vec<KeyFrame>, queue: LongQueue) -> Replay {
     // Test that two games are equal
     // If queues aren't same length, test the shortest of the twos
     fn games_eq(game_1: &Game, game_2: &Game) -> bool {
@@ -199,7 +213,8 @@ fn keyframes_queue_to_replay(name: String, keyframes: Vec<Keyframe>, queue: Long
         )
     }
     // Given a game and a target
-    // Find the appropriate amount of garbage lines needed to transfer from the first state to the last state
+    // First apply GameMove::HardDrop
+    // Then find the appropriate amount of garbage lines needed to transfer from the first state to the last state
     fn find_garbage(game: &mut Game, target: &Game) -> impl IntoIterator<Item = GameAction> {
         // Find the first matrix line where target[j..] == board[..?]
         // a.k.a. the number of lines of garbage added
@@ -252,11 +267,11 @@ fn keyframes_queue_to_replay(name: String, keyframes: Vec<Keyframe>, queue: Long
                     {
                         if *col == v {
                             *height += 1;
-                            return a;
                         }
+                    } else {
+                        // Otherwise add a new garbage column
+                        a.push(GameAction::AddGarbage { col: v, height: 1 });
                     }
-                    // Otherwise add a new garbage column
-                    a.push(GameAction::AddGarbage { col: v, height: 1 });
                     a
                 });
         for game_action in &garbage_actions {
@@ -279,11 +294,11 @@ fn keyframes_queue_to_replay(name: String, keyframes: Vec<Keyframe>, queue: Long
 
     // Start => End, just for the first keyframe
     let mut keyframes_iter = keyframes.iter();
-    let Keyframe { end, .. } = keyframes_iter.next().unwrap();
+    let KeyFrame { end, .. } = keyframes_iter.next().unwrap();
     actions.extend(find_actions(&mut game, &end));
 
     // Remaining keyframes..
-    for Keyframe { start, end } in keyframes_iter {
+    for KeyFrame { start, end } in keyframes_iter {
         // Prev end => Start
         actions.extend(find_garbage(&mut game, &start));
         // Start => End
@@ -295,10 +310,11 @@ fn keyframes_queue_to_replay(name: String, keyframes: Vec<Keyframe>, queue: Long
         actions,
         name,
         queue,
+        keyframes,
     }
 }
 
-pub fn frames_to_replay(frames: &FrameCollection) -> Replay {
+pub fn frame_collection_to_replay(frames: &FrameCollection) -> Replay {
     println!("Converting frame collection ({}) to replay...", frames.name);
     // Start by determining the queue
     let queue = frames_to_queue(frames);

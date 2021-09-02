@@ -1,11 +1,11 @@
 use common::misc::GenericErr;
-use processor::load_frames;
+use processor::load_frame_collections;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 fn main() -> Result<(), GenericErr> {
-    let frames = load_frames();
+    let frames = load_frame_collections();
     let frame_collection = frames[0].clone();
     let num_frames = frame_collection.frames.len();
     let mut index = 0;
