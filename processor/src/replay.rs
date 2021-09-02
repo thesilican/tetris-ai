@@ -8,6 +8,15 @@ use std::fmt::{self, Display, Formatter};
 use std::lazy::SyncLazy;
 use std::{collections::VecDeque, convert::TryInto, iter::FromIterator};
 
+// TODO: I need to rewrite this whole thing
+// The conversion process really should be
+// frames -> actions -> keyframes
+// But right now it's
+// frames -> keyframes -> actions
+// Which is leading to some unusual bugs
+// The only downside is that frames -> actions might not be very efficient
+// But that's ok
+
 #[derive(Debug, Clone)]
 pub struct Replay {
     pub name: String,
@@ -319,6 +328,9 @@ pub fn frame_collection_to_replay(frames: &FrameCollection) -> Replay {
     // Start by determining the queue
     let queue = frames_to_queue(frames);
     let keyframes = frames_to_keyframes(frames);
+    for f in &keyframes {
+        println!("{}", f);
+    }
     let name = frames.name.clone();
     keyframes_queue_to_replay(name, keyframes, queue)
 }
