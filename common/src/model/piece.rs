@@ -352,7 +352,11 @@ impl Piece {
 }
 impl Display for Piece {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.piece_type)
+        write!(
+            f,
+            "({}) {} {:>2}, {:>2}",
+            self.piece_type, self.rotation, self.location.0, self.location.1
+        )
     }
 }
 impl From<PieceType> for Piece {

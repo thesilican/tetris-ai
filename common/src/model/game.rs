@@ -292,22 +292,13 @@ impl Display for Game {
             }
             None => format!(""),
         };
-        const MAX_QUEUE_DISPLAY: usize = 8;
-        let queue_text = {
-            let mut text = self
-                .queue_pieces
-                .iter()
-                .take(MAX_QUEUE_DISPLAY)
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join(" ");
-            if self.queue_pieces.len() > MAX_QUEUE_DISPLAY {
-                let amount = self.queue_pieces.len() - MAX_QUEUE_DISPLAY;
-                write!(text, " +{}", amount)?;
-            }
-            text
-        };
-        write!(f, "[{}] ({}) {}", hold, curr, queue_text)?;
+        let queue_text = self
+            .queue_pieces
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        write!(f, "[{}] {}\n{}", hold, curr, queue_text)?;
 
         Ok(())
     }
