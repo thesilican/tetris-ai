@@ -4,16 +4,16 @@ use crate::model::consts::BOARD_HEIGHT;
 use crate::model::consts::BOARD_WIDTH;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
+use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
+use crate::model::BOARD_VISIBLE_HEIGHT;
+use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
-
-use super::piece::PieceAction;
-use super::{Bag, Stream, GAME_MAX_QUEUE_LEN};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SwapHoldRes {
@@ -351,9 +351,17 @@ impl Display for Game {
                 } else if self.board.get(i, j) {
                     write!(f, "[]")?;
                 } else if in_piece_bounds {
-                    write!(f, "▒▒")?;
+                    if j >= BOARD_VISIBLE_HEIGHT {
+                        write!(f, "▒▒")?;
+                    } else {
+                        write!(f, "▓▓")?;
+                    }
                 } else {
-                    write!(f, "░░")?;
+                    if j >= BOARD_VISIBLE_HEIGHT {
+                        write!(f, "▓▓")?;
+                    } else {
+                        write!(f, "██")?;
+                    }
                 }
             }
             writeln!(f)?;

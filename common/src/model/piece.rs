@@ -357,7 +357,7 @@ impl Display for Piece {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "({}) {} {:>2}, {:>2}",
+            "{{{}}} {} ({},{})",
             self.piece_type, self.rotation, self.location.0, self.location.1
         )
     }

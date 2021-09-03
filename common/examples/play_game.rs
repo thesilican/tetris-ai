@@ -12,7 +12,7 @@ fn main() -> Result<(), GenericErr> {
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
 
-    let mut bag = Bag::new(0);
+    let mut bag = Bag::new(123456);
     let mut game = Game::from_bag_shuffled(&mut bag);
     println!("{}", game);
 

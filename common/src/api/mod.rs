@@ -1,3 +1,3 @@
 mod ai;
 
-pub use ai::{Ai, AiRes, SimpleAi};
+pub use ai::*;

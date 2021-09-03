@@ -347,11 +347,11 @@ mod tests {
                 for j in 0..PIECE_SHAPE_SIZE {
                     for i in 0..16 {
                         let bit = (bit_shape[j] >> i) & 1;
-                        let x = i - PIECE_SPAWN_COLUMN;
-                        if x < 0 || x >= PIECE_SHAPE_SIZE {
+                        let x = i as i8 - PIECE_SPAWN_COLUMN as i8;
+                        if x < 0 || x >= PIECE_SHAPE_SIZE as i8 {
                             assert_eq!(bit, 0);
                         } else {
-                            if shape[x][j] {
+                            if shape[x as usize][j] {
                                 assert_eq!(bit, 1);
                             } else {
                                 assert_eq!(bit, 0);

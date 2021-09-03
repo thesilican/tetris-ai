@@ -80,7 +80,7 @@ pub static FRAGMENT_FINAL: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     ]
 });
 
-pub static MOVES_0F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static MOVES_0F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
     for hold in &*FRAGMENT_HOLD {
         for rot in &*FRAGMENT_ROT {
@@ -89,14 +89,26 @@ pub static MOVES_0F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
                 moves.extend(hold);
                 moves.extend(rot);
                 moves.extend(shift);
-                moves.push(GameMove::HardDrop);
                 moves_list.push(moves);
             }
         }
     }
     moves_list
 });
-pub static MOVES_1F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+
+pub static MOVES_0F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+    let moves_list = MOVES_0F_NH
+        .clone()
+        .into_iter()
+        .map(|mut x| {
+            x.push(GameMove::HardDrop);
+            x
+        })
+        .collect();
+    moves_list
+});
+
+pub static MOVES_1F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
     for hold in &*FRAGMENT_HOLD {
         for rot in &*FRAGMENT_ROT {
@@ -111,7 +123,6 @@ pub static MOVES_1F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
                         moves.push(GameMove::SoftDrop);
                     }
                     moves.extend(final_1);
-                    moves.push(GameMove::HardDrop);
                     moves_list.push(moves);
                 }
             }
@@ -120,7 +131,19 @@ pub static MOVES_1F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     moves_list
 });
 
-pub static MOVES_2F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static MOVES_1F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+    let moves_list = MOVES_1F_NH
+        .clone()
+        .into_iter()
+        .map(|mut x| {
+            x.push(GameMove::HardDrop);
+            x
+        })
+        .collect();
+    moves_list
+});
+
+pub static MOVES_2F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
     for final_1 in &*FRAGMENT_FINAL {
         for final_2 in &*FRAGMENT_FINAL {
@@ -154,7 +177,19 @@ pub static MOVES_2F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     moves_list
 });
 
-pub static MOVES_3F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static MOVES_2F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+    let moves_list = MOVES_2F_NH
+        .clone()
+        .into_iter()
+        .map(|mut x| {
+            x.push(GameMove::HardDrop);
+            x
+        })
+        .collect();
+    moves_list
+});
+
+pub static MOVES_3F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
     for final_1 in &*FRAGMENT_FINAL {
         for final_2 in &*FRAGMENT_FINAL {
@@ -195,7 +230,19 @@ pub static MOVES_3F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     moves_list
 });
 
-pub static MOVES_4F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+pub static MOVES_3F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+    let moves_list = MOVES_3F_NH
+        .clone()
+        .into_iter()
+        .map(|mut x| {
+            x.push(GameMove::HardDrop);
+            x
+        })
+        .collect();
+    moves_list
+});
+
+pub static MOVES_4F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
     for final_1 in &*FRAGMENT_FINAL {
         for final_2 in &*FRAGMENT_FINAL {
@@ -240,5 +287,17 @@ pub static MOVES_4F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
             }
         }
     }
+    moves_list
+});
+
+pub static MOVES_4F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
+    let moves_list = MOVES_4F_NH
+        .clone()
+        .into_iter()
+        .map(|mut x| {
+            x.push(GameMove::HardDrop);
+            x
+        })
+        .collect();
     moves_list
 });

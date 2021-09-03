@@ -1,7 +1,7 @@
 use common::model::Bag;
 use common::model::Game;
 use common::model::GameMove;
-use common::model::MOVES_0F;
+use common::model::MOVES_0F_NH;
 use common::model::MOVES_2F;
 use common::model::MOVES_4F;
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
@@ -233,7 +233,7 @@ fn gen_child_states_f0(b: &mut Bencher) {
     let mut bag = Bag::new(0);
     let game = Game::from_bag_shuffled(&mut bag);
     b.iter(|| {
-        let children = game.child_states(&MOVES_0F);
+        let children = game.child_states(&MOVES_0F_NH);
         black_box(children);
     })
 }
