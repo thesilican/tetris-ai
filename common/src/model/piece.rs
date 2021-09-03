@@ -46,10 +46,10 @@ impl PieceType {
         &ALL_PIECE_TYPES
     }
 }
-impl TryFrom<i32> for PieceType {
+impl TryFrom<i8> for PieceType {
     type Error = GenericErr;
 
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
+    fn try_from(value: i8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(PieceType::O),
             1 => Ok(PieceType::I),
@@ -62,7 +62,7 @@ impl TryFrom<i32> for PieceType {
         }
     }
 }
-impl From<PieceType> for i32 {
+impl From<PieceType> for i8 {
     fn from(piece_type: PieceType) -> Self {
         match piece_type {
             PieceType::O => 0,
@@ -131,9 +131,9 @@ impl Default for PieceType {
 pub enum PieceMove {
     ShiftLeft,
     ShiftRight,
-    RotateLeft,
+    RotateCW,
     Rotate180,
-    RotateRight,
+    RotateCCW,
     SoftDrop,
 }
 impl TryFrom<GameMove> for PieceMove {
@@ -143,8 +143,8 @@ impl TryFrom<GameMove> for PieceMove {
         match value {
             GameMove::ShiftLeft => Ok(PieceMove::ShiftLeft),
             GameMove::ShiftRight => Ok(PieceMove::ShiftRight),
-            GameMove::RotateLeft => Ok(PieceMove::RotateLeft),
-            GameMove::RotateRight => Ok(PieceMove::RotateRight),
+            GameMove::RotateCW => Ok(PieceMove::RotateCW),
+            GameMove::RotateCCW => Ok(PieceMove::RotateCCW),
             GameMove::Rotate180 => Ok(PieceMove::Rotate180),
             GameMove::SoftDrop => Ok(PieceMove::SoftDrop),
             GameMove::Hold => Err(()),
@@ -165,38 +165,36 @@ pub struct Piece {
 // Piece info stuff
 impl Piece {
     pub fn info_spawn_location(piece_type: PieceType) -> &'static (i8, i8) {
-        &PIECE_INFO.spawn_locations[i32::from(piece_type) as usize]
+        &PIECE_INFO.spawn_locations[i8::from(piece_type) as usize]
     }
     pub fn info_shape(
         piece_type: PieceType,
         rotation: i8,
     ) -> &'static [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
-        &PIECE_INFO.shapes[i32::from(piece_type) as usize][rotation as usize]
+        &PIECE_INFO.shapes[i8::from(piece_type) as usize][rotation as usize]
     }
     pub fn info_bit_shape(
         piece_type: PieceType,
         rotation: i8,
         x_pos: i8,
     ) -> &'static [u16; PIECE_SHAPE_SIZE as usize] {
-        &PIECE_INFO.bit_shapes[i32::from(piece_type) as usize][rotation as usize][(x_pos
-            + (PIECE_MAX_X_SHIFT as i8)
-            - Piece::info_spawn_location(piece_type).0)
-            as usize]
+        &PIECE_INFO.bit_shapes[i8::from(piece_type) as usize][rotation as usize]
+            [(x_pos + (PIECE_MAX_X_SHIFT as i8) - (PIECE_SPAWN_COLUMN as i8)) as usize]
     }
     pub fn info_height_map(
         piece_type: PieceType,
         rotation: i8,
     ) -> &'static [(i8, i8); PIECE_SHAPE_SIZE as usize] {
-        &PIECE_INFO.height_maps[i32::from(piece_type) as usize][rotation as usize]
+        &PIECE_INFO.height_maps[i8::from(piece_type) as usize][rotation as usize]
     }
     pub fn info_shift_bounds(piece_type: PieceType, rotation: i8) -> &'static (i8, i8) {
-        &PIECE_INFO.shift_bounds[i32::from(piece_type) as usize][rotation as usize]
+        &PIECE_INFO.shift_bounds[i8::from(piece_type) as usize][rotation as usize]
     }
     pub fn info_location_bounds(piece_type: PieceType, rotation: i8) -> &'static (i8, i8, i8, i8) {
-        &PIECE_INFO.location_bounds[i32::from(piece_type) as usize][rotation as usize]
+        &PIECE_INFO.location_bounds[i8::from(piece_type) as usize][rotation as usize]
     }
     pub fn info_kick_table(piece_type: PieceType, from: i8, to: i8) -> &'static [(i8, i8)] {
-        &PIECE_INFO.kick_table[i32::from(piece_type) as usize][from as usize][to as usize]
+        &PIECE_INFO.kick_table[i8::from(piece_type) as usize][from as usize][to as usize]
     }
 
     pub fn get_spawn_location(&self) -> &'static (i8, i8) {
@@ -236,10 +234,9 @@ impl Piece {
     }
 }
 impl Piece {
-    pub fn reset(&mut self, board: &Board) {
+    pub fn reset(&mut self) {
         self.rotation = 0;
         self.location = *self.get_spawn_location();
-        self.shift_down(&board);
     }
     pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceMoveRes {
         let (old_x, old_y) = self.location;
@@ -264,13 +261,13 @@ impl Piece {
         self.location = (old_x, old_y);
         PieceMoveRes::Failed
     }
-    pub fn rotate_right(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn rotate_cw(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(1, &board)
     }
     pub fn rotate_180(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(2, &board)
     }
-    pub fn rotate_left(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn rotate_ccw(&mut self, board: &Board) -> PieceMoveRes {
         self.rotate(3, &board)
     }
     pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> PieceMoveRes {
@@ -346,9 +343,9 @@ impl Piece {
         match piece_move {
             PieceMove::ShiftLeft => self.shift_left(board),
             PieceMove::ShiftRight => self.shift_right(board),
-            PieceMove::RotateLeft => self.rotate_left(board),
+            PieceMove::RotateCW => self.rotate_cw(board),
             PieceMove::Rotate180 => self.rotate_180(board),
-            PieceMove::RotateRight => self.rotate_right(board),
+            PieceMove::RotateCCW => self.rotate_ccw(board),
             PieceMove::SoftDrop => self.soft_drop(board),
         }
     }

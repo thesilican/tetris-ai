@@ -25,7 +25,7 @@ pub enum SwapHoldRes {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct GameDropInfo {
-    pub lines_cleared: i32,
+    pub lines_cleared: i8,
     pub top_out: bool,
 }
 
@@ -41,9 +41,9 @@ pub enum GameMoveRes {
 pub enum GameMove {
     ShiftLeft,
     ShiftRight,
-    RotateLeft,
-    RotateRight,
+    RotateCW,
     Rotate180,
+    RotateCCW,
     SoftDrop,
     Hold,
     HardDrop,
@@ -55,9 +55,9 @@ impl FromStr for GameMove {
         match s {
             "shiftLeft" => Ok(GameMove::ShiftLeft),
             "shiftRight" => Ok(GameMove::ShiftRight),
-            "rotateLeft" => Ok(GameMove::RotateLeft),
-            "rotateRight" => Ok(GameMove::RotateRight),
+            "rotateCW" => Ok(GameMove::RotateCW),
             "rotate180" => Ok(GameMove::Rotate180),
+            "rotateCCW" => Ok(GameMove::RotateCCW),
             "hold" => Ok(GameMove::Hold),
             "softDrop" => Ok(GameMove::SoftDrop),
             "hardDrop" => Ok(GameMove::HardDrop),
@@ -70,9 +70,9 @@ impl Display for GameMove {
         match self {
             GameMove::ShiftLeft => write!(f, "shiftLeft"),
             GameMove::ShiftRight => write!(f, "shiftRight"),
-            GameMove::RotateLeft => write!(f, "rotateLeft"),
-            GameMove::RotateRight => write!(f, "rotateRight"),
+            GameMove::RotateCW => write!(f, "rotateCW"),
             GameMove::Rotate180 => write!(f, "rotate180"),
+            GameMove::RotateCCW => write!(f, "rotateCCW"),
             GameMove::Hold => write!(f, "hold"),
             GameMove::SoftDrop => write!(f, "softDrop"),
             GameMove::HardDrop => write!(f, "hardDrop"),
@@ -84,9 +84,9 @@ impl From<PieceMove> for GameMove {
         match val {
             PieceMove::ShiftLeft => GameMove::ShiftLeft,
             PieceMove::ShiftRight => GameMove::ShiftRight,
-            PieceMove::RotateLeft => GameMove::RotateLeft,
+            PieceMove::RotateCW => GameMove::RotateCW,
             PieceMove::Rotate180 => GameMove::Rotate180,
-            PieceMove::RotateRight => GameMove::RotateRight,
+            PieceMove::RotateCCW => GameMove::RotateCCW,
             PieceMove::SoftDrop => GameMove::SoftDrop,
         }
     }
@@ -150,7 +150,7 @@ impl Game {
 
     pub fn set_current(&mut self, piece: PieceType) {
         self.current_piece.piece_type = piece;
-        self.current_piece.reset(&self.board);
+        self.current_piece.reset();
         self.can_hold = true;
     }
     pub fn set_hold(&mut self, piece: Option<PieceType>) {
@@ -201,7 +201,7 @@ impl Game {
         };
         self.hold_piece = Some(self.current_piece.piece_type);
         self.current_piece.piece_type = hold;
-        self.current_piece.reset(&self.board);
+        self.current_piece.reset();
         SwapHoldRes::Success
     }
 
@@ -209,9 +209,9 @@ impl Game {
         match game_move {
             GameMove::ShiftLeft
             | GameMove::ShiftRight
-            | GameMove::RotateLeft
+            | GameMove::RotateCW
             | GameMove::Rotate180
-            | GameMove::RotateRight
+            | GameMove::RotateCCW
             | GameMove::SoftDrop => {
                 let piece_move = game_move.try_into().unwrap();
                 self.current_piece.make_move(piece_move, &self.board);
@@ -237,7 +237,7 @@ impl Game {
                 self.current_piece.soft_drop(&self.board);
                 let res = self.board.lock(&self.current_piece);
                 self.current_piece.piece_type = self.queue_pieces.pop_front().unwrap();
-                self.current_piece.reset(&self.board);
+                self.current_piece.reset();
                 self.can_hold = true;
 
                 GameMoveRes::SuccessDrop(GameDropInfo {
@@ -253,20 +253,19 @@ impl Display for Game {
         // Board + Current Piece
         let piece = &self.current_piece;
         let piece_shape = piece.get_shape(None);
-        let (p_x, p_y) = piece.location;
-        let (p_x, p_y) = (p_x as i32, p_y as i32);
+        let p_x = piece.location.0 as usize;
+        let p_y = piece.location.1 as usize;
         for j in (0..BOARD_HEIGHT).rev() {
             for i in 0..BOARD_WIDTH {
-                let in_piece_bounds = i - p_x >= 0
-                    && i - p_x < PIECE_SHAPE_SIZE
-                    && j - p_y >= 0
-                    && j - p_y < PIECE_SHAPE_SIZE;
-                let in_piece =
-                    in_piece_bounds && piece_shape[(i - p_x) as usize][(j - p_y) as usize];
+                let x = i as i8 - p_x as i8;
+                let y = j as i8 - p_y as i8;
+                let in_piece_bounds =
+                    x >= 0 && x < PIECE_SHAPE_SIZE as i8 && y >= 0 && y < PIECE_SHAPE_SIZE as i8;
+                let in_piece = in_piece_bounds && piece_shape[x as usize][y as usize];
 
                 if in_piece {
                     // write!(f, "██")?;
-                    write!(f, "[]")?;
+                    write!(f, "{{}}")?;
                 } else if self.board.get(i, j) {
                     write!(f, "[]")?;
                 } else if in_piece_bounds {
@@ -289,7 +288,7 @@ impl Display for Game {
         let hold = match &self.hold_piece {
             Some(piece) => {
                 let can_hold = if self.can_hold { "✓" } else { "✗" };
-                format!("{0} {1}", piece, can_hold)
+                format!("{} {}", piece, can_hold)
             }
             None => format!(""),
         };
@@ -308,7 +307,7 @@ impl Display for Game {
             }
             text
         };
-        write!(f, "[{1}] ({0}) {2}", curr, hold, queue_text)?;
+        write!(f, "[{}] ({}) {}", hold, curr, queue_text)?;
 
         Ok(())
     }

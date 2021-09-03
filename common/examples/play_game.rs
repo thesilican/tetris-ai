@@ -42,10 +42,10 @@ fn main() -> Result<(), GenericErr> {
                 game.make_move(GameMove::Rotate180);
             }
             Key::Char('z') => {
-                game.make_move(GameMove::RotateLeft);
+                game.make_move(GameMove::RotateCCW);
             }
             Key::Char('x') => {
-                game.make_move(GameMove::RotateRight);
+                game.make_move(GameMove::RotateCW);
             }
             Key::Char('c') => {
                 game.make_move(GameMove::Hold);

@@ -49,9 +49,9 @@ pub static FRAGMENT_HOLD: SyncLazy<Vec<Vec<GameMove>>> =
 pub static FRAGMENT_ROT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     vec![
         vec![],
-        vec![GameMove::RotateRight],
+        vec![GameMove::RotateCW],
         vec![GameMove::Rotate180],
-        vec![GameMove::RotateLeft],
+        vec![GameMove::RotateCCW],
     ]
 });
 pub static FRAGMENT_SHIFT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
@@ -74,9 +74,9 @@ pub static FRAGMENT_FINAL: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
         vec![],
         vec![GameMove::ShiftLeft],
         vec![GameMove::ShiftRight],
-        vec![GameMove::RotateLeft],
+        vec![GameMove::RotateCCW],
         vec![GameMove::Rotate180],
-        vec![GameMove::RotateRight],
+        vec![GameMove::RotateCW],
     ]
 });
 
