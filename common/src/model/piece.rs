@@ -1,5 +1,5 @@
 use super::board::Board;
-use super::GameMove;
+use super::game::GameAction;
 use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
@@ -9,12 +9,6 @@ use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::lazy::SyncLazy;
 use std::{convert::TryFrom, str::FromStr};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PieceMoveRes {
-    Success,
-    Failed,
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "char")]
@@ -128,29 +122,37 @@ impl Default for PieceType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum PieceMove {
+pub enum PieceAction {
     ShiftLeft,
     ShiftRight,
+    ShiftDown,
     RotateCW,
     Rotate180,
     RotateCCW,
     SoftDrop,
 }
-impl TryFrom<GameMove> for PieceMove {
+impl TryFrom<GameAction> for PieceAction {
     type Error = ();
 
-    fn try_from(value: GameMove) -> Result<Self, Self::Error> {
+    fn try_from(value: GameAction) -> Result<Self, Self::Error> {
         match value {
-            GameMove::ShiftLeft => Ok(PieceMove::ShiftLeft),
-            GameMove::ShiftRight => Ok(PieceMove::ShiftRight),
-            GameMove::RotateCW => Ok(PieceMove::RotateCW),
-            GameMove::RotateCCW => Ok(PieceMove::RotateCCW),
-            GameMove::Rotate180 => Ok(PieceMove::Rotate180),
-            GameMove::SoftDrop => Ok(PieceMove::SoftDrop),
-            GameMove::Hold => Err(()),
-            GameMove::HardDrop => Err(()),
+            GameAction::ShiftLeft => Ok(PieceAction::ShiftLeft),
+            GameAction::ShiftDown => Ok(PieceAction::ShiftDown),
+            GameAction::ShiftRight => Ok(PieceAction::ShiftRight),
+            GameAction::RotateCW => Ok(PieceAction::RotateCW),
+            GameAction::RotateCCW => Ok(PieceAction::RotateCCW),
+            GameAction::Rotate180 => Ok(PieceAction::Rotate180),
+            GameAction::SoftDrop => Ok(PieceAction::SoftDrop),
+            GameAction::Hold => Err(()),
+            GameAction::Lock => Err(()),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PieceActionRes {
+    Success,
+    Failed,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -238,7 +240,7 @@ impl Piece {
         self.rotation = 0;
         self.location = *self.get_spawn_location();
     }
-    pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceMoveRes {
+    pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceActionRes {
         let (old_x, old_y) = self.location;
         let old_rot = self.rotation;
         let new_rot = (self.rotation + amount) % 4;
@@ -254,23 +256,23 @@ impl Piece {
             if !(new_x < b_left || new_x > b_right || new_y < b_bottom || new_y > b_top)
                 && !board.intersects_with(&self)
             {
-                return PieceMoveRes::Success;
+                return PieceActionRes::Success;
             }
         }
         self.rotation = old_rot;
         self.location = (old_x, old_y);
-        PieceMoveRes::Failed
+        PieceActionRes::Failed
     }
-    pub fn rotate_cw(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn rotate_cw(&mut self, board: &Board) -> PieceActionRes {
         self.rotate(1, &board)
     }
-    pub fn rotate_180(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn rotate_180(&mut self, board: &Board) -> PieceActionRes {
         self.rotate(2, &board)
     }
-    pub fn rotate_ccw(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn rotate_ccw(&mut self, board: &Board) -> PieceActionRes {
         self.rotate(3, &board)
     }
-    pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> PieceMoveRes {
+    pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> PieceActionRes {
         let (old_x, old_y) = self.location;
         let new_x = old_x + d_x;
         let new_y = old_y + d_y;
@@ -284,21 +286,21 @@ impl Piece {
             || board.intersects_with(&self)
         {
             self.location = (old_x, old_y);
-            return PieceMoveRes::Failed;
+            return PieceActionRes::Failed;
         }
 
-        PieceMoveRes::Success
+        PieceActionRes::Success
     }
-    pub fn shift_left(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn shift_left(&mut self, board: &Board) -> PieceActionRes {
         self.shift((-1, 0), board)
     }
-    pub fn shift_right(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn shift_right(&mut self, board: &Board) -> PieceActionRes {
         self.shift((1, 0), board)
     }
-    pub fn shift_down(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn shift_down(&mut self, board: &Board) -> PieceActionRes {
         self.shift((0, -1), board)
     }
-    pub fn soft_drop(&mut self, board: &Board) -> PieceMoveRes {
+    pub fn soft_drop(&mut self, board: &Board) -> PieceActionRes {
         let (p_x, old_y) = self.location;
         let height_map = self.get_height_map(None);
         let mut min_drop_amount = i8::MAX;
@@ -325,28 +327,29 @@ impl Piece {
         if min_drop_amount >= 0 {
             self.location.1 -= min_drop_amount;
             return if min_drop_amount != 0 {
-                PieceMoveRes::Success
+                PieceActionRes::Success
             } else {
-                PieceMoveRes::Failed
+                PieceActionRes::Failed
             };
         }
 
         // Try to shift down once
-        if let PieceMoveRes::Failed = self.shift_down(&board) {
-            return PieceMoveRes::Failed;
+        if let PieceActionRes::Failed = self.shift_down(&board) {
+            return PieceActionRes::Failed;
         }
         // Keep shifting down while possible
-        while let PieceMoveRes::Success = self.shift_down(&board) {}
-        PieceMoveRes::Success
+        while let PieceActionRes::Success = self.shift_down(&board) {}
+        PieceActionRes::Success
     }
-    pub fn make_move(&mut self, piece_move: PieceMove, board: &Board) -> PieceMoveRes {
-        match piece_move {
-            PieceMove::ShiftLeft => self.shift_left(board),
-            PieceMove::ShiftRight => self.shift_right(board),
-            PieceMove::RotateCW => self.rotate_cw(board),
-            PieceMove::Rotate180 => self.rotate_180(board),
-            PieceMove::RotateCCW => self.rotate_ccw(board),
-            PieceMove::SoftDrop => self.soft_drop(board),
+    pub fn apply_action(&mut self, piece_action: PieceAction, board: &Board) -> PieceActionRes {
+        match piece_action {
+            PieceAction::ShiftLeft => self.shift_left(board),
+            PieceAction::ShiftRight => self.shift_right(board),
+            PieceAction::ShiftDown => self.shift_down(board),
+            PieceAction::RotateCW => self.rotate_cw(board),
+            PieceAction::Rotate180 => self.rotate_180(board),
+            PieceAction::RotateCCW => self.rotate_ccw(board),
+            PieceAction::SoftDrop => self.soft_drop(board),
         }
     }
 }
