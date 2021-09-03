@@ -1,15 +1,11 @@
 use common::model::*;
 use std::{ffi::OsStr, fs};
 
-#[derive(Debug, Clone)]
-pub struct FrameCollection {
-    pub name: String,
-    pub frames: Vec<Game>,
-}
+use crate::GameExt;
 
 // Some frames are when the piece spawns then immediately shifts one space down
 // Remove the first of these pair of frames
-pub fn remove_shift_down_frames(frame_collection: &mut FrameCollection) {
+fn remove_shift_down_frames(frame_collection: &mut FrameCollection) {
     let mut to_remove = Vec::new();
     for (i, frame) in frame_collection.frames.iter().enumerate() {
         if i == 0 {
@@ -20,7 +16,7 @@ pub fn remove_shift_down_frames(frame_collection: &mut FrameCollection) {
             continue;
         }
         prev_frame.current_piece.shift_down(&prev_frame.board);
-        if prev_frame != *frame {
+        if !prev_frame.eq_ignore_queue(*frame) {
             continue;
         }
         to_remove.push(i - 1);
@@ -30,28 +26,36 @@ pub fn remove_shift_down_frames(frame_collection: &mut FrameCollection) {
     }
 }
 
-pub fn load_frame_collections() -> Vec<FrameCollection> {
-    println!("Loading frames...");
-    let mut frame_collections = Vec::new();
-    let paths = fs::read_dir("data/frames").unwrap();
-    for path in paths {
-        let path = path.unwrap();
-        let file_name = path.path();
-        // println!("{:?} {:?}", file_name, file_name.extension());
-        if file_name.extension() != Some(OsStr::new("json")) {
-            continue;
+#[derive(Debug, Clone)]
+pub struct FrameCollection {
+    pub name: String,
+    pub frames: Vec<Game>,
+}
+
+impl FrameCollection {
+    pub fn load() -> Vec<FrameCollection> {
+        println!("Loading frames...");
+        let mut frame_collections = Vec::new();
+        let paths = fs::read_dir("data/frames").unwrap();
+        for path in paths {
+            let path = path.unwrap();
+            let file_name = path.path();
+            // println!("{:?} {:?}", file_name, file_name.extension());
+            if file_name.extension() != Some(OsStr::new("json")) {
+                continue;
+            }
+            let text = fs::read_to_string(file_name).unwrap();
+            let frames = serde_json::from_str(&text).unwrap();
+            let mut frame_collection = FrameCollection {
+                name: path.path().file_stem().unwrap().to_str().unwrap().into(),
+                frames,
+            };
+            remove_shift_down_frames(&mut frame_collection);
+            frame_collections.push(frame_collection);
         }
-        let text = fs::read_to_string(file_name).unwrap();
-        let frames = serde_json::from_str(&text).unwrap();
-        let mut frame_collection = FrameCollection {
-            name: path.path().file_stem().unwrap().to_str().unwrap().into(),
-            frames,
-        };
-        remove_shift_down_frames(&mut frame_collection);
-        frame_collections.push(frame_collection);
+        // Sort by name alphabetically
+        frame_collections.sort_by(|a, b| a.name.cmp(&b.name));
+        println!("Loaded {} frame collections", frame_collections.len());
+        frame_collections
     }
-    // Sort by name alphabetically
-    frame_collections.sort_by(|a, b| a.name.cmp(&b.name));
-    println!("Loaded {} frame collections", frame_collections.len());
-    frame_collections
 }

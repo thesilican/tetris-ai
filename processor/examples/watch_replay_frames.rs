@@ -1,20 +1,26 @@
 use common::misc::GenericErr;
-use processor::FrameCollection;
+use processor::{FrameCollection, Replay};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 fn main() -> Result<(), GenericErr> {
     let frames = FrameCollection::load();
-    let frame_collection = frames[0].clone();
-    let num_frames = frame_collection.frames.len();
+    let mut replay = frames
+        .iter()
+        .map(|f| Replay::from_frame_collection(f))
+        .next()
+        .unwrap();
+    let frames = replay.frames().clone();
+    let num_frames = frames.len();
     let mut index = 0;
 
     let stdin = std::io::stdin();
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
-    println!("{}", frame_collection.name);
-    println!("{}", frame_collection.frames[index]);
+    println!();
+    println!("{}", replay.name);
+    println!("{}", frames[0]);
 
     stdout.activate_raw_mode()?;
     for key in stdin.keys() {
@@ -31,7 +37,7 @@ fn main() -> Result<(), GenericErr> {
             }
             _ => {}
         }
-        println!("{}", frame_collection.frames[index]);
+        println!("{}", frames[index]);
         stdout.activate_raw_mode()?;
     }
     Ok(())
