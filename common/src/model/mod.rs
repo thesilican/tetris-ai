@@ -4,6 +4,7 @@ mod consts;
 mod game;
 mod piece;
 mod piece_computed;
+mod piece_container;
 
 // Re-exports
 pub use board::{Board, BoardLockRes};
@@ -13,4 +14,5 @@ pub use child_states::{
 };
 pub use consts::*;
 pub use game::{Game, GameDropInfo, GameMove, GameMoveRes};
-pub use piece::{Bag, Piece, PieceMove, PieceMoveRes, PieceType};
+pub use piece::{Piece, PieceMove, PieceMoveRes, PieceType};
+pub use piece_container::{Bag, Stream};

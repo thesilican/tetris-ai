@@ -3,9 +3,6 @@ use super::GameMove;
 use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
-use rand::prelude::Distribution;
-use rand::SeedableRng;
-use rand::{distributions::Uniform, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt::{self, Display, Formatter};
@@ -127,32 +124,6 @@ impl Display for PieceType {
 impl Default for PieceType {
     fn default() -> Self {
         PieceType::O
-    }
-}
-
-/// Represents a shuffleable 7-bag
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Bag {
-    arr: [PieceType; BAG_LEN],
-    rng: StdRng,
-}
-impl Bag {
-    pub fn new(rng_seed: u64) -> Self {
-        Bag {
-            arr: PieceType::all().try_into().unwrap(),
-            rng: StdRng::seed_from_u64(rng_seed),
-        }
-    }
-    pub fn shuffle(&mut self) {
-        let arr = &mut self.arr;
-        let mut rng = &mut self.rng;
-        for i in (1..arr.len()).rev() {
-            let j = Uniform::new(0, i).sample(&mut rng);
-            arr.swap(i, j);
-        }
-    }
-    pub fn pieces(&self) -> &[PieceType] {
-        &self.arr
     }
 }
 

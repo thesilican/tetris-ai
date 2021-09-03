@@ -1,4 +1,4 @@
-use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, BOARD_HEIGHT, MOVES_2F};
+use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, MOVES_2F};
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};

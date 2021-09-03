@@ -14,8 +14,8 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::str::FromStr;
 
-use super::piece::{Bag, PieceMove};
-use super::GAME_MAX_QUEUE_LEN;
+use super::piece::PieceMove;
+use super::{Bag, Stream, GAME_MAX_QUEUE_LEN};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SwapHoldRes {
@@ -132,6 +132,21 @@ impl Game {
             can_hold: true,
         }
     }
+    pub fn from_stream(queue: &mut Stream) -> Self {
+        Game {
+            board: Board::new(),
+            current_piece: Piece::from(queue.dequeue().unwrap()),
+            hold_piece: None,
+            queue_pieces: {
+                let mut arr = ArrDeque::new();
+                while arr.len() < GAME_MAX_QUEUE_LEN {
+                    arr.push_back(queue.dequeue().unwrap());
+                }
+                arr
+            },
+            can_hold: true,
+        }
+    }
 
     pub fn set_current(&mut self, piece: PieceType) {
         self.current_piece.piece_type = piece;
@@ -166,6 +181,11 @@ impl Game {
         if self.queue_pieces.len() <= THRESHOLD {
             bag.shuffle();
             self.extend_queue(bag.pieces());
+        }
+    }
+    pub fn refill_queue_stream(&mut self, stream: &mut Stream) {
+        while self.queue_pieces.len() < GAME_MAX_QUEUE_LEN && stream.len() > 0 {
+            self.queue_pieces.push_back(stream.dequeue().unwrap());
         }
     }
     pub fn set_can_hold(&mut self, can_hold: bool) {
