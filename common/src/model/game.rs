@@ -97,6 +97,7 @@ impl TryFrom<GameAction> for GameMove {
             GameAction::SoftDrop => Ok(GameMove::SoftDrop),
             GameAction::Hold => Ok(GameMove::Hold),
             GameAction::Lock => Err(()),
+            GameAction::AddGarbage { .. } => Err(()),
         }
     }
 }
@@ -113,6 +114,7 @@ pub enum GameAction {
     SoftDrop,
     Hold,
     Lock,
+    AddGarbage { col: usize, height: i8 },
 }
 impl TryFrom<GameMove> for GameAction {
     type Error = ();
@@ -297,6 +299,10 @@ impl Game {
                     lines_cleared: res.lines_cleared,
                     top_out: res.top_out,
                 })
+            }
+            GameAction::AddGarbage { col, height } => {
+                self.board.add_garbage(col, height);
+                GameActionRes::Success
             }
         }
     }

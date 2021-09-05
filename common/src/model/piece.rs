@@ -145,6 +145,7 @@ impl TryFrom<GameAction> for PieceAction {
             GameAction::SoftDrop => Ok(PieceAction::SoftDrop),
             GameAction::Hold => Err(()),
             GameAction::Lock => Err(()),
+            GameAction::AddGarbage { .. } => Err(()),
         }
     }
 }
