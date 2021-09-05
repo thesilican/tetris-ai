@@ -57,7 +57,7 @@ impl From<GameMoveRes> for GameActionRes {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GameMove {
     ShiftLeft,
@@ -101,7 +101,7 @@ impl TryFrom<GameAction> for GameMove {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GameAction {
     ShiftLeft,
