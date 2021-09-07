@@ -1,14 +1,10 @@
-use crate::game_ext::GameActionRes;
-use crate::{frames::FrameCollection, game_ext::LongQueue, GameAction, GameExt};
-use common::model::{
-    Game, GameMove, PieceType, BOARD_HEIGHT, BOARD_WIDTH, FRAGMENT_FINAL, FRAGMENT_HOLD,
-    FRAGMENT_ROT, FRAGMENT_SHIFT, MOVES_4F,
-};
+use crate::{frames::FrameCollection, GameExt};
+use common::model::{Game, GameAction, Stream, BOARD_HEIGHT, BOARD_WIDTH};
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::fmt::{self, Display, Formatter};
-use std::lazy::SyncLazy;
-use std::{collections::VecDeque, convert::TryInto, iter::FromIterator};
+use std::iter::FromIterator;
+use std::lazy::{OnceCell, SyncLazy};
 
 // Keyframes are basically the first and last frame in between hard-drops
 // start is the frame directly after a hard drop and subsiquent garbage
@@ -20,10 +16,13 @@ use std::{collections::VecDeque, convert::TryInto, iter::FromIterator};
 pub struct KeyFrame {
     start: Game,
     end: Game,
+    actions: Vec<GameAction>,
 }
 impl Display for KeyFrame {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", write_two_games(self.start, self.end))
+        write!(f, "{}", write_two_games(self.start, self.end))?;
+        writeln!(f, "{:?}", self.actions)?;
+        Ok(())
     }
 }
 
@@ -32,35 +31,30 @@ impl Display for KeyFrame {
 #[derive(Debug, Clone)]
 pub struct Replay {
     pub name: String,
-    pub queue: LongQueue,
+    pub stream: Stream,
     pub actions: Vec<GameAction>,
-    frames_cache: Option<Vec<Game>>,
-    keyframes_cache: Option<Vec<KeyFrame>>,
+    frames_cache: OnceCell<Vec<Game>>,
+    keyframes_cache: OnceCell<Vec<KeyFrame>>,
 }
 impl Replay {
     pub fn from_frame_collection(frames: &FrameCollection) -> Self {
         println!("Converting frame collection ({}) to replay...", frames.name);
-        let queue = frames_to_queue(frames);
-        let actions = frames_to_actions(frames);
+        let stream = frames_to_stream(frames);
+        let actions = frames_stream_to_actions(frames, &stream);
         Replay {
             name: frames.name.clone(),
-            queue,
+            stream,
             actions,
-            frames_cache: None,
-            keyframes_cache: None,
+            frames_cache: OnceCell::new(),
+            keyframes_cache: OnceCell::new(),
         }
     }
-    pub fn frames(&mut self) -> &Vec<Game> {
-        if let None = self.frames_cache {
-            self.frames_cache = Some(replay_to_frames(self));
-        }
-        self.frames_cache.as_ref().unwrap()
+    pub fn frames(&self) -> &Vec<Game> {
+        self.frames_cache.get_or_init(|| replay_to_frames(self))
     }
-    pub fn keyframes(&mut self) -> &Vec<KeyFrame> {
-        if let None = self.keyframes_cache {
-            self.keyframes_cache = Some(replay_to_keyframes(self));
-        }
-        self.keyframes_cache.as_ref().unwrap()
+    pub fn keyframes(&self) -> &Vec<KeyFrame> {
+        self.keyframes_cache
+            .get_or_init(|| replay_to_keyframes(self))
     }
 }
 
@@ -77,12 +71,21 @@ fn write_two_games(game_1: Game, game_2: Game) -> String {
 }
 
 // Extract the queue from a game replay
-fn frames_to_queue(frames: &FrameCollection) -> LongQueue {
+fn frames_to_stream(frames: &FrameCollection) -> Stream {
     // Sanity check
     for frame in &frames.frames {
         assert!(frame.queue_pieces.len() >= 5)
     }
-    let mut pieces = vec![frames.frames[0].current_piece.piece_type];
+    let first_frame = frames.frames[0];
+    // Handle edge case
+    for row in first_frame.board.matrix.iter() {
+        assert!(*row == 0);
+    }
+    let mut pieces = if let Some(hold) = first_frame.hold_piece {
+        vec![hold, first_frame.current_piece.piece_type]
+    } else {
+        vec![first_frame.current_piece.piece_type]
+    };
     let mut frame_iter = frames.frames.iter();
 
     // Start with the first frame
@@ -110,7 +113,7 @@ fn frames_to_queue(frames: &FrameCollection) -> LongQueue {
     }
     pieces.append(&mut prev_queue);
 
-    LongQueue::from_iter(pieces)
+    Stream::from_iter(pieces)
 }
 
 static ACTIONS_LIST: SyncLazy<Vec<Vec<GameAction>>> = SyncLazy::new(|| {
@@ -120,13 +123,9 @@ static ACTIONS_LIST: SyncLazy<Vec<Vec<GameAction>>> = SyncLazy::new(|| {
         // Hold
         vec![GameAction::Hold],
         // Rotates
-        vec![GameAction::RotateLeft],
-        vec![GameAction::RotateRight],
+        vec![GameAction::RotateCW],
         vec![GameAction::Rotate180],
-        // Soft drop
-        vec![GameAction::SoftDrop],
-        // Shift down
-        vec![GameAction::ShiftDown],
+        vec![GameAction::RotateCCW],
         // Shifts left/right
         vec![GameAction::ShiftLeft; 1],
         vec![GameAction::ShiftRight; 1],
@@ -148,29 +147,45 @@ static ACTIONS_LIST: SyncLazy<Vec<Vec<GameAction>>> = SyncLazy::new(|| {
         vec![GameAction::ShiftRight; 9],
         vec![GameAction::ShiftLeft; 10],
         vec![GameAction::ShiftRight; 10],
+        // Shift down
+        vec![GameAction::ShiftDown],
+        vec![GameAction::ShiftDown; 2],
+        vec![GameAction::ShiftDown; 3],
+        vec![GameAction::ShiftDown; 4],
+        vec![GameAction::ShiftDown; 5],
+        vec![GameAction::ShiftDown; 6],
+        vec![GameAction::ShiftDown; 7],
+        vec![GameAction::ShiftDown; 8],
+        vec![GameAction::ShiftDown; 9],
+        vec![GameAction::ShiftDown; 10],
+        // Soft drop
+        vec![GameAction::SoftDrop],
         // Hard drop
-        vec![GameAction::HardDrop],
+        vec![GameAction::SoftDrop, GameAction::Lock],
     ];
     let mut actions_list = Vec::<Vec<GameAction>>::new();
     let mut actions_set = HashSet::<Vec<GameAction>>::new();
     for action_1 in pool.iter() {
         for action_2 in pool.iter() {
-            'l: for action_3 in pool.iter() {
-                let mut actions = Vec::<GameAction>::new();
-                actions.extend(action_1);
-                actions.extend(action_2);
-                actions.extend(action_3);
-                // Checks
-                for (i, action) in actions.iter().enumerate() {
-                    if let GameAction::HardDrop = action {
-                        // GameAction::HardDrop must be the last element of actions
-                        if i != actions.len() {
-                            continue 'l;
-                        }
+            for action_3 in pool.iter() {
+                for action_4 in pool.iter() {
+                    let mut actions = Vec::<GameAction>::new();
+                    actions.extend(action_1);
+                    actions.extend(action_2);
+                    actions.extend(action_3);
+                    actions.extend(action_4);
+                    // Ensure that there is at most 1 GameAction::Lock
+                    let lock_count = actions
+                        .iter()
+                        .filter(|x| matches!(x, GameAction::Lock))
+                        .count();
+                    if lock_count > 1 {
+                        continue;
                     }
-                }
-                if actions_set.insert(actions.clone()) {
-                    actions_list.push(actions);
+
+                    if actions_set.insert(actions.clone()) {
+                        actions_list.push(actions);
+                    }
                 }
             }
         }
@@ -181,7 +196,7 @@ static ACTIONS_LIST: SyncLazy<Vec<Vec<GameAction>>> = SyncLazy::new(|| {
 
 // Find a list of actions to get from each frame to the next
 // All of these actions strung together form the game actions for the replay
-fn frames_to_actions(frames: &FrameCollection) -> Vec<GameAction> {
+fn frames_stream_to_actions(frames: &FrameCollection, stream: &Stream) -> Vec<GameAction> {
     // Find the garbage actions that convert curr => target
     // or None if not possible
     fn find_garbage_actions(curr: Game, target: Game) -> Option<Vec<GameAction>> {
@@ -197,73 +212,71 @@ fn frames_to_actions(frames: &FrameCollection) -> Vec<GameAction> {
 
         // Determine the col of each garbage row
         // j in 0..height => i where i is the hole in row j
-        let garbage_cols = (0..height).into_iter().map(|j| {
-            let row = target.board.matrix[j];
-            let garbage_col = (0..BOARD_WIDTH).into_iter().find(|col| {
-                let compare = !(1 << col) & ((1 << BOARD_WIDTH) - 1);
-                row == compare
-            });
-            match garbage_col {
-                // Something went wrong
-                Some(col) => col,
-                None => panic!("Unable to find garbage row {}:\n{}", j, target),
-            }
-        });
+        let garbage_cols = (0..height)
+            .into_iter()
+            .map(|j| {
+                let row = target.board.matrix[j];
+                let garbage_col = (0..BOARD_WIDTH).into_iter().find(|col| {
+                    let compare = !(1 << col) & ((1 << BOARD_WIDTH) - 1);
+                    row == compare
+                });
+                garbage_col
+            })
+            .rev()
+            .collect::<Option<Vec<_>>>()?;
 
         // Turn the garbage cols into actions
-        let garbage_actions = garbage_cols
-            .rev()
-            .fold(Vec::<GameAction>::new(), |mut a, v| {
-                // If the previous garbage is in the same column,
-                // simply increase the height
-                if let Some(GameAction::AddGarbage {
-                    col,
-                    ref mut height,
-                }) = a.last_mut()
-                {
-                    if *col == v {
-                        *height += 1;
+        let garbage_actions =
+            garbage_cols
+                .into_iter()
+                .fold(Vec::<GameAction>::new(), |mut a, v| {
+                    // If the previous garbage is in the same column,
+                    // simply increase the height
+                    if let Some(GameAction::AddGarbage {
+                        col,
+                        ref mut height,
+                    }) = a.last_mut()
+                    {
+                        if *col == v {
+                            *height += 1;
+                            return a;
+                        }
                     }
-                } else {
                     // Otherwise add a new garbage column
                     a.push(GameAction::AddGarbage { col: v, height: 1 });
-                }
-                a
-            });
+                    a
+                });
         Some(garbage_actions)
     }
 
     let mut all_actions = Vec::<GameAction>::new();
+    let mut curr = Game::from_stream(&mut stream.clone());
     // Windows iterate over all pairs of frames
-    for window in frames.frames.windows(2) {
-        let (curr, target) = (window[0], window[1]);
+    for target in frames.frames.iter() {
+        let target = *target;
         // Find the first actions in ACTIONS_LIST
         // where find_garbage_actions returns a valid result
         let actions = ACTIONS_LIST.iter().find_map(|actions| {
             let mut game = curr;
-            for action in actions {
+            let mut actions_final = Vec::new();
+            // Debug
+            for action in actions.iter() {
                 game.apply_action(*action);
+                actions_final.push(*action);
+                if let GameAction::Lock = action {
+                    let garbage_actions = find_garbage_actions(game, target);
+                    if let Some(garbage_actions) = garbage_actions {
+                        for action in garbage_actions.iter() {
+                            game.apply_action(*action);
+                        }
+                        actions_final.extend(garbage_actions);
+                    }
+                }
             }
-            if let Some(GameAction::HardDrop) = actions.last() {
-                // Try finding garbage actions
-                let garbage_actions = find_garbage_actions(game, target)?;
-                for action in garbage_actions.iter() {
-                    game.apply_action(*action);
-                }
-                assert!(game.eq_ignore_queue(target));
-                let all_actions = actions
-                    .iter()
-                    .chain(garbage_actions.iter())
-                    .map(|x| *x)
-                    .collect::<Vec<_>>();
-                Some(all_actions)
+            if game.eq_ignore_queue(target) {
+                Some(actions_final)
             } else {
-                // Just check if they're equal
-                if game.eq_ignore_queue(target) {
-                    Some(actions.clone())
-                } else {
-                    None
-                }
+                None
             }
         });
         match actions {
@@ -273,19 +286,27 @@ fn frames_to_actions(frames: &FrameCollection) -> Vec<GameAction> {
                 write_two_games(curr, target)
             ),
         }
+        curr = target;
     }
     all_actions
 }
 
 fn replay_to_keyframes(replay: &Replay) -> Vec<KeyFrame> {
-    let mut queue = replay.queue.clone();
+    let mut stream = replay.stream.clone();
     let mut keyframes = Vec::new();
-    let mut game = Game::from_long_queue(&mut queue);
+
+    let mut game = Game::from_stream(&mut stream);
     let mut start = game;
+    let mut actions = Vec::new();
     for action in replay.actions.iter() {
         match action {
-            GameAction::HardDrop => {
-                keyframes.push(KeyFrame { start, end: game });
+            GameAction::Lock => {
+                keyframes.push(KeyFrame {
+                    start,
+                    end: game,
+                    actions,
+                });
+                actions = Vec::new();
                 game.apply_action(*action);
                 start = game;
             }
@@ -295,20 +316,22 @@ fn replay_to_keyframes(replay: &Replay) -> Vec<KeyFrame> {
             }
             _ => {
                 game.apply_action(*action);
+                actions.push(*action);
             }
         }
+        game.refill_queue_stream(&mut stream);
     }
     keyframes
 }
 
 fn replay_to_frames(replay: &Replay) -> Vec<Game> {
-    let mut queue = replay.queue.clone();
+    let mut queue = replay.stream.clone();
     let mut frames = Vec::new();
-    let mut game = Game::from_long_queue(&mut queue);
+    let mut game = Game::from_stream(&mut queue);
     frames.push(game);
     for action in replay.actions.iter() {
         game.apply_action(*action);
-        game.refill_long_queue(&mut queue);
+        game.refill_queue_stream(&mut queue);
         frames.push(game);
     }
     frames

@@ -6,11 +6,11 @@ use termion::raw::IntoRawMode;
 
 fn main() -> Result<(), GenericErr> {
     let frames = FrameCollection::load();
-    let mut replay = frames
+    let replays = frames
         .iter()
         .map(|f| Replay::from_frame_collection(f))
-        .next()
-        .unwrap();
+        .collect::<Vec<_>>();
+    let replay = replays[17].clone();
     let frames = replay.frames().clone();
     let num_frames = frames.len();
     let mut index = 0;
