@@ -167,7 +167,6 @@ pub static MOVES_2F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
                             moves.push(GameMove::SoftDrop);
                         }
                         moves.extend(final_2);
-                        moves.push(GameMove::HardDrop);
                         moves_list.push(moves);
                     }
                 }
@@ -219,7 +218,6 @@ pub static MOVES_3F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
                                 moves.push(GameMove::SoftDrop);
                             }
                             moves.extend(final_3);
-                            moves.push(GameMove::HardDrop);
                             moves_list.push(moves);
                         }
                     }
@@ -278,7 +276,6 @@ pub static MOVES_4F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
                                     moves.push(GameMove::SoftDrop);
                                 }
                                 moves.extend(final_4);
-                                moves.push(GameMove::HardDrop);
                                 moves_list.push(moves);
                             }
                         }
