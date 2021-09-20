@@ -1,10 +1,10 @@
-use std::fs::OpenOptions;
-
+use common::misc::ThreadPool;
 use processor::{FrameCollection, Replay, TestCase};
 use rand::{
     prelude::{SliceRandom, StdRng},
     SeedableRng,
 };
+use std::fs::OpenOptions;
 
 fn save_test_cases(name: &str, cases: &[TestCase]) {
     for (i, case) in cases.iter().enumerate() {
@@ -19,29 +19,44 @@ fn save_test_cases(name: &str, cases: &[TestCase]) {
 }
 
 fn main() {
+    const SEED: u64 = 1234;
+
     let frames = FrameCollection::load();
     let replays = frames
         .iter()
         .map(Replay::from_frame_collection)
         .collect::<Vec<_>>();
-    let mut rng = StdRng::seed_from_u64(1234);
-    let (mut train, mut test) = replays
-        .iter()
-        .map(|x| TestCase::from_replay(&mut rng, x))
-        .fold(Vec::new(), |mut a, v| {
-            a.extend(v);
-            a
-        })
+
+    // Generate test cases using thread pool (for parallelization)
+    let mut thread_pool = ThreadPool::new(8);
+    let jobs = replays
         .into_iter()
         .enumerate()
-        .fold((Vec::new(), Vec::new()), |(mut train, mut test), (i, v)| {
-            if i % 7 == 0 {
-                test.push(v);
-            } else {
-                train.push(v);
+        .map(|(i, replay)| {
+            move || {
+                let mut rng = StdRng::seed_from_u64(SEED + i as u64);
+                TestCase::from_replay(&mut rng, &replay)
             }
-            (train, test)
-        });
+        })
+        .collect::<Vec<_>>();
+    let test_cases = thread_pool.run(jobs);
+    // Flatten
+    let test_cases = test_cases.into_iter().fold(vec![], |mut a, v| {
+        a.extend(v);
+        a
+    });
+
+    let mut train = Vec::new();
+    let mut test = Vec::new();
+    for (i, case) in test_cases.into_iter().enumerate() {
+        if i % 7 == 0 {
+            test.push(case)
+        } else {
+            train.push(case);
+        }
+    }
+
+    let mut rng = StdRng::seed_from_u64(SEED);
     train.shuffle(&mut rng);
     test.shuffle(&mut rng);
     println!(
@@ -52,5 +67,5 @@ fn main() {
 
     save_test_cases("train", &train);
     save_test_cases("test", &test);
-    println!("Finished generating training data");
+    println!("Finished saving training data");
 }
