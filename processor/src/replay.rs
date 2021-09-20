@@ -14,9 +14,9 @@ use std::lazy::{OnceCell, SyncLazy};
 //      between two hard drops
 #[derive(Debug, Clone)]
 pub struct KeyFrame {
-    start: Game,
-    end: Game,
-    actions: Vec<GameAction>,
+    pub start: Game,
+    pub end: Game,
+    pub actions: Vec<GameAction>,
 }
 impl Display for KeyFrame {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -38,7 +38,7 @@ pub struct Replay {
 }
 impl Replay {
     pub fn from_frame_collection(frames: &FrameCollection) -> Self {
-        println!("Converting frame collection ({}) to replay...", frames.name);
+        println!("Converting frames {} to replay...", frames.name);
         let stream = frames_to_stream(frames);
         let actions = frames_stream_to_actions(frames, &stream);
         Replay {

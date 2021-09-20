@@ -7,3 +7,4 @@ mod training_data;
 pub use frames::*;
 pub use game_ext::*;
 pub use replay::*;
+pub use training_data::*;
