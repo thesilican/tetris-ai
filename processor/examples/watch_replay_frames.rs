@@ -8,9 +8,10 @@ fn main() -> Result<(), GenericErr> {
     let frames = FrameCollection::load();
     let replays = frames
         .iter()
+        .take(1)
         .map(|f| Replay::from_frame_collection(f))
         .collect::<Vec<_>>();
-    let replay = replays[17].clone();
+    let replay = replays[0].clone();
     let frames = replay.frames().clone();
     let num_frames = frames.len();
     let mut index = 0;

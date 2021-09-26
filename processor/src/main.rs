@@ -7,15 +7,25 @@ use rand::{
 use std::fs::OpenOptions;
 
 fn save_test_cases(name: &str, cases: &[TestCase]) {
-    for (i, case) in cases.iter().enumerate() {
-        let filename = format!("data/ml/{0}/{0}-{1}.json", name, i);
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(filename)
-            .unwrap();
-        serde_json::to_writer(file, case).unwrap();
-    }
+    // // Save test cases individually
+    // for (i, case) in cases.iter().enumerate() {
+    //     let filename = format!("data/ml/{0}/{0}-{1}.json", name, i);
+    //     let file = OpenOptions::new()
+    //         .write(true)
+    //         .create(true)
+    //         .open(filename)
+    //         .unwrap();
+    //     serde_json::to_writer(file, case).unwrap();
+    // }
+
+    // Save test cases into 1 file
+    let filename = format!("data/ml/{}.json", name);
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(filename)
+        .unwrap();
+    serde_json::to_writer(file, cases).unwrap();
 }
 
 fn main() {
@@ -28,7 +38,7 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Generate test cases using thread pool (for parallelization)
-    let mut thread_pool = ThreadPool::new(8);
+    let mut thread_pool = ThreadPool::new(20);
     let jobs = replays
         .into_iter()
         .enumerate()
@@ -41,14 +51,18 @@ fn main() {
         .collect::<Vec<_>>();
     let test_cases = thread_pool.run(jobs);
     // Flatten
-    let test_cases = test_cases.into_iter().fold(vec![], |mut a, v| {
+    let mut test_cases = test_cases.into_iter().fold(vec![], |mut a, v| {
         a.extend(v);
         a
     });
+    let mut rng = StdRng::seed_from_u64(SEED);
+    test_cases.shuffle(&mut rng);
 
+    // Take only the first 70,000 test cases
+    let iter = test_cases.into_iter().take(70_000).enumerate();
     let mut train = Vec::new();
     let mut test = Vec::new();
-    for (i, case) in test_cases.into_iter().enumerate() {
+    for (i, case) in iter {
         if i % 7 == 0 {
             test.push(case)
         } else {
@@ -56,9 +70,6 @@ fn main() {
         }
     }
 
-    let mut rng = StdRng::seed_from_u64(SEED);
-    train.shuffle(&mut rng);
-    test.shuffle(&mut rng);
     println!(
         "Generated {} training, {} testing cases",
         train.len(),
