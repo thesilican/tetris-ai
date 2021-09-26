@@ -1,0 +1,5 @@
+data
+data-mnist
+.ipynb_checkpoints
+__pycache__
+.vscode
