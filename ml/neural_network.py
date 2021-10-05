@@ -156,7 +156,7 @@ class NeuralNetwork:
         return net
 
     def save(self, filename):
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        # os.makedirs(os.path.dirname(filename), exist_ok=True)
         obj = {
             "shape": self.n,
             "weights": [w.tolist() for w in self.W],
