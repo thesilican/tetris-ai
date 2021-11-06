@@ -10,3 +10,5 @@ common = { path = "../common" }
 serde = "1.0"
 serde_json = "1.0"
 nalgebra = "*"
+rand = "0.8.4"
+rand_distr = "0.4.2"

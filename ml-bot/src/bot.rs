@@ -1,18 +1,17 @@
+use crate::NeuralNetwork;
 use common::{
     api::{Ai, AiRes},
+    misc::GenericErr,
     model::{Game, MOVES_4F},
 };
-
-use crate::NeuralNetwork;
 
 pub struct MlBot {
     neural_network: NeuralNetwork,
 }
 impl MlBot {
-    pub fn new() -> Self {
-        MlBot {
-            neural_network: NeuralNetwork::load(),
-        }
+    pub fn new(model_path: &str) -> Result<Self, GenericErr> {
+        let neural_network = NeuralNetwork::load(model_path)?;
+        Ok(MlBot { neural_network })
     }
 }
 impl Ai for MlBot {
