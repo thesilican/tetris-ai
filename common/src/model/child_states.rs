@@ -1,4 +1,5 @@
 use super::game::{Game, GameMove};
+use std::collections::HashSet;
 use std::collections::{hash_map::Entry, HashMap};
 use std::lazy::SyncLazy;
 
@@ -110,20 +111,24 @@ pub static MOVES_0F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
 
 pub static MOVES_1F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
+    let mut moves_set = HashSet::new();
     for hold in &*FRAGMENT_HOLD {
         for rot in &*FRAGMENT_ROT {
             for shift in &*FRAGMENT_SHIFT {
                 for final_1 in &*FRAGMENT_FINAL {
-                    let f1 = final_1.len() > 0;
                     let mut moves = Vec::new();
                     moves.extend(hold);
                     moves.extend(rot);
                     moves.extend(shift);
-                    if f1 {
-                        moves.push(GameMove::SoftDrop);
-                    }
+                    moves.push(GameMove::SoftDrop);
                     moves.extend(final_1);
-                    moves_list.push(moves);
+                    while let Some(GameMove::SoftDrop) = moves.last() {
+                        moves.pop();
+                    }
+                    if !moves_set.contains(&moves) {
+                        moves_set.insert(moves.clone());
+                        moves_list.push(moves);
+                    }
                 }
             }
         }
@@ -145,29 +150,27 @@ pub static MOVES_1F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
 
 pub static MOVES_2F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
+    let mut moves_set = HashSet::new();
     for final_1 in &*FRAGMENT_FINAL {
         for final_2 in &*FRAGMENT_FINAL {
             for hold in &*FRAGMENT_HOLD {
                 for rot in &*FRAGMENT_ROT {
                     for shift in &*FRAGMENT_SHIFT {
-                        let f1 = final_1.len() > 0;
-                        let f2 = final_2.len() > 0;
-                        if !f1 && f2 {
-                            continue;
-                        }
                         let mut moves = Vec::new();
                         moves.extend(hold);
                         moves.extend(rot);
                         moves.extend(shift);
-                        if f1 {
-                            moves.push(GameMove::SoftDrop);
-                        }
+                        moves.push(GameMove::SoftDrop);
                         moves.extend(final_1);
-                        if f2 {
-                            moves.push(GameMove::SoftDrop);
-                        }
+                        moves.push(GameMove::SoftDrop);
                         moves.extend(final_2);
-                        moves_list.push(moves);
+                        while let Some(GameMove::SoftDrop) = moves.last() {
+                            moves.pop();
+                        }
+                        if !moves_set.contains(&moves) {
+                            moves_set.insert(moves.clone());
+                            moves_list.push(moves);
+                        }
                     }
                 }
             }
@@ -190,35 +193,30 @@ pub static MOVES_2F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
 
 pub static MOVES_3F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
+    let mut moves_set = HashSet::new();
     for final_1 in &*FRAGMENT_FINAL {
         for final_2 in &*FRAGMENT_FINAL {
             for final_3 in &*FRAGMENT_FINAL {
                 for hold in &*FRAGMENT_HOLD {
                     for rot in &*FRAGMENT_ROT {
                         for shift in &*FRAGMENT_SHIFT {
-                            let f1 = final_1.len() > 0;
-                            let f2 = final_2.len() > 0;
-                            let f3 = final_3.len() > 0;
-                            if (!f1 && f2) || (!f1 && !f2 && f3) {
-                                continue;
-                            }
                             let mut moves = Vec::new();
                             moves.extend(hold);
                             moves.extend(rot);
                             moves.extend(shift);
-                            if f1 {
-                                moves.push(GameMove::SoftDrop);
-                            }
+                            moves.push(GameMove::SoftDrop);
                             moves.extend(final_1);
-                            if f2 {
-                                moves.push(GameMove::SoftDrop);
-                            }
+                            moves.push(GameMove::SoftDrop);
                             moves.extend(final_2);
-                            if f3 {
-                                moves.push(GameMove::SoftDrop);
-                            }
+                            moves.push(GameMove::SoftDrop);
                             moves.extend(final_3);
-                            moves_list.push(moves);
+                            while let Some(GameMove::SoftDrop) = moves.last() {
+                                moves.pop();
+                            }
+                            if !moves_set.contains(&moves) {
+                                moves_set.insert(moves.clone());
+                                moves_list.push(moves);
+                            }
                         }
                     }
                 }
@@ -242,6 +240,7 @@ pub static MOVES_3F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
 
 pub static MOVES_4F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
     let mut moves_list = Vec::new();
+    let mut moves_set = HashSet::new();
     for final_1 in &*FRAGMENT_FINAL {
         for final_2 in &*FRAGMENT_FINAL {
             for final_3 in &*FRAGMENT_FINAL {
@@ -249,34 +248,25 @@ pub static MOVES_4F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
                     for hold in &*FRAGMENT_HOLD {
                         for rot in &*FRAGMENT_ROT {
                             for shift in &*FRAGMENT_SHIFT {
-                                let f1 = final_1.len() > 0;
-                                let f2 = final_2.len() > 0;
-                                let f3 = final_3.len() > 0;
-                                let f4 = final_4.len() > 0;
-                                if (!f1 && f2) || (!f1 && !f2 && f3) || (!f1 && !f2 && !f3 && f4) {
-                                    continue;
-                                }
                                 let mut moves = Vec::new();
                                 moves.extend(hold);
                                 moves.extend(rot);
                                 moves.extend(shift);
-                                if f1 {
-                                    moves.push(GameMove::SoftDrop);
-                                }
+                                moves.push(GameMove::SoftDrop);
                                 moves.extend(final_1);
-                                if f2 {
-                                    moves.push(GameMove::SoftDrop);
-                                }
+                                moves.push(GameMove::SoftDrop);
                                 moves.extend(final_2);
-                                if f3 {
-                                    moves.push(GameMove::SoftDrop);
-                                }
+                                moves.push(GameMove::SoftDrop);
                                 moves.extend(final_3);
-                                if f4 {
-                                    moves.push(GameMove::SoftDrop);
-                                }
+                                moves.push(GameMove::SoftDrop);
                                 moves.extend(final_4);
-                                moves_list.push(moves);
+                                while let Some(GameMove::SoftDrop) = moves.last() {
+                                    moves.pop();
+                                }
+                                if !moves_set.contains(&moves) {
+                                    moves_set.insert(moves.clone());
+                                    moves_list.push(moves);
+                                }
                             }
                         }
                     }
