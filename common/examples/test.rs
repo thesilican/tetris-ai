@@ -1,11 +1,12 @@
-use common::model::{MOVES_0F_NH, MOVES_1F, MOVES_2F, MOVES_3F};
+#![feature(error_iter)]
+use common::misc::*;
+use std::{error::Error, num::ParseIntError};
 
 fn main() {
-    println!(
-        "{} {} {} {}",
-        MOVES_0F_NH.len(),
-        MOVES_1F.len(),
-        MOVES_2F.len(),
-        MOVES_3F.len()
-    )
+    let res = GenericErr::from("".parse::<i32>().unwrap_err());
+    let mut chain = <dyn Error>::chain(&res);
+    for x in chain {
+        println!("{}", x);
+    }
+    // println!("{:?}", res.source());
 }

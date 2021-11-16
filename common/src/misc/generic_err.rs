@@ -1,8 +1,29 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    error::Error,
+    fmt::{Display, Formatter},
+};
 
 /// One error to rule them all!
 #[derive(Debug)]
-pub struct GenericErr(pub String);
+pub struct GenericErr {
+    message: String,
+    source: Option<Box<dyn Error>>,
+}
+impl GenericErr {
+    pub fn with_message(message: &str) -> Self {
+        GenericErr {
+            message: message.to_string(),
+            source: None,
+        }
+    }
+    pub fn with_error(name: &str, err: Box<dyn Error>) -> Self {
+        GenericErr {
+            message: format!("{}: {}", name, err),
+            source: Some(err),
+        }
+    }
+}
+
 impl Default for GenericErr {
     fn default() -> Self {
         ().into()
@@ -10,23 +31,28 @@ impl Default for GenericErr {
 }
 impl Display for GenericErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.message)
+    }
+}
+impl Error for GenericErr {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.source.as_deref()
     }
 }
 
 impl From<String> for GenericErr {
     fn from(text: String) -> Self {
-        GenericErr(text)
+        GenericErr::with_message(&text)
     }
 }
 impl From<&str> for GenericErr {
     fn from(text: &str) -> Self {
-        GenericErr(text.into())
+        GenericErr::with_message(text.into())
     }
 }
 impl From<()> for GenericErr {
     fn from(_: ()) -> Self {
-        GenericErr("Unknown Error".into())
+        GenericErr::with_message("Unknown Error".into())
     }
 }
 
@@ -34,7 +60,8 @@ macro_rules! impl_generic_err {
     ($t: ty) => {
         impl From<$t> for GenericErr {
             fn from(err: $t) -> Self {
-                format!("{}: {}", stringify!($t), err).into()
+                GenericErr::with_error(stringify!($t), Box::new(err))
+                // format!("{}: {}", stringify!($t), err).into()
             }
         }
     };
