@@ -43,58 +43,6 @@ impl Game {
         }
         child_states
     }
-
-    #[cfg(feature = "parallel")]
-    pub fn child_states_par<'a>(&self, moves_list: &'a [Vec<GameMove>]) -> Vec<ChildState<'a>> {
-        use rayon::prelude::*;
-
-        type Moves<'a> = &'a [GameMove];
-        type Map<'a> = HashMap<Game, ChildState<'a>>;
-
-        fn insert<'a>(mut map: Map<'a>, game: Game, moves: Moves<'a>) -> Map<'a> {
-            match map.entry(game) {
-                Entry::Occupied(mut entry) => {
-                    if moves.len() < entry.get().moves.len() {
-                        entry.insert(ChildState { game, moves });
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(ChildState { game, moves });
-                }
-            }
-            map
-        }
-
-        moves_list
-            .into_par_iter()
-            .filter_map(|moves| {
-                let mut game = self.clone();
-                for game_move in moves {
-                    game.make_move(*game_move);
-                }
-                match game.board.topped_out() {
-                    false => Some((game, moves)),
-                    true => None,
-                }
-            })
-            .fold(
-                || HashMap::new(),
-                |map, (game, moves)| insert(map, game, moves),
-            )
-            .reduce(
-                || HashMap::new(),
-                |a: Map<'a>, b: Map<'a>| {
-                    // Merge the smaller of the two
-                    let (mut big, small) = if a.len() > b.len() { (a, b) } else { (b, a) };
-                    for (game, child_state) in small {
-                        big = insert(big, game, child_state.moves);
-                    }
-                    big
-                },
-            )
-            .into_values()
-            .collect()
-    }
 }
 
 pub static FRAGMENT_HOLD: SyncLazy<Vec<Vec<GameMove>>> =

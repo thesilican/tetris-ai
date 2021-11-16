@@ -1,0 +1,11 @@
+[package]
+name = "deep-bot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { path = "../common" }
+rayon = "1.5"
+
+[profile.release]
+debug = true
