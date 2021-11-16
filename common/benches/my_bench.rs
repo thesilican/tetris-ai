@@ -237,12 +237,43 @@ fn gen_child_states_f0(b: &mut Bencher) {
         black_box(children);
     })
 }
+
+fn gen_child_states_par_f4(b: &mut Bencher) {
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag_shuffled(&mut bag);
+    b.iter(|| {
+        let children = game.child_states_par(&MOVES_4F);
+        black_box(children);
+    })
+}
+
+fn gen_child_states_par_f2(b: &mut Bencher) {
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag_shuffled(&mut bag);
+    b.iter(|| {
+        let children = game.child_states_par(&MOVES_2F);
+        black_box(children);
+    })
+}
+
+fn gen_child_states_par_f0(b: &mut Bencher) {
+    let mut bag = Bag::new(0);
+    let game = Game::from_bag_shuffled(&mut bag);
+    b.iter(|| {
+        let children = game.child_states_par(&MOVES_0F_NH);
+        black_box(children);
+    })
+}
+
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("dt_cannon_loop", dt_cannon_loop);
     c.bench_function("copy_game", copy_game);
     c.bench_function("gen_child_states_f4", gen_child_states_f4);
     c.bench_function("gen_child_states_f2", gen_child_states_f2);
     c.bench_function("gen_child_states_f0", gen_child_states_f0);
+    c.bench_function("gen_child_states_par_f4", gen_child_states_par_f4);
+    c.bench_function("gen_child_states_par_f2", gen_child_states_par_f2);
+    c.bench_function("gen_child_states_par_f0", gen_child_states_par_f0);
 }
 
 criterion_group!(benches, criterion_benchmark);
