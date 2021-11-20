@@ -1,5 +1,4 @@
 use super::game::{Game, GameMove};
-use std::collections::HashSet;
 use std::collections::{hash_map::Entry, HashMap};
 use std::lazy::SyncLazy;
 
@@ -10,53 +9,111 @@ pub struct ChildState<'a> {
     pub moves: &'a [GameMove],
 }
 
-impl Game {
-    // Given a list of list of moves: &[Vec<GameMove>]
-    // Return an array of unique child states
-    // Which includes a game state plus a list of moves used to get there
-    pub fn child_states<'a>(&self, moves_list: &'a [Vec<GameMove>]) -> Vec<ChildState<'a>> {
-        let mut child_states = Vec::<ChildState<'a>>::new();
-        let mut map = HashMap::<Game, usize>::new();
-        for moves in moves_list {
-            let mut game = self.clone();
-            for game_move in moves {
-                game.make_move(*game_move);
-            }
-            // Ignore topped-out games
-            if game.board.topped_out() {
-                continue;
-            }
-            match map.entry(game) {
-                Entry::Occupied(entry) => {
-                    let index = entry.get();
-                    let other_moves = child_states[*index].moves;
-                    if moves.len() < other_moves.len() {
-                        // Replace with faster moves
-                        child_states[*index].moves = moves;
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    child_states.push(ChildState { game, moves });
-                    entry.insert(child_states.len() - 1);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fragment(pub Vec<Vec<GameMove>>);
+impl Fragment {
+    pub fn new(fragment: Vec<Vec<GameMove>>) -> Self {
+        assert!(fragment.len() > 0);
+        Fragment(fragment)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fragments {
+    pub fragments: Vec<Fragment>,
+    pub perms: Vec<Vec<GameMove>>,
+}
+
+impl Fragments {
+    pub fn new(fragments: &[Fragment]) -> Self {
+        let mut perms = Vec::new();
+        fn gen(perms: &mut Vec<Vec<GameMove>>, fragments: &[Fragment], accum: &[GameMove]) {
+            if fragments.len() == 0 {
+                perms.push(accum.to_vec());
+            } else {
+                for fragment in &fragments[0].0 {
+                    let mut accum = accum.to_vec();
+                    accum.extend(fragment);
+                    gen(perms, &fragments[1..], &accum)
                 }
             }
         }
+        gen(&mut perms, fragments, &[]);
+        Fragments {
+            fragments: fragments.to_vec(),
+            perms,
+        }
+    }
+}
+
+impl Game {
+    pub fn child_states<'a>(&self, fragments: &'a Fragments) -> Vec<ChildState<'a>> {
+        let mut child_states = Vec::<ChildState<'a>>::with_capacity(100);
+        let mut map = HashMap::<Game, usize, _>::with_capacity_and_hasher(
+            100,
+            fnv::FnvBuildHasher::default(),
+        );
+
+        fn gen<'a>(
+            child_states: &mut Vec<ChildState<'a>>,
+            map: &mut HashMap<Game, usize, fnv::FnvBuildHasher>,
+            game: Game,
+            fragments: &'a [Fragment],
+            perms: &'a [Vec<GameMove>],
+        ) {
+            if fragments.len() > 0 {
+                let fragment = &fragments[0];
+                let rest = &fragments[1..];
+                for (i, moves) in fragment.0.iter().enumerate() {
+                    let mut game = game;
+                    for game_move in moves {
+                        game.make_move(*game_move);
+                    }
+                    let size = perms.len() / fragment.0.len();
+                    let perms = &perms[size * i..size * (i + 1)];
+                    gen(child_states, map, game, rest, perms);
+                }
+            } else {
+                let moves = &*perms[0];
+                match map.entry(game) {
+                    Entry::Occupied(entry) => {
+                        let index = entry.get();
+                        let other_moves = child_states[*index].moves;
+                        if moves.len() < other_moves.len() {
+                            // Replace with faster moves
+                            child_states[*index].moves = moves;
+                        }
+                    }
+                    Entry::Vacant(entry) => {
+                        child_states.push(ChildState { game, moves });
+                        entry.insert(child_states.len() - 1);
+                    }
+                }
+            }
+        }
+        gen(
+            &mut child_states,
+            &mut map,
+            *self,
+            &fragments.fragments,
+            &fragments.perms,
+        );
         child_states
     }
 }
 
-pub static FRAGMENT_HOLD: SyncLazy<Vec<Vec<GameMove>>> =
-    SyncLazy::new(|| vec![vec![], vec![GameMove::Hold]]);
-pub static FRAGMENT_ROT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    vec![
+pub static FRAGMENT_HOLD: SyncLazy<Fragment> =
+    SyncLazy::new(|| Fragment::new(vec![vec![], vec![GameMove::Hold]]));
+pub static FRAGMENT_ROT: SyncLazy<Fragment> = SyncLazy::new(|| {
+    Fragment::new(vec![
         vec![],
         vec![GameMove::RotateCW],
         vec![GameMove::Rotate180],
         vec![GameMove::RotateCCW],
-    ]
+    ])
 });
-pub static FRAGMENT_SHIFT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    vec![
+pub static FRAGMENT_SHIFT: SyncLazy<Fragment> = SyncLazy::new(|| {
+    Fragment::new(vec![
         vec![GameMove::ShiftLeft; 5],
         vec![GameMove::ShiftLeft; 4],
         vec![GameMove::ShiftLeft; 3],
@@ -68,223 +125,122 @@ pub static FRAGMENT_SHIFT: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
         vec![GameMove::ShiftRight; 3],
         vec![GameMove::ShiftRight; 4],
         vec![GameMove::ShiftRight; 5],
-    ]
+    ])
 });
-pub static FRAGMENT_FINAL: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    vec![
+pub static FRAGMENT_FINAL: SyncLazy<Fragment> = SyncLazy::new(|| {
+    Fragment::new(vec![
         vec![],
-        vec![GameMove::ShiftLeft],
-        vec![GameMove::ShiftRight],
-        vec![GameMove::RotateCCW],
-        vec![GameMove::Rotate180],
-        vec![GameMove::RotateCW],
-    ]
+        vec![GameMove::SoftDrop, GameMove::ShiftLeft],
+        vec![GameMove::SoftDrop, GameMove::ShiftRight],
+        vec![GameMove::SoftDrop, GameMove::RotateCCW],
+        vec![GameMove::SoftDrop, GameMove::Rotate180],
+        vec![GameMove::SoftDrop, GameMove::RotateCW],
+    ])
+});
+pub static FRAGMENT_DROP: SyncLazy<Fragment> =
+    SyncLazy::new(|| Fragment::new(vec![vec![GameMove::HardDrop]]));
+
+pub static MOVES_0F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+    ])
 });
 
-pub static MOVES_0F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let mut moves_list = Vec::new();
-    for hold in &*FRAGMENT_HOLD {
-        for rot in &*FRAGMENT_ROT {
-            for shift in &*FRAGMENT_SHIFT {
-                let mut moves = Vec::new();
-                moves.extend(hold);
-                moves.extend(rot);
-                moves.extend(shift);
-                moves_list.push(moves);
-            }
-        }
-    }
-    moves_list
+pub static MOVES_0F: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_DROP.clone(),
+    ])
 });
 
-pub static MOVES_0F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let moves_list = MOVES_0F_NH
-        .clone()
-        .into_iter()
-        .map(|mut x| {
-            x.push(GameMove::HardDrop);
-            x
-        })
-        .collect();
-    moves_list
+pub static MOVES_1F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+    ])
 });
 
-pub static MOVES_1F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let mut moves_list = Vec::new();
-    let mut moves_set = HashSet::new();
-    for hold in &*FRAGMENT_HOLD {
-        for rot in &*FRAGMENT_ROT {
-            for shift in &*FRAGMENT_SHIFT {
-                for final_1 in &*FRAGMENT_FINAL {
-                    let mut moves = Vec::new();
-                    moves.extend(hold);
-                    moves.extend(rot);
-                    moves.extend(shift);
-                    moves.push(GameMove::SoftDrop);
-                    moves.extend(final_1);
-                    while let Some(GameMove::SoftDrop) = moves.last() {
-                        moves.pop();
-                    }
-                    if !moves_set.contains(&moves) {
-                        moves_set.insert(moves.clone());
-                        moves_list.push(moves);
-                    }
-                }
-            }
-        }
-    }
-    moves_list
+pub static MOVES_1F: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_DROP.clone(),
+    ])
 });
 
-pub static MOVES_1F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let moves_list = MOVES_1F_NH
-        .clone()
-        .into_iter()
-        .map(|mut x| {
-            x.push(GameMove::HardDrop);
-            x
-        })
-        .collect();
-    moves_list
+pub static MOVES_2F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+    ])
 });
 
-pub static MOVES_2F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let mut moves_list = Vec::new();
-    let mut moves_set = HashSet::new();
-    for final_1 in &*FRAGMENT_FINAL {
-        for final_2 in &*FRAGMENT_FINAL {
-            for hold in &*FRAGMENT_HOLD {
-                for rot in &*FRAGMENT_ROT {
-                    for shift in &*FRAGMENT_SHIFT {
-                        let mut moves = Vec::new();
-                        moves.extend(hold);
-                        moves.extend(rot);
-                        moves.extend(shift);
-                        moves.push(GameMove::SoftDrop);
-                        moves.extend(final_1);
-                        moves.push(GameMove::SoftDrop);
-                        moves.extend(final_2);
-                        while let Some(GameMove::SoftDrop) = moves.last() {
-                            moves.pop();
-                        }
-                        if !moves_set.contains(&moves) {
-                            moves_set.insert(moves.clone());
-                            moves_list.push(moves);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    moves_list
+pub static MOVES_2F: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_DROP.clone(),
+    ])
 });
 
-pub static MOVES_2F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let moves_list = MOVES_2F_NH
-        .clone()
-        .into_iter()
-        .map(|mut x| {
-            x.push(GameMove::HardDrop);
-            x
-        })
-        .collect();
-    moves_list
+pub static MOVES_3F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+    ])
 });
 
-pub static MOVES_3F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let mut moves_list = Vec::new();
-    let mut moves_set = HashSet::new();
-    for final_1 in &*FRAGMENT_FINAL {
-        for final_2 in &*FRAGMENT_FINAL {
-            for final_3 in &*FRAGMENT_FINAL {
-                for hold in &*FRAGMENT_HOLD {
-                    for rot in &*FRAGMENT_ROT {
-                        for shift in &*FRAGMENT_SHIFT {
-                            let mut moves = Vec::new();
-                            moves.extend(hold);
-                            moves.extend(rot);
-                            moves.extend(shift);
-                            moves.push(GameMove::SoftDrop);
-                            moves.extend(final_1);
-                            moves.push(GameMove::SoftDrop);
-                            moves.extend(final_2);
-                            moves.push(GameMove::SoftDrop);
-                            moves.extend(final_3);
-                            while let Some(GameMove::SoftDrop) = moves.last() {
-                                moves.pop();
-                            }
-                            if !moves_set.contains(&moves) {
-                                moves_set.insert(moves.clone());
-                                moves_list.push(moves);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    moves_list
+pub static MOVES_3F: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_DROP.clone(),
+    ])
 });
 
-pub static MOVES_3F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let moves_list = MOVES_3F_NH
-        .clone()
-        .into_iter()
-        .map(|mut x| {
-            x.push(GameMove::HardDrop);
-            x
-        })
-        .collect();
-    moves_list
+pub static MOVES_4F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+    ])
 });
 
-pub static MOVES_4F_NH: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let mut moves_list = Vec::new();
-    let mut moves_set = HashSet::new();
-    for final_1 in &*FRAGMENT_FINAL {
-        for final_2 in &*FRAGMENT_FINAL {
-            for final_3 in &*FRAGMENT_FINAL {
-                for final_4 in &*FRAGMENT_FINAL {
-                    for hold in &*FRAGMENT_HOLD {
-                        for rot in &*FRAGMENT_ROT {
-                            for shift in &*FRAGMENT_SHIFT {
-                                let mut moves = Vec::new();
-                                moves.extend(hold);
-                                moves.extend(rot);
-                                moves.extend(shift);
-                                moves.push(GameMove::SoftDrop);
-                                moves.extend(final_1);
-                                moves.push(GameMove::SoftDrop);
-                                moves.extend(final_2);
-                                moves.push(GameMove::SoftDrop);
-                                moves.extend(final_3);
-                                moves.push(GameMove::SoftDrop);
-                                moves.extend(final_4);
-                                while let Some(GameMove::SoftDrop) = moves.last() {
-                                    moves.pop();
-                                }
-                                if !moves_set.contains(&moves) {
-                                    moves_set.insert(moves.clone());
-                                    moves_list.push(moves);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    moves_list
-});
-
-pub static MOVES_4F: SyncLazy<Vec<Vec<GameMove>>> = SyncLazy::new(|| {
-    let moves_list = MOVES_4F_NH
-        .clone()
-        .into_iter()
-        .map(|mut x| {
-            x.push(GameMove::HardDrop);
-            x
-        })
-        .collect();
-    moves_list
+pub static MOVES_4F: SyncLazy<Fragments> = SyncLazy::new(|| {
+    Fragments::new(&[
+        FRAGMENT_HOLD.clone(),
+        FRAGMENT_ROT.clone(),
+        FRAGMENT_SHIFT.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_FINAL.clone(),
+        FRAGMENT_DROP.clone(),
+    ])
 });

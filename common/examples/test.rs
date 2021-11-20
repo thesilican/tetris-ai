@@ -1,20 +1,12 @@
-use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
+use common::model::{Bag, ChildState, Fragment, Fragments, Game, GameMove, Stream, MOVES_4F};
 
 fn main() {
-    let (tx, rx) = mpsc::channel::<i32>();
-    thread::spawn(move || loop {
-        match rx.recv() {
-            Ok(val) => println!("Recieved: {}", val),
-            Err(err) => {
-                println!("Error: {}", err);
-                break;
-            }
-        }
-    });
-    thread::sleep(Duration::from_millis(1000));
-    tx.send(1).unwrap();
-    thread::sleep(Duration::from_millis(1000));
-    panic!();
+    let mut bag = Bag::new(9);
+    let game = Game::from_bag_shuffled(&mut bag);
+    println!("{}", std::mem::size_of_val(&game));
+    let child_states = game.child_states(&MOVES_4F);
+    // for ChildState { game, moves } in &child_states {
+    //     println!("{}\n{:?}", game, moves);
+    // }
+    println!("{}", child_states.len());
 }

@@ -19,7 +19,6 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "rand",
- "rayon",
  "serde",
  "serde_json",
 ]

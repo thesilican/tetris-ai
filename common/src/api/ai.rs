@@ -1,4 +1,4 @@
-use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, MOVES_2F};
+use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, MOVES_1F};
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
@@ -178,7 +178,7 @@ impl SimpleAi {
 }
 impl Ai for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
-        let child_states = game.child_states(&MOVES_2F);
+        let child_states = game.child_states(&MOVES_1F);
         let mut best_moves = None;
         let mut best_height = i32::MAX;
         let mut best_holes = i32::MAX;

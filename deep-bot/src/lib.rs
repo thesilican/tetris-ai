@@ -3,6 +3,8 @@ use common::model::*;
 use rayon::prelude::*;
 use std::ops::Neg;
 
+pub static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 pub struct DeepAi {
     depth: usize,
     take: usize,
@@ -32,6 +34,7 @@ impl Ai for DeepAi {
 }
 impl DeepAi {
     fn score(&self, game: &Game) -> f32 {
+        // COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         game.board
             .height_map
             .iter()
@@ -46,12 +49,12 @@ impl DeepAi {
         }
         let child_states = game.child_states(&MOVES_1F);
         let mut child_states = child_states
-            .par_iter()
+            .iter()
             .map(|child_state| (self.score(&child_state.game), *child_state))
             .collect::<Vec<_>>();
         child_states.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
         child_states
-            .par_iter()
+            .iter()
             .take(self.take)
             .filter_map(
                 |(_, child_state)| match self.dfs(&child_state.game, depth - 1) {
