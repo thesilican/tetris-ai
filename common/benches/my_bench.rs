@@ -238,12 +238,18 @@ fn gen_child_states_f0(b: &mut Bencher) {
     })
 }
 
+macro_rules! bench_function {
+    ($c:ident, $i:ident) => {
+        $c.bench_function(stringify!($i), $i)
+    };
+}
+
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("dt_cannon_loop", dt_cannon_loop);
-    c.bench_function("copy_game", copy_game);
-    c.bench_function("gen_child_states_f4", gen_child_states_f4);
-    c.bench_function("gen_child_states_f2", gen_child_states_f2);
-    c.bench_function("gen_child_states_f0", gen_child_states_f0);
+    bench_function!(c, dt_cannon_loop);
+    bench_function!(c, copy_game);
+    bench_function!(c, gen_child_states_f4);
+    bench_function!(c, gen_child_states_f2);
+    bench_function!(c, gen_child_states_f0);
 }
 
 criterion_group!(benches, criterion_benchmark);

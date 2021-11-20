@@ -1,5 +1,7 @@
+use fnv::{FnvBuildHasher, FnvHashMap};
+
 use super::game::{Game, GameMove};
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::hash_map::Entry;
 use std::lazy::SyncLazy;
 
 /// Represents a child state of a game
@@ -49,14 +51,12 @@ impl Fragments {
 impl Game {
     pub fn child_states<'a>(&self, fragments: &'a Fragments) -> Vec<ChildState<'a>> {
         let mut child_states = Vec::<ChildState<'a>>::with_capacity(100);
-        let mut map = HashMap::<Game, usize, _>::with_capacity_and_hasher(
-            100,
-            fnv::FnvBuildHasher::default(),
-        );
+        let mut map =
+            FnvHashMap::<Game, usize>::with_capacity_and_hasher(100, FnvBuildHasher::default());
 
         fn gen<'a>(
             child_states: &mut Vec<ChildState<'a>>,
-            map: &mut HashMap<Game, usize, fnv::FnvBuildHasher>,
+            map: &mut FnvHashMap<Game, usize>,
             game: Game,
             fragments: &'a [Fragment],
             perms: &'a [Vec<GameMove>],
