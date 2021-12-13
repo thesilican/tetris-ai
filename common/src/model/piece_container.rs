@@ -16,7 +16,7 @@ pub struct Bag {
 impl Bag {
     pub fn new(rng_seed: u64) -> Self {
         Bag {
-            arr: PieceType::all().try_into().unwrap(),
+            arr: PieceType::all().collect::<Vec<_>>().try_into().unwrap(),
             rng: StdRng::seed_from_u64(rng_seed),
         }
     }

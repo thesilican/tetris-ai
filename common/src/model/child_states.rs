@@ -1,6 +1,6 @@
 use fnv::{FnvBuildHasher, FnvHashMap};
 
-use super::game::{Game, GameMove};
+use super::game::{Game, GameMove, GameMoveRes};
 use std::collections::hash_map::Entry;
 use std::lazy::SyncLazy;
 
@@ -54,6 +54,12 @@ impl Game {
         let mut map =
             FnvHashMap::<Game, usize>::with_capacity_and_hasher(100, FnvBuildHasher::default());
 
+        // Given a game, an array of fragments, and an array of permutations:
+        // Take the first fragment of fragments, iterate over moves list of the fragment,
+        // narrow down the permutation array, and recursively generate on the remaining fragments,
+        // running the moves on the game in the process.
+        // If the fragments array is empty, then we are at a leaf node of the tree of permutations.
+        // perms will contain exactly 1 array of moves, and game will have had all the moves applied to it
         fn gen<'a>(
             child_states: &mut Vec<ChildState<'a>>,
             map: &mut FnvHashMap<Game, usize>,
@@ -62,18 +68,24 @@ impl Game {
             perms: &'a [Vec<GameMove>],
         ) {
             if fragments.len() > 0 {
+                // Permutate over fragments
                 let fragment = &fragments[0];
                 let rest = &fragments[1..];
-                for (i, moves) in fragment.0.iter().enumerate() {
+                'l: for (i, moves) in fragment.0.iter().enumerate() {
                     let mut game = game;
                     for game_move in moves {
-                        game.make_move(*game_move);
+                        let res = game.make_move(*game_move);
+                        // Skip if move ever fails
+                        if let GameMoveRes::Fail = res {
+                            continue 'l;
+                        }
                     }
                     let size = perms.len() / fragment.0.len();
                     let perms = &perms[size * i..size * (i + 1)];
                     gen(child_states, map, game, rest, perms);
                 }
             } else {
+                // Finished permutating fragments, only one element in perms should remain
                 let moves = &*perms[0];
                 match map.entry(game) {
                     Entry::Occupied(entry) => {

@@ -1,4 +1,4 @@
-use common::misc::ThreadPool;
+use common::*;
 
 fn main() {
     let thread_pool = ThreadPool::new(20);

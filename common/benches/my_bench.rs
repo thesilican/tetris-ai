@@ -1,9 +1,4 @@
-use common::model::Bag;
-use common::model::Game;
-use common::model::GameMove;
-use common::model::MOVES_0F_NH;
-use common::model::MOVES_2F;
-use common::model::MOVES_4F;
+use common::*;
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
 fn dt_cannon_loop(b: &mut Bencher) {

@@ -1,8 +1,4 @@
-use common::misc::GenericErr;
-use common::model::Bag;
-use common::model::Game;
-use common::model::GameMove;
-use common::model::GameMoveRes;
+use common::*;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;

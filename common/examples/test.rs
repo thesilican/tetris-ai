@@ -1,4 +1,4 @@
-use common::model::{Bag, ChildState, Fragment, Fragments, Game, GameMove, Stream, MOVES_4F};
+use common::*;
 
 fn main() {
     let mut bag = Bag::new(9);

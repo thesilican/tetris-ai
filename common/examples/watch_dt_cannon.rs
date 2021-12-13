@@ -1,4 +1,4 @@
-use common::model::{Bag, Game, GameMove};
+use common::*;
 
 fn main() {
     // Assumption: Queue starts with [O] I T L ...

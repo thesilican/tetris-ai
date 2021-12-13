@@ -36,8 +36,8 @@ static ALL_PIECE_TYPES: SyncLazy<Vec<PieceType>> = SyncLazy::new(|| {
 });
 
 impl PieceType {
-    pub fn all() -> &'static [PieceType] {
-        &ALL_PIECE_TYPES
+    pub fn all() -> impl Iterator<Item = PieceType> {
+        ALL_PIECE_TYPES.iter().map(|x| *x)
     }
 }
 impl TryFrom<i8> for PieceType {

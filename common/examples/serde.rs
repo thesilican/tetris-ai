@@ -1,7 +1,4 @@
-use common::{
-    api::{Ai, AiRes, SimpleAi},
-    model::Game,
-};
+use common::*;
 
 fn main() {
     let req = r#"{

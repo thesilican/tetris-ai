@@ -1,5 +1,4 @@
-use common::misc::GenericErr;
-use common::model::{Bag, Game, MOVES_3F};
+use common::*;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
