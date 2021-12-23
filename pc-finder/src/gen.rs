@@ -1,4 +1,6 @@
 use common::*;
+use rayon::iter::IntoParallelIterator;
+use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     convert::TryInto,
@@ -71,14 +73,28 @@ impl PcBoard {
         }
         true
     }
-    // pub fn children(&self, piece_type: PieceType) -> impl Iterator<Item = PcChild> {
-    //     let mut game = Game::from_pieces(piece_type, None, &[PieceType::O]);
-    //     game.board = Board::from(*self);
-    //     game.child_states(&MOVES_2F)
-    //         .into_iter()
-    //         .filter(|child_state| child_state.game.board.matrix[2] == 0)
-    //         .map(PcChild::from)
-    // }
+    // Similar to Game::child_states()
+    // except for PcBoard
+    pub fn children<'a>(
+        &self,
+        piece_type: PieceType,
+        fragments: &'a Fragments,
+    ) -> Vec<PcChild<'a>> {
+        let mut game = Game::from_pieces(piece_type, None, &[PieceType::O]);
+        game.board = Board::from(*self);
+        game.child_states(fragments)
+            .into_iter()
+            .filter_map(|child_state| {
+                // Convert ChildState to Board
+                let board = child_state.game.board.try_into();
+                let moves = child_state.moves;
+                match board {
+                    Ok(board) => Some(PcChild { board, moves }),
+                    Err(_) => None,
+                }
+            })
+            .collect()
+    }
 }
 impl TryFrom<Board> for PcBoard {
     type Error = ();
@@ -121,54 +137,60 @@ impl Display for PcBoard {
     }
 }
 
-// #[derive(Debug, Clone)]
-// pub struct PcChild {
-//     pub board: PcBoard,
-//     pub moves: &'static [GameMove],
-// }
-// impl From<ChildState<'static>> for PcChild {
-//     fn from(child_state: ChildState<'static>) -> Self {
-//         PcChild {
-//             board: child_state.game.board.into(),
-//             moves: child_state.moves,
-//         }
-//     }
-// }
+#[derive(Debug, Clone)]
+pub struct PcChild<'a> {
+    pub board: PcBoard,
+    pub moves: &'a [GameMove],
+}
 
-// #[derive(Debug, Clone)]
-// pub struct PcGraph {
-//     pub graph: HashMap<PcBoard, HashMap<PieceType, Vec<PcChild>>>,
-// }
-// impl PcGraph {
-//     pub fn generate() -> Self {
-//         type PieceMap = HashMap<PieceType, Vec<PcChild>>;
-//         type Graph = HashMap<PcBoard, PieceMap>;
-//         type Visited = HashSet<PcBoard>;
-//         let mut graph = Graph::new();
-//         let mut visited = Visited::new();
-//         const INITIAL: PcBoard = PcBoard::new();
-//         fn dfs(board: PcBoard, graph: &mut Graph, visited: &mut Visited) -> bool {
-//             if visited.contains(&board) {
-//                 return graph.contains_key(&board);
-//             }
-//             visited.insert(board);
+#[derive(Debug, Clone)]
+pub struct PcGraph<'a> {
+    pub graph: HashMap<PcBoard, HashMap<PieceType, Vec<PcChild<'a>>>>,
+}
+impl<'a> PcGraph<'a> {
+    pub fn create(fragments: &'a Fragments) -> Self {
+        PcGraph::generate(fragments).prune()
+    }
+    fn generate(fragments: &'a Fragments) -> Self {
+        type PieceMap<'a> = HashMap<PieceType, Vec<PcChild<'a>>>;
+        type Graph<'a> = HashMap<PcBoard, PieceMap<'a>>;
+        type Visited = HashSet<PcBoard>;
 
-//             let mut found = false;
-//             let mut piece_map = PieceMap::new();
-//             for piece_type in PieceType::all() {
-//                 let mut children = Vec::<PcChild>::new();
-//                 for child in board.children(piece_type) {
-//                     let res = dfs(child.board, graph, visited);
-//                     if res {
-//                         found = true;
-//                         children.push(child);
-//                     }
-//                 }
-//                 piece_map.insert(piece_type, children);
-//             }
-//             found
-//         }
-//         dfs(INITIAL, &mut graph, &mut visited);
-//         PcGraph { graph }
-//     }
-// }
+        // From the empty PcBoard state,
+        // create a graph of all
+        //  PcBoard => PieceType => PcChild
+        // transitions
+        const INITIAL: PcBoard = PcBoard::new();
+        let mut graph = Graph::new();
+        let mut visited = Visited::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(INITIAL);
+        visited.insert(INITIAL);
+
+        let mut i = 0;
+        while let Some(board) = queue.pop_front() {
+            println!("{:#}", board);
+            println!("{} {}", i, queue.len());
+            i += 1;
+            let mut piece_map = PieceMap::new();
+            for piece_type in PieceType::all() {
+                let children = board.children(piece_type, fragments);
+                for child in children.iter() {
+                    if !visited.contains(&child.board) {
+                        queue.push_back(child.board);
+                        visited.insert(child.board);
+                    }
+                }
+                piece_map.insert(piece_type, children);
+            }
+            graph.insert(board, piece_map);
+        }
+        PcGraph { graph }
+    }
+    // Given a PcGraph
+    // Remove all nodes that do not have a path back to the initial state
+    fn prune(self) -> Self {
+        //
+        todo!()
+    }
+}
