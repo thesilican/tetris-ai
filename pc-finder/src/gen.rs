@@ -32,13 +32,13 @@ fn get_board_from_num(num: u64) -> Option<PcBoardSer> {
 }
 
 fn gen_valid_boards() -> HashMap<PcBoardSer, BoardInfo> {
-    let mut map = HashMap::new();
-    for num in 0..(2u64.pow(40)) {
-        if let Some(pc_board_ser) = get_board_from_num(num) {
-            map.insert(pc_board_ser, BoardInfo::new());
-        }
-    }
-    map
+    (0..(2u64).pow(20))
+        .into_par_iter()
+        .filter_map(|num| match get_board_from_num(num) {
+            Some(board) => Some((board, BoardInfo::new())),
+            None => None,
+        })
+        .collect::<HashMap<_, _>>()
 }
 
 pub fn count_boards() {
@@ -95,9 +95,18 @@ pub fn count_boards() {
         }
     }
 
-    let total_visited = valid_boards
+    let final_boards = valid_boards
         .into_iter()
-        .filter(|(_, info)| info.visited)
-        .count();
-    println!("DFS visited {} boards", total_visited);
+        .filter_map(|(board, info)| {
+            if info.visited {
+                let board = PcBoard::from(board);
+                Some(format!("{}", board))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    println!("DFS visited {} boards", final_boards.len());
+    let file = std::fs::File::create("out.json").expect("error creating file");
+    serde_json::to_writer(file, &*final_boards).expect("error writing to file");
 }
