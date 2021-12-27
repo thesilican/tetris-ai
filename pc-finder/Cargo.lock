@@ -145,6 +145,7 @@ dependencies = [
  "common",
  "rayon",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
