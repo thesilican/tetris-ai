@@ -1,8 +1,10 @@
 #![feature(once_cell)]
 mod gen;
+mod model;
 
 // use common::*;
 pub use gen::*;
+pub use model::*;
 // use std::collections::VecDeque;
 
 // pub struct PCAi;
