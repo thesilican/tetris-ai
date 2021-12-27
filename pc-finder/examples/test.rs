@@ -1,6 +1,6 @@
-use common::*;
-use pc_finder::*;
-use std::collections::HashMap;
+// use common::*;
+// use pc_finder::*;
+// use std::collections::HashMap;
 
 fn main() {
     // let board = PcBoard::from_rows([0b0000001111, 0b0000010000, 0b0000100000, 0b0000011000]);
@@ -11,11 +11,11 @@ fn main() {
     // println!("{:?}", board_ser);
     // println!("{:#}", board_de);
 
-    let graph = PcGraph::generate();
-    println!("Graph size: {}", graph.graph.len());
-    graph.save("data/test-1.bin").unwrap();
-    let graph_loaded = PcGraph::load("data/test-1.bin").unwrap();
-    println!("{}", graph == graph_loaded);
+    // let graph = PcGraph::generate();
+    // println!("Graph size: {}", graph.graph.len());
+    // graph.save("data/test-1.bin").unwrap();
+    // let graph_loaded = PcGraph::load("data/test-1.bin").unwrap();
+    // println!("{}", graph == graph_loaded);
 
     // println!("{}", MOVES_4F.perms.len() < (1 << 16));
 

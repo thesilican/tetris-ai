@@ -247,6 +247,20 @@ impl PcBoardSer {
     pub fn new(value: [u8; 5]) -> Self {
         PcBoardSer(value)
     }
+    pub fn from_u64(value: u64) -> Self {
+        let mut bytes = [0; 5];
+        for i in 0..5 {
+            bytes[i] = value.to_le_bytes()[i];
+        }
+        PcBoardSer::new(bytes)
+    }
+    pub fn to_u64(self) -> u64 {
+        let mut bytes = [0; 8];
+        for i in 0..5 {
+            bytes[i] = self.0[i];
+        }
+        u64::from_le_bytes(bytes)
+    }
 }
 impl From<PcBoard> for PcBoardSer {
     fn from(val: PcBoard) -> Self {
@@ -269,6 +283,20 @@ impl From<PcBoardSer> for PcBoard {
         rows[2] = val[2] >> 4 | (val[3] & 0b111111) << 4;
         rows[3] = val[3] >> 6 | (val[4] & 0b11111111) << 2;
         PcBoard(rows)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pc_board_ser_to_u64_works() {
+        for i in 0..10000 {
+            let board = PcBoardSer::from_u64(i);
+            let num = board.to_u64();
+            assert_eq!(i, num);
+        }
     }
 }
 

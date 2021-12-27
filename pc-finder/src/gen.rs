@@ -21,33 +21,24 @@ impl BoardInfo {
     }
 }
 
-fn get_board_from_num(num: u64) -> Option<PcBoardSer> {
-    let bits = num.to_le_bytes();
-    let pc_board_ser = PcBoardSer::new(bits[0..5].try_into().unwrap());
-    if PcBoard::from(pc_board_ser).is_valid() {
-        Some(pc_board_ser)
-    } else {
-        None
-    }
-}
-
-fn gen_valid_boards() -> HashMap<PcBoardSer, BoardInfo> {
-    (0..(2u64).pow(20))
-        .into_par_iter()
-        .filter_map(|num| match get_board_from_num(num) {
-            Some(board) => Some((board, BoardInfo::new())),
-            None => None,
-        })
-        .collect::<HashMap<_, _>>()
-}
-
 pub fn count_boards() {
     println!("Starting to counting boards");
 
-    let mut valid_boards = gen_valid_boards();
+    // Generate valid PcBoards
+    let mut valid_boards = (0..(2u64).pow(20))
+        .into_par_iter()
+        .filter_map(|num| {
+            let board = PcBoardSer::from_u64(num);
+            if PcBoard::from(board).is_valid() {
+                Some((board, BoardInfo::new()))
+            } else {
+                None
+            }
+        })
+        .collect::<HashMap<_, _>>();
     println!("Generated {} valid boards", valid_boards.len());
 
-    // Generate forward links
+    // Generate forward links (children)
     let count = AtomicUsize::new(0);
     valid_boards.par_iter_mut().for_each(|(board, info)| {
         let children = PcBoard::from(*board).child_boards().map(PcBoardSer::from);
@@ -57,14 +48,10 @@ pub fn count_boards() {
     println!("Generated {} forward links", count.load(Ordering::Relaxed));
 
     // Generate backlinks
-    // Copy over keys
     let mut count = 0;
     let keys = valid_boards.keys().map(|x| *x).collect::<Vec<_>>();
-    let mut children = Vec::<PcBoardSer>::new();
     for key in keys.iter() {
-        // Copy children
-        children.clear();
-        children.extend_from_slice(&valid_boards.get(key).unwrap().children);
+        let children = valid_boards.get(key).unwrap().children.clone();
         for child in children.iter() {
             if let Some(info) = valid_boards.get_mut(child) {
                 info.backlinks.push(*key);
@@ -99,8 +86,7 @@ pub fn count_boards() {
         .into_iter()
         .filter_map(|(board, info)| {
             if info.visited {
-                let board = PcBoard::from(board);
-                Some(format!("{}", board))
+                Some(board.to_u64())
             } else {
                 None
             }
