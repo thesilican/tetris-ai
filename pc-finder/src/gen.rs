@@ -25,7 +25,7 @@ pub fn count_boards() {
     println!("Starting to counting boards");
 
     // Generate valid PcBoards
-    let mut valid_boards = (0..(2u64).pow(20))
+    let mut valid_boards = (0..(2u64).pow(40))
         .into_par_iter()
         .filter_map(|num| {
             let board = PcBoardSer::from_u64(num);
