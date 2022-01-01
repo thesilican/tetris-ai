@@ -1,5 +1,5 @@
 use pc_finder::*;
 
 fn main() {
-    count_boards();
+    count_valid_boards();
 }

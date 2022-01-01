@@ -2,6 +2,8 @@ use crate::*;
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
+    fs::File,
+    str::FromStr,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -19,6 +21,34 @@ impl BoardInfo {
             visited: false,
         }
     }
+}
+
+pub fn count_valid_boards() {
+    println!("Starting to count valid boards");
+
+    let exp = std::env::args()
+        .collect::<Vec<_>>()
+        .get(1)
+        .map(|x| u32::from_str(&x).ok())
+        .flatten()
+        .unwrap_or(40);
+    println!("from 0 to 2^{}", exp);
+    let valid_boards = (0..(2u64).pow(exp))
+        .into_par_iter()
+        .filter_map(|num| {
+            let board = PcBoardSer::from_u64(num);
+            if PcBoard::from(board).is_valid() {
+                Some(num)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    println!("Found {} valid boards", valid_boards.len());
+
+    let file = File::create("data/count-valid-boards.json").expect("error creating file");
+    serde_json::to_writer(&file, &*valid_boards).expect("error writing to file");
+    println!("Written boards to data/count-valid-boards.json");
 }
 
 pub fn count_boards() {
