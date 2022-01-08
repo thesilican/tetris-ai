@@ -186,8 +186,8 @@ fn dt_cannon_loop(b: &mut Bencher) {
         let mut game = Game::from_bag(&bag);
         game.swap_hold();
         for _ in 0..100 {
-            for game_move in moves.iter() {
-                game.make_move(*game_move);
+            for &game_move in moves.iter() {
+                game.make_move(game_move);
                 game.refill_queue(&bag);
             }
         }

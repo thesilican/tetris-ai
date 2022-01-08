@@ -140,8 +140,8 @@ where
 {
     fn from_iter<I: IntoIterator<Item = &'a T>>(iter: I) -> Self {
         let mut arr = ArrDeque::new();
-        for item in iter {
-            if let InsertRes::Full = arr.push_back(*item) {
+        for &item in iter {
+            if let InsertRes::Full = arr.push_back(item) {
                 return arr;
             }
         }

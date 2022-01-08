@@ -102,9 +102,9 @@ pub trait Ai {
             let elapsed = start.elapsed();
             match res {
                 AiRes::Success { moves, score } => {
-                    for game_move in &moves {
+                    for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
-                            let res = game.make_move(*game_move);
+                            let res = game.make_move(game_move);
                             if let GameMoveRes::SuccessDrop(drop_res) = res {
                                 if drop_res.top_out {
                                     println!("TOP OUT");
@@ -112,7 +112,7 @@ pub trait Ai {
                                 }
                             }
                         } else {
-                            game.make_move(*game_move);
+                            game.make_move(game_move);
                         }
                     }
                     let score = score

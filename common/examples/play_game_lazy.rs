@@ -32,8 +32,8 @@ fn main() -> Result<(), GenericErr> {
                 index = (index + 1) % child_states.len();
             }
             Key::Char(' ') => {
-                for game_move in child_states[index].moves {
-                    game.make_move(*game_move);
+                for &game_move in child_states[index].moves {
+                    game.make_move(game_move);
                 }
                 game.refill_queue_shuffled(&mut bag);
                 child_states = game.child_states(&MOVES_3F);

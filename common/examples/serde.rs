@@ -34,8 +34,8 @@ fn main() {
             score: _score,
         } => {
             // Make moves
-            for game_move in moves.iter() {
-                game.make_move(*game_move);
+            for &game_move in moves.iter() {
+                game.make_move(game_move);
             }
             println!("{:?}", moves);
             println!("{}", game);

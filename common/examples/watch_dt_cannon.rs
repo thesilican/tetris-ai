@@ -183,8 +183,8 @@ fn main() {
     let mut game = Game::from_bag(&bag);
     game.swap_hold();
     for _ in 0..10_000 {
-        for game_move in moves.iter() {
-            game.make_move(*game_move);
+        for &game_move in moves.iter() {
+            game.make_move(game_move);
             game.refill_queue(&bag);
             println!("{}", game);
             std::thread::sleep(std::time::Duration::from_millis(50));
