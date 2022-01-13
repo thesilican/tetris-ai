@@ -2,7 +2,7 @@
 name = "pc-finder"
 version = "0.1.0"
 authors = ["Bryan Chen <bryanchen74@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 common = { path = "../common" }
