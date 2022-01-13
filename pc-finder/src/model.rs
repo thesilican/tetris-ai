@@ -9,7 +9,7 @@ use std::{
 };
 
 // Fragments used for generating child PcBoards
-static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
+pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 // // Look up table to get index of an unknown &[GameMove]
 // static FRAGMENTS_IDX: SyncLazy<HashMap<&[GameMove], usize>> = SyncLazy::new(|| {
 //     let mut hash_map = HashMap::new();
@@ -49,7 +49,7 @@ impl PcBoard {
         // regions ('islands') is 5 or less
         let mut stack = Vec::with_capacity(40);
         let mut visited = [[false; 4]; 10];
-        let mut islands = 0;
+        // let mut islands = 0;
         for x in 0..10 {
             for y in 0..4 {
                 if visited[x as usize][y as usize] {
@@ -57,7 +57,7 @@ impl PcBoard {
                 }
 
                 // Found new contiguous region
-                islands += 1;
+                // islands += 1;
 
                 // DFS through contiguous regions
                 let mut count = 0;
@@ -85,9 +85,9 @@ impl PcBoard {
                 }
             }
         }
-        if islands > 5 {
-            return false;
-        }
+        // if islands > 5 {
+        //     return false;
+        // }
         true
     }
 
