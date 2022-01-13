@@ -2,7 +2,10 @@
 
 Exploring various ideas related to tetris ai, written in rust (and a little python)
 
+![Tetris AI Demo 1](./demo-1.webp)
+
 List of crates (as of 2021-12-26)
+
 - `c4w-bot` - Attempt to create a bot that does center 4 wide stacking
 - `common` - Highly optimized tetris pieces, board, game model, and AI interface. Used by pretty much every other crate
 - `deep-bot` - Recursive tetris ai based on simple heuristics
@@ -12,4 +15,3 @@ List of crates (as of 2021-12-26)
 - `processor` - Process TETR.IO replays, for use as training data for ml-bot
 - `wasm-test` - Attempting to compile a tetris AI to webassembly for use in the browser
 - `ws-server` - HTTP and websocket server, to communicate wtih a tetris frontend
-
