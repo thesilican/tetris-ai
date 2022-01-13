@@ -1,6 +1,6 @@
-use common::api::Ai;
+use common::Ai;
 use deep_bot::DeepAi;
 
 fn main() {
-    DeepAi::new(4, 6).watch_ai(0);
+    DeepAi::new(2, 20).watch_ai(0);
 }

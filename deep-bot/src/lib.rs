@@ -1,9 +1,6 @@
-use common::api::*;
-use common::model::*;
+use common::*;
 use rayon::prelude::*;
 use std::ops::Neg;
-
-pub static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 pub struct DeepAi {
     depth: usize,
@@ -34,7 +31,6 @@ impl Ai for DeepAi {
 }
 impl DeepAi {
     fn score(&self, game: &Game) -> f32 {
-        // COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         game.board
             .height_map
             .iter()
