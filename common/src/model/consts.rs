@@ -21,4 +21,4 @@ pub const BOARD_VISIBLE_HEIGHT: usize = 20;
 pub const BAG_LEN: usize = PIECE_NUM_TYPES;
 
 /// Maximum number of pieces in the queue
-pub const GAME_MAX_QUEUE_LEN: usize = 8;
+pub const GAME_MAX_QUEUE_LEN: usize = 16;
