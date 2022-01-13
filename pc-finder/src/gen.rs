@@ -3,6 +3,7 @@ use common::*;
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
+    convert::TryFrom,
     fs::File,
     str::FromStr,
     sync::{

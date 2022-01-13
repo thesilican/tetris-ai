@@ -1,5 +1,6 @@
 use common::*;
 use std::{
+    convert::TryFrom,
     // collections::{HashMap, HashSet, VecDeque},
     convert::TryInto,
     fmt::Display,
@@ -146,7 +147,7 @@ impl TryFrom<Board> for PcBoard {
 impl From<PcBoard> for Board {
     fn from(pc_board: PcBoard) -> Self {
         let mut board = Board::new();
-        for (i, row) in pc_board.0.into_iter().enumerate() {
+        for (i, &row) in pc_board.0.iter().enumerate() {
             board.set_row(i, row);
         }
         board
