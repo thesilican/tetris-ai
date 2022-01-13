@@ -2,7 +2,9 @@
 
 Exploring various ideas related to tetris ai, written in rust (and a little python)
 
-![Tetris AI Demo 1](./demo-1.webp)
+<p align="center">
+<img src="./demo-1.webp" alt="demo 1" width="200" />
+</p>
 
 List of crates (as of 2021-12-26)
 
