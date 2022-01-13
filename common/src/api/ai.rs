@@ -136,6 +136,39 @@ pub trait Ai {
             game.refill_queue_shuffled(&mut bag);
         }
     }
+    /// A prettier version of watch_ai(), intended for demoing a bot
+    fn watch_ai_demo(&mut self, piece_delay_ms: u64) {
+        let mut bag = Bag::new(0);
+        let mut game = Game::from_bag_shuffled(&mut bag);
+        println!("{}", game);
+        'l: loop {
+            let res = self.evaluate(&game);
+            match res {
+                AiRes::Success { moves, .. } => {
+                    for &game_move in &moves {
+                        if let GameMove::HardDrop = game_move {
+                            let res = game.make_move(game_move);
+                            if let GameMoveRes::SuccessDrop(drop_res) = res {
+                                if drop_res.top_out {
+                                    println!("TOP OUT");
+                                    break 'l;
+                                }
+                            }
+                        } else {
+                            game.make_move(game_move);
+                        }
+                        println!("{}", game);
+                        std::thread::sleep(std::time::Duration::from_millis(piece_delay_ms));
+                    }
+                }
+                AiRes::Fail { reason } => {
+                    println!("Evaluation failed: {}", reason);
+                    break;
+                }
+            }
+            game.refill_queue_shuffled(&mut bag);
+        }
+    }
     /// Easy way to benchmark the performance of an Ai
     fn bench_ai(&mut self, eval_count: u32, seed: u64) {
         let mut bag = Bag::new(seed);

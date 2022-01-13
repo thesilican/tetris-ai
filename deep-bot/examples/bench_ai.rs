@@ -1,4 +1,4 @@
-use common::api::Ai;
+use common::*;
 use deep_bot::DeepAi;
 
 fn main() {
