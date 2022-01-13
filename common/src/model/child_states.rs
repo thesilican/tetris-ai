@@ -73,8 +73,8 @@ impl Game {
                 let rest = &fragments[1..];
                 'l: for (i, moves) in fragment.0.iter().enumerate() {
                     let mut game = game;
-                    for game_move in moves {
-                        let res = game.make_move(*game_move);
+                    for &game_move in moves {
+                        let res = game.make_move(game_move);
                         // Skip if move ever fails
                         if let GameMoveRes::Fail = res {
                             continue 'l;
@@ -89,11 +89,11 @@ impl Game {
                 let moves = &*perms[0];
                 match map.entry(game) {
                     Entry::Occupied(entry) => {
-                        let index = entry.get();
-                        let other_moves = child_states[*index].moves;
+                        let &index = entry.get();
+                        let other_moves = child_states[index].moves;
                         if moves.len() < other_moves.len() {
                             // Replace with faster moves
-                            child_states[*index].moves = moves;
+                            child_states[index].moves = moves;
                         }
                     }
                     Entry::Vacant(entry) => {

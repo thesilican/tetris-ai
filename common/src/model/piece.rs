@@ -249,9 +249,9 @@ impl Piece {
 
         let kick_table = self.get_kick_table(Some(old_rot), new_rot);
         let (b_left, b_right, b_bottom, b_top) = *self.get_location_bounds(None);
-        for (d_x, d_y) in kick_table {
-            let new_x = old_x + *d_x;
-            let new_y = old_y + *d_y;
+        for &(d_x, d_y) in kick_table {
+            let new_x = old_x + d_x;
+            let new_y = old_y + d_y;
             self.location = (new_x, new_y);
 
             if !(new_x < b_left || new_x > b_right || new_y < b_bottom || new_y > b_top)

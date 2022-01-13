@@ -188,9 +188,9 @@ impl Ai for SimpleAi {
                 .board
                 .height_map
                 .iter()
-                .map(|x| {
+                .map(|&x| {
                     // Square so that higher heights are punished more
-                    let x = *x as i32;
+                    let x = x as i32;
                     x * x
                 })
                 .sum();
