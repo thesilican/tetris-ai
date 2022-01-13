@@ -1,15 +1,10 @@
 use crate::*;
-use common::*;
 use rayon::prelude::*;
 use std::{
-    collections::{HashMap, HashSet},
-    convert::TryFrom,
+    collections::HashMap,
     fs::File,
     str::FromStr,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 #[derive(Debug, Clone)]
@@ -130,70 +125,4 @@ pub fn count_boards() {
     println!("DFS visited {} boards", final_boards.len());
     let file = std::fs::File::create("out.json").expect("error creating file");
     serde_json::to_writer(file, &*final_boards).expect("error writing to file");
-}
-
-pub fn dfs_boards() {
-    const THREAD_COUNT: usize = 64;
-
-    fn get_children(board: PcBoardSer) -> Vec<PcBoardSer> {
-        let mut children = Vec::new();
-        for piece_type in PieceType::all() {
-            let mut game = Game::from_pieces(piece_type, None, &[PieceType::O]);
-            game.board = Board::from(PcBoard::from(board));
-            let child_states = game.child_states(&FRAGMENTS);
-            let boards = child_states.into_iter().filter_map(|child_state| {
-                PcBoard::try_from(child_state.game.board)
-                    .ok()
-                    .map(PcBoardSer::from)
-            });
-            children.extend(boards);
-        }
-        children
-    }
-
-    let mut stack = Vec::<PcBoardSer>::new();
-    let mut visited = HashSet::<PcBoardSer>::new();
-    let initial_state = PcBoardSer::new([0; 5]);
-    stack.push(initial_state);
-    visited.insert(initial_state);
-    // DFS until the stack has enough elements
-    while stack.len() < 2 * THREAD_COUNT {
-        let board = stack.pop().unwrap();
-        let children = get_children(board);
-        for child in children {
-            if visited.insert(child) {
-                stack.push(child);
-            }
-        }
-    }
-
-    let state_arc = Arc::new(Mutex::new((stack, visited)));
-    let mut jobs = Vec::new();
-    for _ in 0..THREAD_COUNT {
-        let state_arc = state_arc.clone();
-        let job = move || loop {
-            let mut state = state_arc.lock().unwrap();
-            let (stack, _) = &mut *state;
-            let board = match stack.pop() {
-                Some(board) => board,
-                None => break,
-            };
-            drop(state);
-
-            let children = get_children(board);
-
-            let mut state = state_arc.lock().unwrap();
-            let (stack, visited) = &mut *state;
-            for child in children {
-                if visited.insert(child) {
-                    stack.push(child);
-                }
-            }
-            println!("Stack: {} Visited: {}", stack.len(), visited.len());
-            drop(state);
-        };
-        jobs.push(job);
-    }
-    let thread_pool = ThreadPool::new(THREAD_COUNT);
-    thread_pool.run(jobs);
 }
