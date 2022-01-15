@@ -3,7 +3,8 @@
 Exploring various ideas related to tetris ai, written in rust (and a little python)
 
 <p align="center">
-<img src="./demo-1.webp" alt="demo 1" height="400" />
+<img src="./demo-1.webp" alt="demo 1" height="200" />
+<img src="./demo-2.webp" alt="demo 1" height="200" />
 </p>
 
 List of crates (as of 2021-12-26)
