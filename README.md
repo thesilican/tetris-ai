@@ -1,6 +1,6 @@
 # tetris-ai
 
-Exploring various ideas related to tetris ai, written in Rust (and a little Python)
+Exploring various ideas related to Tetris AI, written in Rust (and a little Python)
 
 <p align="center">
 <img src="./demo-1.webp" alt="demo 1" height="200" />
