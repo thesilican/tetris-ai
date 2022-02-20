@@ -159,6 +159,21 @@ pub struct Game {
     pub can_hold: bool,
 }
 impl Game {
+    pub fn from_parts(
+        board: Board,
+        current_piece: Piece,
+        hold_piece: Option<PieceType>,
+        queue_pieces: &[PieceType],
+        can_hold: bool,
+    ) -> Self {
+        Game {
+            board,
+            current_piece,
+            hold_piece,
+            queue_pieces: queue_pieces.iter().collect(),
+            can_hold,
+        }
+    }
     pub fn from_bag(bag: &Bag) -> Self {
         let mut iter = bag.pieces().iter();
         Game {
