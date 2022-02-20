@@ -2,7 +2,7 @@
 use mongodb::bson::doc;
 use mongodb::options::InsertManyOptions;
 use mongodb::sync::Collection;
-use mongodb::{options::IndexOptions, sync::Client, IndexModel};
+use mongodb::{sync::Client, IndexModel};
 use pc_finder::*;
 use serde::{Deserialize, Serialize};
 use std::ops::ControlFlow;
@@ -10,14 +10,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DbBoard {
-    board: PcBoard,
+    #[serde(rename = "_id")]
+    id: PcBoard,
+    assigned: bool,
     visited: bool,
     children: Vec<PcBoard>,
 }
 impl Default for DbBoard {
     fn default() -> Self {
         DbBoard {
-            board: PcBoard::new(),
+            id: PcBoard::new(),
+            assigned: false,
             visited: false,
             children: vec![],
         }
@@ -27,8 +30,12 @@ impl Default for DbBoard {
 static EXIT: AtomicBool = AtomicBool::new(false);
 
 fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb::error::Error> {
-    // Find an unvisited board
-    let board = collection.find_one(doc! { "visited": false }, None)?;
+    // Find an unassigned board and assign to self
+    let board = collection.find_one_and_update(
+        doc! { "assigned": false },
+        doc! { "$set": { "assigned": true }},
+        None,
+    )?;
     if let None = board {
         println!("Finished finding PCs!");
         return Ok(ControlFlow::BREAK);
@@ -36,18 +43,31 @@ fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb
     let board = board.unwrap();
 
     // DFS children
-    let children = board.board.child_boards();
+    let children = board.id.child_boards();
     println!(
         "Searching {}\n{}\nFound {} children\n",
-        board.board.to_u64(),
-        board.board,
+        board.id.to_u64(),
+        board.id,
         children.len()
     );
+
+    // Mark board as visited
+    collection.update_one(
+        doc! { "_id": board.id.to_u64() as i64 },
+        doc! {
+            "$set": {
+                "visited": true,
+                "children": children.iter().map(|&board| board.to_u64() as i64).collect::<Vec<_>>()
+            }
+        },
+        None,
+    )?;
 
     // Insert children
     if children.len() > 0 {
         let db_children = children.iter().map(|&board| DbBoard {
-            board,
+            id: board,
+            assigned: false,
             visited: false,
             children: vec![],
         });
@@ -76,17 +96,6 @@ fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb
         }
     }
 
-    // Mark board as visited
-    collection.update_one(
-        doc! { "board": board.board.to_u64() as i64 },
-        doc! {
-            "$set": {
-                "visited": true,
-                "children": children.iter().map(|&board| board.to_u64() as i64).collect::<Vec<_>>()
-            }
-        },
-        None,
-    )?;
     Ok(ControlFlow::CONTINUE)
 }
 
@@ -96,16 +105,15 @@ fn main() -> Result<(), mongodb::error::Error> {
     let client = Client::with_uri_str(uri)?;
     let collection = client.database("pc-finder").collection::<DbBoard>("boards");
 
-    // Ensure that the collection has a unique "board" index and visited index
+    // Create index for visited and assigned
     collection.create_index(
-        IndexModel::builder()
-            .keys(doc! { "board": 1i32 })
-            .options(IndexOptions::builder().unique(true).build())
-            .build(),
+        IndexModel::builder().keys(doc! { "visited": 1i32 }).build(),
         None,
     )?;
     collection.create_index(
-        IndexModel::builder().keys(doc! { "visited": 1i32 }).build(),
+        IndexModel::builder()
+            .keys(doc! { "assigned": 1i32 })
+            .build(),
         None,
     )?;
 
