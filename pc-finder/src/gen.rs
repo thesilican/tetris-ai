@@ -1,198 +1,211 @@
-use crate::*;
 use common::*;
-use rayon::prelude::*;
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    str::FromStr,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
-};
+use serde::{Deserialize, Serialize};
+use std::{convert::TryInto, fmt::Display, lazy::SyncLazy};
 
-#[derive(Debug, Clone)]
-struct BoardInfo {
-    pub children: Vec<PcBoardSer>,
-    pub backlinks: Vec<PcBoardSer>,
-    pub visited: bool,
-}
-impl BoardInfo {
-    fn new() -> Self {
-        BoardInfo {
-            children: Vec::new(),
-            backlinks: Vec::new(),
-            visited: false,
-        }
+// Fragments used for generating child PcBoards
+pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
+
+/// Represents the bottom 4 rows of a tetris board
+/// Invariant: must be valid (see PcBoard::is_valid())
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(from = "PcBoardSer")]
+#[serde(into = "PcBoardSer")]
+pub struct PcBoard([u16; 4]);
+impl PcBoard {
+    pub const fn new() -> Self {
+        PcBoard([0; 4])
     }
-}
-
-pub fn count_valid_boards() {
-    println!("Starting to count valid boards");
-
-    let exp = std::env::args()
-        .collect::<Vec<_>>()
-        .get(1)
-        .map(|x| u32::from_str(&x).ok())
-        .flatten()
-        .unwrap_or(40);
-    println!("from 0 to 2^{}", exp);
-    let valid_boards = (0..(2u64).pow(exp))
-        .into_par_iter()
-        .filter_map(|num| {
-            let board = PcBoardSer::from_u64(num);
-            if PcBoard::from(board).is_valid() {
-                Some(num)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    println!("Found {} valid boards", valid_boards.len());
-
-    let file = File::create("data/count-valid-boards.json").expect("error creating file");
-    serde_json::to_writer(&file, &*valid_boards).expect("error writing to file");
-    println!("Written boards to data/count-valid-boards.json");
-}
-
-pub fn count_boards() {
-    println!("Starting to counting boards");
-
-    // Generate valid PcBoards
-    let mut valid_boards = (0..(2u64).pow(40))
-        .into_par_iter()
-        .filter_map(|num| {
-            let board = PcBoardSer::from_u64(num);
-            if PcBoard::from(board).is_valid() {
-                Some((board, BoardInfo::new()))
-            } else {
-                None
-            }
-        })
-        .collect::<HashMap<_, _>>();
-    println!("Generated {} valid boards", valid_boards.len());
-
-    // Generate forward links (children)
-    let count = AtomicUsize::new(0);
-    valid_boards.par_iter_mut().for_each(|(board, info)| {
-        let children = PcBoard::from(*board).child_boards().map(PcBoardSer::from);
-        info.children.extend(children);
-        count.fetch_add(info.children.len(), Ordering::Relaxed);
-    });
-    println!("Generated {} forward links", count.load(Ordering::Relaxed));
-
-    // Generate backlinks
-    let mut count = 0;
-    let keys = valid_boards.keys().map(|x| *x).collect::<Vec<_>>();
-    for key in keys.iter() {
-        let children = valid_boards.get(key).unwrap().children.clone();
-        for child in children.iter() {
-            if let Some(info) = valid_boards.get_mut(child) {
-                info.backlinks.push(*key);
-                count += 1;
-            }
-        }
+    pub const fn from_rows(rows: [u16; 4]) -> Self {
+        PcBoard(rows)
     }
-    println!("Generated {} backlinks", count);
 
-    // DFS over backlinks
-    let initial = PcBoardSer::from(PcBoard::new());
-    let mut stack = vec![initial];
-    valid_boards.get_mut(&initial).unwrap().visited = true;
-    while let Some(board) = stack.pop() {
-        let backlinks = valid_boards
-            .get(&board)
-            .expect("expected board to be in valid_boards")
-            .backlinks
-            .clone();
-        for child in backlinks {
-            let info = valid_boards
-                .get_mut(&child)
-                .expect("expected child board to be in valid_boards");
-            if !info.visited {
-                stack.push(child);
-                info.visited = true;
-            }
+    #[inline]
+    pub fn get(&self, x: i32, y: i32) -> bool {
+        self.0[y as usize] >> x & 1 == 1
+    }
+    #[inline]
+    pub fn set(&mut self, x: i32, y: i32, on: bool) {
+        if on {
+            self.0[y as usize] |= 1 << x;
+        } else {
+            self.0[y as usize] &= !(1 << x);
         }
     }
 
-    let final_boards = valid_boards
-        .into_iter()
-        .filter_map(|(board, info)| {
-            if info.visited {
-                Some(board.to_u64())
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    println!("DFS visited {} boards", final_boards.len());
-    let file = std::fs::File::create("out.json").expect("error creating file");
-    serde_json::to_writer(file, &*final_boards).expect("error writing to file");
-}
+    pub fn is_valid(&self) -> bool {
+        // Ensure that there are 3 or less contiguous empty regions
+        // and 1 or less filled regions
+        let mut queue = ArrDeque::<(i32, i32), 40>::new();
+        let mut visited = [[false; 4]; 10];
+        let mut islands_empty = 0;
+        let mut islands_full = 0;
 
-pub fn dfs_boards() {
-    const THREAD_COUNT: usize = 64;
+        for x in 0..10 {
+            for y in 0..4 {
+                if visited[x as usize][y as usize] {
+                    continue;
+                }
 
-    fn get_children(board: PcBoardSer) -> Vec<PcBoardSer> {
-        let mut children = Vec::new();
-        for piece_type in PieceType::all() {
-            let mut game = Game::from_pieces(piece_type, None, &[PieceType::O]);
-            game.board = Board::from(PcBoard::from(board));
-            let child_states = game.child_states(&FRAGMENTS);
-            let boards = child_states.into_iter().filter_map(|child_state| {
-                PcBoard::try_from(child_state.game.board)
-                    .ok()
-                    .map(PcBoardSer::from)
-            });
-            children.extend(boards);
-        }
-        children
-    }
+                // Encountered contiguous regions
+                if self.get(x, y) {
+                    islands_full += 1;
+                } else {
+                    islands_empty += 1;
+                }
 
-    let mut stack = Vec::<PcBoardSer>::new();
-    let mut visited = HashSet::<PcBoardSer>::new();
-    let initial_state = PcBoardSer::new([0; 5]);
-    stack.push(initial_state);
-    visited.insert(initial_state);
-    // DFS until the stack has enough elements
-    while stack.len() < 2 * THREAD_COUNT {
-        let board = stack.pop().unwrap();
-        let children = get_children(board);
-        for child in children {
-            if visited.insert(child) {
-                stack.push(child);
-            }
-        }
-    }
-
-    let state_arc = Arc::new(Mutex::new((stack, visited)));
-    let mut jobs = Vec::new();
-    for _ in 0..THREAD_COUNT {
-        let state_arc = state_arc.clone();
-        let job = move || loop {
-            let mut state = state_arc.lock().unwrap();
-            let (stack, _) = &mut *state;
-            let board = match stack.pop() {
-                Some(board) => board,
-                None => break,
-            };
-            drop(state);
-
-            let children = get_children(board);
-
-            let mut state = state_arc.lock().unwrap();
-            let (stack, visited) = &mut *state;
-            for child in children {
-                if visited.insert(child) {
-                    stack.push(child);
+                // Mark adjacent cells as visited
+                queue.push_back((x, y));
+                visited[x as usize][y as usize] = true;
+                while let Some((x, y)) = queue.pop_front() {
+                    for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if !(0..10).contains(&nx) || !(0..4).contains(&ny) {
+                            continue;
+                        }
+                        if visited[nx as usize][ny as usize] {
+                            continue;
+                        }
+                        if self.get(nx, ny) != self.get(x, y) {
+                            continue;
+                        }
+                        queue.push_back((nx, ny));
+                        visited[nx as usize][ny as usize] = true;
+                    }
                 }
             }
-            println!("Stack: {} Visited: {}", stack.len(), visited.len());
-            drop(state);
-        };
-        jobs.push(job);
+        }
+        if islands_empty > 3 || islands_full > 1 {
+            return false;
+        }
+
+        // Ensure that there are less than 4 "holes"
+        let mut holes = 0;
+        for x in 0..10 {
+            let mut block = false;
+            for y in (0..4).rev() {
+                match self.get(x, y) {
+                    true => block = true,
+                    false => {
+                        if block {
+                            holes += 1;
+                        }
+                    }
+                }
+            }
+        }
+        if holes > 4 {
+            return false;
+        }
+
+        // Ensure that the number of bits in each row
+        // is greater than the number of bits in the row above
+        let mut row_counts = [0; 4];
+        for y in 0..4 {
+            for x in 0..10 {
+                if self.get(x, y) {
+                    row_counts[y as usize] += 1;
+                }
+            }
+        }
+        for i in 0..3 {
+            if row_counts[i] < row_counts[i + 1] {
+                return false;
+            }
+        }
+
+        true
     }
-    let thread_pool = ThreadPool::new(THREAD_COUNT);
-    thread_pool.run(jobs);
+
+    pub fn child_boards(&self) -> Vec<PcBoard> {
+        let mut result = Vec::new();
+        for piece_type in PieceType::all() {
+            let game = Game::from_parts(
+                (*self).into(),
+                Piece::from(piece_type),
+                None,
+                &[PieceType::O],
+                true,
+            );
+            let child_states = game.child_states(FRAGMENTS);
+            let boards = child_states
+                .into_iter()
+                .filter_map(|x| PcBoard::try_from(x.game.board).ok());
+            result.extend(boards);
+        }
+        result
+    }
+
+    pub fn to_u64(self) -> u64 {
+        PcBoardSer::from(self).0
+    }
+    pub fn from_u64(val: u64) -> Self {
+        PcBoard::from(PcBoardSer(val))
+    }
+}
+
+impl TryFrom<Board> for PcBoard {
+    type Error = ();
+
+    /// Fails if the height of the board is greater than 4
+    /// or if self is not valid
+    fn try_from(value: Board) -> Result<Self, Self::Error> {
+        if value.matrix[4] != 0 {
+            return Err(());
+        }
+        let board = PcBoard(value.matrix[0..4].try_into().unwrap());
+        if !board.is_valid() {
+            return Err(());
+        }
+        Ok(board)
+    }
+}
+impl From<PcBoard> for Board {
+    fn from(pc_board: PcBoard) -> Self {
+        let mut board = Board::new();
+        for (i, row) in pc_board.0.into_iter().enumerate() {
+            board.set_row(i, row);
+        }
+        board
+    }
+}
+impl Display for PcBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let sep = if f.alternate() { '/' } else { '\n' };
+        for y in (0..4).rev() {
+            for x in 0..10 {
+                let bit = if self.get(x, y) { '@' } else { '.' };
+                write!(f, "{}", bit)?;
+            }
+            if y != 0 {
+                write!(f, "{}", sep)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+struct PcBoardSer(u64);
+impl From<PcBoard> for PcBoardSer {
+    fn from(board: PcBoard) -> Self {
+        let arr = board.0;
+        let num = ((arr[0] as u64) << 0)
+            + ((arr[1] as u64) << 16)
+            + ((arr[2] as u64) << 32)
+            + ((arr[3] as u64) << 48);
+        PcBoardSer(num)
+    }
+}
+impl From<PcBoardSer> for PcBoard {
+    fn from(board: PcBoardSer) -> Self {
+        let num = board.0;
+        let bitmask: u64 = (1 << 16) - 1;
+        let arr = [
+            ((num >> 0) & bitmask) as u16,
+            ((num >> 16) & bitmask) as u16,
+            ((num >> 32) & bitmask) as u16,
+            ((num >> 48) & bitmask) as u16,
+        ];
+        PcBoard(arr)
+    }
 }

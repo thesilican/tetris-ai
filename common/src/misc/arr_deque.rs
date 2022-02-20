@@ -6,9 +6,9 @@ use std::marker::PhantomData;
 use std::{iter::FromIterator, ops::Index};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InsertRes {
+pub enum InsertRes<T> {
     Ok,
-    Full,
+    Full(T),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -41,9 +41,9 @@ impl<T, const N: usize> ArrDeque<T, N> {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
-    pub fn push_back(&mut self, item: T) -> InsertRes {
+    pub fn push_back(&mut self, item: T) -> InsertRes<T> {
         if self.len == N {
-            return InsertRes::Full;
+            return InsertRes::Full(item);
         }
         let i = (self.head + self.len) % N;
         self.arr[i] = Some(item);
@@ -84,7 +84,7 @@ impl<T, const N: usize> ArrDeque<T, N> {
 impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter.into_iter() {
-            if let InsertRes::Full = self.push_back(item) {
+            if let InsertRes::Full(_) = self.push_back(item) {
                 return;
             }
         }
@@ -141,7 +141,7 @@ where
     fn from_iter<I: IntoIterator<Item = &'a T>>(iter: I) -> Self {
         let mut arr = ArrDeque::new();
         for &item in iter {
-            if let InsertRes::Full = arr.push_back(item) {
+            if let InsertRes::Full(_) = arr.push_back(item) {
                 return arr;
             }
         }
@@ -190,7 +190,7 @@ where
     {
         let mut arr = ArrDeque::<T, N>::new();
         while let Some(val) = access.next_element::<T>()? {
-            if let InsertRes::Full = arr.push_back(val) {
+            if let InsertRes::Full(_) = arr.push_back(val) {
                 return Err(S::Error::custom(format!(
                     "supplied value longer than max capacity: {}",
                     N
