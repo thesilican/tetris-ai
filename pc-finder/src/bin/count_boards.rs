@@ -1,4 +1,4 @@
-use pc_finder::gen::PcBoard;
+use pc_finder::model::PcBoard;
 use rand::prelude::*;
 
 fn main() {

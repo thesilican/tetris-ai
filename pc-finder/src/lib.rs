@@ -1,2 +1,2 @@
 #![feature(once_cell)]
-pub mod gen;
+pub mod model;

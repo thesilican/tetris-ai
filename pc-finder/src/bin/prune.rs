@@ -2,7 +2,7 @@ use mongodb::{
     bson::doc,
     sync::{Client, Collection},
 };
-use pc_finder::gen::PcBoard;
+use pc_finder::model::PcBoard;
 use serde::Deserialize;
 use std::{
     ops::ControlFlow,
@@ -78,10 +78,14 @@ fn main() {
     ctrlc::set_handler(|| EXIT.store(true, Ordering::Relaxed)).unwrap();
 
     // Main loop
+    let mut count = 0;
+    let start = std::time::Instant::now();
     while !EXIT.load(Ordering::Relaxed) {
         match step(&collection) {
             ControlFlow::Continue(_) => (),
             ControlFlow::Break(_) => break,
         }
+        count += 1;
+        println!("Computed {} in {:?}", count, start.elapsed());
     }
 }

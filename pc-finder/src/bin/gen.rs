@@ -2,7 +2,7 @@ use mongodb::bson::doc;
 use mongodb::options::InsertManyOptions;
 use mongodb::sync::Collection;
 use mongodb::{sync::Client, IndexModel};
-use pc_finder::gen::*;
+use pc_finder::model::*;
 use serde::{Deserialize, Serialize};
 use std::ops::ControlFlow;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -141,10 +141,14 @@ fn main() {
     ctrlc::set_handler(|| EXIT.store(true, Ordering::Relaxed)).unwrap();
 
     // Main loop
+    let mut count = 0;
+    let start = std::time::Instant::now();
     while !EXIT.load(Ordering::Relaxed) {
         match step(&collection) {
             ControlFlow::Continue(_) => (),
             ControlFlow::Break(_) => break,
         }
+        count += 1;
+        println!("Computed {} in {:?}", count, start.elapsed());
     }
 }
