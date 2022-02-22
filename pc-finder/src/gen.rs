@@ -1,6 +1,6 @@
 use common::*;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryInto, fmt::Display, lazy::SyncLazy};
+use std::{collections::HashSet, convert::TryInto, fmt::Display, lazy::SyncLazy};
 
 // Fragments used for generating child PcBoards
 pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
@@ -117,7 +117,7 @@ impl PcBoard {
     }
 
     pub fn child_boards(&self) -> Vec<PcBoard> {
-        let mut result = Vec::new();
+        let mut result = HashSet::new();
         for piece_type in PieceType::all() {
             let game = Game::from_parts(
                 (*self).into(),
@@ -132,7 +132,7 @@ impl PcBoard {
                 .filter_map(|x| PcBoard::try_from(x.game.board).ok());
             result.extend(boards);
         }
-        result
+        result.into_iter().collect()
     }
 
     pub fn from_u64(val: u64) -> Self {
