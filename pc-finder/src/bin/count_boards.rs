@@ -1,4 +1,4 @@
-use pc_finder::PcBoard;
+use pc_finder::gen::PcBoard;
 use rand::prelude::*;
 
 fn main() {
@@ -11,8 +11,8 @@ fn main() {
             valid += 1;
         }
         if count % 1000 == 0 {
-            let pow = -((valid as f64) / (count as f64)).log2();
-            println!("{:>15} / {:<15} = 2^-{:0.4}", valid, count, pow);
+            let pow = (2.0f64.powi(40)) * (valid as f64) / (count as f64) / 1_000_000.0;
+            println!("{:>15} / {:<15} = {:0.4}m", valid, count, pow);
             println!("{}", board)
         }
     }

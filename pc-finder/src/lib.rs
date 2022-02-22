@@ -1,4 +1,2 @@
 #![feature(once_cell)]
-mod gen;
-
-pub use gen::*;
+pub mod gen;

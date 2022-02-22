@@ -964,9 +964,11 @@ version = "0.1.0"
 dependencies = [
  "common",
  "ctrlc",
+ "fnv",
  "mongodb",
  "rand",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

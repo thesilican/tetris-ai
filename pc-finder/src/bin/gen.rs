@@ -3,7 +3,7 @@ use mongodb::bson::doc;
 use mongodb::options::InsertManyOptions;
 use mongodb::sync::Collection;
 use mongodb::{sync::Client, IndexModel};
-use pc_finder::*;
+use pc_finder::gen::*;
 use serde::{Deserialize, Serialize};
 use std::ops::ControlFlow;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -99,13 +99,14 @@ fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb
     Ok(ControlFlow::CONTINUE)
 }
 
+// Generates a tree of results
 fn main() -> Result<(), mongodb::error::Error> {
     // Set up mongodb connection
     let uri = std::env::var("MONGODB_URI").unwrap_or(String::from("mongodb://localhost:27017"));
     let client = Client::with_uri_str(uri)?;
     let collection = client.database("pc-finder").collection::<DbBoard>("boards");
 
-    // Create index for visited and assigned
+    // Create indices
     collection.create_index(
         IndexModel::builder().keys(doc! { "visited": 1i32 }).build(),
         None,
