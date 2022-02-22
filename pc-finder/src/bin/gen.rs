@@ -57,7 +57,7 @@ fn ignore_duplicate_keys(
     }
 }
 
-// DFS all boards
+// DFS to generate all possible boards
 fn main() {
     // Set up mongodb connection
     let uri = std::env::args()

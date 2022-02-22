@@ -19,7 +19,7 @@ struct DbBoard {
 
 static EXIT: AtomicBool = AtomicBool::new(false);
 
-// Take the result of gen, and prune it down to only a tree of elements
+// Take the result of gen and write backlinks
 fn main() {
     // Set up mongodb connection
     let uri = std::env::args()
