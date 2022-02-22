@@ -14,6 +14,7 @@ struct DbBoard {
     id: PcBoard,
     assigned: bool,
     visited: bool,
+    backlinks: Vec<PcBoard>,
     children: Vec<PcBoard>,
 }
 impl Default for DbBoard {
@@ -22,6 +23,7 @@ impl Default for DbBoard {
             id: PcBoard::new(),
             assigned: false,
             visited: false,
+            backlinks: vec![],
             children: vec![],
         }
     }
@@ -53,11 +55,11 @@ fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb
 
     // Mark board as visited
     collection.update_one(
-        doc! { "_id": board.id.to_u64() as i64 },
+        doc! { "_id": board.id.to_i64() },
         doc! {
             "$set": {
                 "visited": true,
-                "children": children.iter().map(|&board| board.to_u64() as i64).collect::<Vec<_>>()
+                "children": children.iter().map(|&board| board.to_i64()).collect::<Vec<_>>()
             }
         },
         None,
@@ -67,9 +69,7 @@ fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb
     if children.len() > 0 {
         let db_children = children.iter().map(|&board| DbBoard {
             id: board,
-            assigned: false,
-            visited: false,
-            children: vec![],
+            ..DbBoard::default()
         });
         let result = collection.insert_many(
             db_children,
@@ -99,7 +99,7 @@ fn step(collection: &Collection<DbBoard>) -> Result<ControlFlow<(), ()>, mongodb
     Ok(ControlFlow::CONTINUE)
 }
 
-// Generates a tree of results
+// DFS all boards
 fn main() -> Result<(), mongodb::error::Error> {
     // Set up mongodb connection
     let uri = std::env::var("MONGODB_URI").unwrap_or(String::from("mongodb://localhost:27017"));
@@ -107,10 +107,6 @@ fn main() -> Result<(), mongodb::error::Error> {
     let collection = client.database("pc-finder").collection::<DbBoard>("boards");
 
     // Create indices
-    collection.create_index(
-        IndexModel::builder().keys(doc! { "visited": 1i32 }).build(),
-        None,
-    )?;
     collection.create_index(
         IndexModel::builder()
             .keys(doc! { "assigned": 1i32 })

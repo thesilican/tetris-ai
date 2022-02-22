@@ -4,13 +4,14 @@ use serde::Deserialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Deserialize)]
+#[allow(unused)]
 struct DbBoard {
     #[serde(rename = "_id")]
     id: PcBoard,
     assigned: bool,
     visited: bool,
-    children: Vec<PcBoard>,
     backlinks: Vec<PcBoard>,
+    children: Vec<PcBoard>,
 }
 
 static EXIT: AtomicBool = AtomicBool::new(false);
@@ -27,6 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Main loop
     while !EXIT.load(Ordering::Relaxed) {
+        // Find assigned
         let board = collection.find_one_and_update(
             doc! { "assigned": false },
             doc! { "$set": { "assigned": true }},
@@ -39,11 +41,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let board = board.unwrap();
 
         // Add backlinks
-        let board_id = board.id.to_u64() as i64;
+        let board_id = board.id.to_i64();
         let child_ids = board
             .children
             .iter()
-            .map(|x| x.to_u64() as i64)
+            .map(|x| x.to_i64())
             .collect::<Vec<_>>();
         collection.update_one(
             doc! { "_id": { "$in": child_ids } },

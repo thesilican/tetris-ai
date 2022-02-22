@@ -74,11 +74,11 @@ impl PcBoard {
                 }
             }
         }
-        if islands_empty > 3 || islands_full > 1 {
+        if islands_empty > 3 || islands_full > 2 {
             return false;
         }
 
-        // Ensure that there are less than 4 "holes"
+        // Ensure that there are less than 6 "holes"
         let mut holes = 0;
         for x in 0..10 {
             let mut block = false;
@@ -93,7 +93,7 @@ impl PcBoard {
                 }
             }
         }
-        if holes > 4 {
+        if holes > 6 {
             return false;
         }
 
@@ -108,7 +108,7 @@ impl PcBoard {
             }
         }
         for i in 0..3 {
-            if row_counts[i] < row_counts[i + 1] {
+            if row_counts[i] + 2 < row_counts[i + 1] {
                 return false;
             }
         }
@@ -135,11 +135,17 @@ impl PcBoard {
         result
     }
 
+    pub fn from_u64(val: u64) -> Self {
+        PcBoard::from(PcBoardSer(val))
+    }
     pub fn to_u64(self) -> u64 {
         PcBoardSer::from(self).0
     }
-    pub fn from_u64(val: u64) -> Self {
-        PcBoard::from(PcBoardSer(val))
+    pub fn from_i64(val: i64) -> Self {
+        Self::from_u64(val as u64)
+    }
+    pub fn to_i64(self) -> i64 {
+        self.to_u64() as i64
     }
 }
 
