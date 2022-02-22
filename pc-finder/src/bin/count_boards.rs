@@ -1,6 +1,8 @@
 use pc_finder::model::PcBoard;
 use rand::prelude::*;
 
+// Roughly count the upper limit of number of valid boards
+// by randomly selecting boards and checking if they are valid
 fn main() {
     let mut valid = 0;
     let mut rng = StdRng::seed_from_u64(0);
