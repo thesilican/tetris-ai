@@ -302,41 +302,17 @@ impl Piece {
         self.shift((0, -1), board)
     }
     pub fn soft_drop(&mut self, board: &Board) -> PieceActionRes {
-        let (p_x, old_y) = self.location;
-        let height_map = self.get_height_map(None);
-        let mut min_drop_amount = i8::MAX;
-        // Slightly optimized soft-drop algorithm
-        // Effective if the piece is above the height of the board
-        // Used in probably 99% of scenarios
-        for i in 0..PIECE_SHAPE_SIZE {
-            let (low, _) = height_map[i as usize];
-            if low == -1 {
-                continue;
-            }
-            let x = p_x + (i as i8);
-            let matrix_height = board.height_map[x as usize];
-            let drop_amount = old_y + low - matrix_height;
-            if drop_amount < min_drop_amount {
-                min_drop_amount = drop_amount;
-            }
-            if drop_amount < 0 {
-                break;
-            }
-        }
+        let (_, old_y) = self.location;
 
-        // Return if dropped any amount
-        if min_drop_amount >= 0 {
+        // Optimization with board height
+        let min_drop_amount = old_y - board.max_height();
+        if min_drop_amount > 0 {
             self.location.1 -= min_drop_amount;
-            return if min_drop_amount != 0 {
-                PieceActionRes::Success
-            } else {
-                PieceActionRes::Failed
-            };
-        }
-
-        // Try to shift down once
-        if let PieceActionRes::Failed = self.shift_down(&board) {
-            return PieceActionRes::Failed;
+        } else {
+            // Try to shift down once
+            if let PieceActionRes::Failed = self.shift_down(&board) {
+                return PieceActionRes::Failed;
+            }
         }
         // Keep shifting down while possible
         while let PieceActionRes::Success = self.shift_down(&board) {}

@@ -219,7 +219,7 @@ impl Ai for SimpleAi {
             let ChildState { game, moves } = child_state;
             let height = game
                 .board
-                .height_map
+                .height_map()
                 .iter()
                 .map(|&x| {
                     // Square so that higher heights are punished more
@@ -227,7 +227,7 @@ impl Ai for SimpleAi {
                     x * x
                 })
                 .sum();
-            let holes = game.board.calculate_holes().iter().sum();
+            let holes = game.board.holes().iter().sum();
             if height < best_height || (height == best_height && holes < best_holes) {
                 best_height = height;
                 best_holes = holes;

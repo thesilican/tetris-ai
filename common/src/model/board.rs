@@ -1,7 +1,7 @@
 use super::piece::Piece;
 use crate::model::consts::*;
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoardLockRes {
@@ -9,18 +9,16 @@ pub struct BoardLockRes {
     pub lines_cleared: i8,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(from = "BoardSer")]
 #[serde(into = "BoardSer")]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT],
-    pub height_map: [i8; BOARD_WIDTH],
 }
 impl Board {
     pub fn new() -> Self {
         Board {
             matrix: [0; BOARD_HEIGHT],
-            height_map: [0; BOARD_WIDTH],
         }
     }
     pub fn from_matrix(matrix: [u16; BOARD_HEIGHT]) -> Self {
@@ -40,8 +38,6 @@ impl Board {
         } else {
             self.matrix[y] &= !(1 << x);
         }
-        let max_height = std::cmp::max((y + 1) as i8, self.height_map[x]);
-        self.recalculate_metadata(x, max_height);
     }
     pub fn set_col(&mut self, x: usize, height: i8) {
         assert!(height >= 0);
@@ -52,7 +48,6 @@ impl Board {
                 self.matrix[i] &= !(1 << x);
             }
         }
-        self.height_map[x] = height;
     }
     pub fn set_cols(&mut self, heights: [i8; BOARD_WIDTH]) {
         for i in 0..BOARD_WIDTH {
@@ -62,19 +57,12 @@ impl Board {
     pub fn set_row(&mut self, y: usize, row: u16) {
         assert_eq!(row & !((1 << BOARD_WIDTH) - 1), 0);
         self.matrix[y] = row;
-        for i in 0..BOARD_WIDTH {
-            let max_height = std::cmp::max((y + 1) as i8, self.height_map[i]);
-            self.recalculate_metadata(i, max_height)
-        }
     }
     pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT]) {
         for row in matrix {
             assert_eq!(row & !((1 << BOARD_WIDTH) - 1), 0);
         }
         self.matrix = matrix;
-        for i in 0..BOARD_WIDTH {
-            self.recalculate_metadata(i, BOARD_HEIGHT as i8);
-        }
     }
     pub fn add_garbage(&mut self, col: usize, height: i8) {
         let height = height as usize;
@@ -88,11 +76,6 @@ impl Board {
         let garbage_row: u16 = ((1 << BOARD_WIDTH) - 1) & !(1 << col);
         for j in 0..height {
             self.matrix[j] = garbage_row;
-        }
-        // Update Metadata
-        for i in 0..BOARD_WIDTH {
-            let max_height = std::cmp::min(self.height_map[i] + (height as i8), BOARD_HEIGHT as i8);
-            self.recalculate_metadata(i, max_height);
         }
     }
     pub fn intersects_with(&self, piece: &Piece) -> bool {
@@ -111,7 +94,6 @@ impl Board {
         false
     }
     pub fn lock(&mut self, piece: &Piece) -> BoardLockRes {
-        let p_x = piece.location.0;
         let p_y = piece.location.1;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
@@ -135,35 +117,7 @@ impl Board {
         }
 
         // Check for top-out
-        let top_out = self.matrix[BOARD_VISIBLE_HEIGHT] != 0;
-
-        // Recalculate height map
-        let mut height_map_max = i8::MIN;
-        for height in self.height_map {
-            if height > height_map_max {
-                height_map_max = height;
-            }
-        }
-        // Current maximum possible height of the board
-        let max_height = std::cmp::min(
-            height_map_max + PIECE_SHAPE_SIZE as i8 - lines_cleared,
-            BOARD_HEIGHT as i8,
-        );
-        if lines_cleared == 0 {
-            // Only check metadata for the columns that the piece dropped in
-            for i in 0..PIECE_SHAPE_SIZE {
-                let x = i as i8 + p_x;
-                if x < 0 || x >= BOARD_WIDTH as i8 {
-                    continue;
-                }
-                self.recalculate_metadata(x as usize, max_height);
-            }
-        } else {
-            // Check all columns
-            for x in 0..BOARD_WIDTH {
-                self.recalculate_metadata(x, max_height);
-            }
-        }
+        let top_out = self.topped_out();
 
         BoardLockRes {
             lines_cleared,
@@ -173,40 +127,38 @@ impl Board {
     pub fn topped_out(&self) -> bool {
         self.matrix[BOARD_VISIBLE_HEIGHT] != 0
     }
-    pub fn calculate_holes(&self) -> [i32; BOARD_WIDTH] {
+    pub fn max_height(&self) -> i8 {
+        for i in 0..BOARD_HEIGHT {
+            if self.matrix[i] == 0 {
+                return i as i8;
+            }
+        }
+        BOARD_HEIGHT as i8
+    }
+    pub fn holes(&self) -> [i32; BOARD_WIDTH] {
         let mut holes = [0; BOARD_WIDTH];
-        for j in 0..BOARD_WIDTH {
-            for i in 0..self.height_map[j] as usize {
+        let max_height = self.max_height() as usize;
+        for i in 0..BOARD_WIDTH {
+            for j in 0..max_height {
                 if self.get(i, j) {
-                    holes[j] += 1;
+                    holes[i] += 1;
                 }
             }
         }
         holes
     }
-
-    fn recalculate_metadata(&mut self, x: usize, max_height: i8) {
-        // max_height - assert that the cell (x, max_height)
-        // and all the cells above it are empty
-        for j in (0..max_height).rev() {
-            if self.get(x, j as usize) {
-                self.height_map[x] = j + 1;
-                return;
+    pub fn height_map(&self) -> [i8; BOARD_WIDTH] {
+        let mut height_map = [0; BOARD_WIDTH];
+        let max_height = self.max_height() as usize;
+        for i in 0..BOARD_WIDTH {
+            for j in (0..max_height).rev() {
+                if self.get(i, j) {
+                    height_map[i] = j as i8;
+                    break;
+                }
             }
         }
-        self.height_map[x] = 0;
-    }
-}
-// Only compare matrix, other fields are only metadata
-impl PartialEq for Board {
-    fn eq(&self, other: &Self) -> bool {
-        self.matrix == other.matrix
-    }
-}
-impl Eq for Board {}
-impl Hash for Board {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.matrix.hash(state);
+        height_map
     }
 }
 

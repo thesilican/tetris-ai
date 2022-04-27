@@ -387,12 +387,6 @@ impl Display for Game {
             }
             writeln!(f)?;
         }
-        // Board height info
-        for i in 0..BOARD_WIDTH {
-            let height = self.board.height_map[i as usize];
-            write!(f, "{:2}", height)?;
-        }
-        writeln!(f)?;
 
         // Curr, Hold, and Queue pieces
         let curr = format!("{}", &self.current_piece);
