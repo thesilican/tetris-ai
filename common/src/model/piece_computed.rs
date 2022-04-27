@@ -8,7 +8,14 @@ use std::lazy::SyncLazy;
 
 pub static PIECE_INFO: SyncLazy<PieceInfo> = SyncLazy::new(|| PieceInfo::new());
 
+#[derive(Debug, Clone, Copy)]
+pub struct KickSeq {
+    pub len: i8,
+    pub shifts: [(i8, i8); 5],
+}
+
 /// Precomputed constants for a piece
+#[derive(Debug, Clone, Copy)]
 pub struct PieceInfo {
     /// The spawn location for each piece
     pub spawn_locations: [(i8, i8); PIECE_NUM_TYPES],
@@ -28,7 +35,7 @@ pub struct PieceInfo {
     /// How much a piece can shift from its spawn position (left and right)
     pub shift_bounds: [[(i8, i8); PIECE_NUM_ROTATION]; PIECE_NUM_TYPES],
     /// (x, y) shifts when doing kicks
-    pub kick_table: [[[Vec<(i8, i8)>; PIECE_NUM_ROTATION]; PIECE_NUM_ROTATION]; PIECE_NUM_TYPES],
+    pub kick_table: [[[KickSeq; PIECE_NUM_ROTATION]; PIECE_NUM_ROTATION]; PIECE_NUM_TYPES],
 }
 
 impl PieceInfo {
@@ -214,14 +221,27 @@ impl PieceInfo {
                 );
             }
         }
+        fn kick_table(table: [[Vec<(i8, i8)>; 4]; 4]) -> [[KickSeq; 4]; 4] {
+            table.map(|x| {
+                x.map(|vec| {
+                    assert!(vec.len() <= 5);
+                    let len = vec.len() as i8;
+                    let mut shifts = [(0, 0); 5];
+                    for (i, val) in vec.into_iter().take(5).enumerate() {
+                        shifts[i] = val;
+                    }
+                    KickSeq { len, shifts }
+                })
+            })
+        }
         // Pain
-        let o_kick_table = [
+        let o_kick_table = kick_table([
             [vec![], vec![(0, 0)], vec![(0, 0)], vec![(0, 0)]],
             [vec![(0, 0)], vec![], vec![(0, 0)], vec![(0, 0)]],
             [vec![(0, 0)], vec![(0, 0)], vec![], vec![(0, 0)]],
             [vec![(0, 0)], vec![(0, 0)], vec![(0, 0)], vec![]],
-        ];
-        let i_kick_table = [
+        ]);
+        let i_kick_table = kick_table([
             [
                 // 0 >> 0
                 vec![],
@@ -262,8 +282,8 @@ impl PieceInfo {
                 // 3 >> 3
                 vec![],
             ],
-        ];
-        let tljsz_kick_table = [
+        ]);
+        let tljsz_kick_table = kick_table([
             [
                 // 0 >> 0
                 vec![],
@@ -304,14 +324,14 @@ impl PieceInfo {
                 // 3 >> 3
                 vec![],
             ],
-        ];
+        ]);
         let kick_table = [
             o_kick_table,
             i_kick_table,
-            tljsz_kick_table.clone(),
-            tljsz_kick_table.clone(),
-            tljsz_kick_table.clone(),
-            tljsz_kick_table.clone(),
+            tljsz_kick_table,
+            tljsz_kick_table,
+            tljsz_kick_table,
+            tljsz_kick_table,
             tljsz_kick_table,
         ];
         PieceInfo {

@@ -204,7 +204,8 @@ impl Piece {
     }
     #[inline]
     pub fn info_kick_table(piece_type: PieceType, from: i8, to: i8) -> &'static [(i8, i8)] {
-        &PIECE_INFO.kick_table[i8::from(piece_type) as usize][from as usize][to as usize]
+        let seq = &PIECE_INFO.kick_table[i8::from(piece_type) as usize][from as usize][to as usize];
+        &seq.shifts[..seq.len as usize]
     }
 
     #[inline]
