@@ -53,7 +53,15 @@ impl Game {
         let mut child_states = Vec::<ChildState<'a>>::with_capacity(100);
         let mut map =
             FnvHashMap::<Game, usize>::with_capacity_and_hasher(100, FnvBuildHasher::default());
-
+        self.child_states_noalloc(fragments, &mut child_states, &mut map);
+        child_states
+    }
+    pub fn child_states_noalloc<'a>(
+        &self,
+        fragments: &'a Fragments,
+        child_states: &mut Vec<ChildState<'a>>,
+        map: &mut FnvHashMap<Game, usize>,
+    ) {
         // Given a game, an array of fragments, and an array of permutations:
         // Take the first fragment of fragments, iterate over moves list of the fragment,
         // narrow down the permutation array, and recursively generate on the remaining fragments,
@@ -104,13 +112,12 @@ impl Game {
             }
         }
         gen(
-            &mut child_states,
-            &mut map,
+            child_states,
+            map,
             *self,
             &fragments.fragments,
             &fragments.perms,
         );
-        child_states
     }
 }
 
