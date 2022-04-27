@@ -26,9 +26,11 @@ impl Board {
         board.set_matrix(matrix);
         board
     }
+    #[inline]
     pub fn get(&self, x: usize, y: usize) -> bool {
         self.matrix[y] & (1 << x) != 0
     }
+    #[inline]
     pub fn set(&mut self, x: usize, y: usize, state: bool) {
         if self.get(x, y) == state {
             return;
@@ -124,9 +126,11 @@ impl Board {
             top_out,
         }
     }
+    #[inline]
     pub fn topped_out(&self) -> bool {
         self.matrix[BOARD_VISIBLE_HEIGHT] != 0
     }
+    #[inline]
     pub fn max_height(&self) -> i8 {
         for i in 0..BOARD_HEIGHT {
             if self.matrix[i] == 0 {

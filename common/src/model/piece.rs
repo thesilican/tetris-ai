@@ -167,15 +167,18 @@ pub struct Piece {
 }
 // Piece info stuff
 impl Piece {
+    #[inline]
     pub fn info_spawn_location(piece_type: PieceType) -> &'static (i8, i8) {
         &PIECE_INFO.spawn_locations[i8::from(piece_type) as usize]
     }
+    #[inline]
     pub fn info_shape(
         piece_type: PieceType,
         rotation: i8,
     ) -> &'static [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
         &PIECE_INFO.shapes[i8::from(piece_type) as usize][rotation as usize]
     }
+    #[inline]
     pub fn info_bit_shape(
         piece_type: PieceType,
         rotation: i8,
@@ -184,31 +187,38 @@ impl Piece {
         &PIECE_INFO.bit_shapes[i8::from(piece_type) as usize][rotation as usize]
             [(x_pos + (PIECE_MAX_X_SHIFT as i8) - (PIECE_SPAWN_COLUMN as i8)) as usize]
     }
+    #[inline]
     pub fn info_height_map(
         piece_type: PieceType,
         rotation: i8,
     ) -> &'static [(i8, i8); PIECE_SHAPE_SIZE as usize] {
         &PIECE_INFO.height_maps[i8::from(piece_type) as usize][rotation as usize]
     }
+    #[inline]
     pub fn info_shift_bounds(piece_type: PieceType, rotation: i8) -> &'static (i8, i8) {
         &PIECE_INFO.shift_bounds[i8::from(piece_type) as usize][rotation as usize]
     }
+    #[inline]
     pub fn info_location_bounds(piece_type: PieceType, rotation: i8) -> &'static (i8, i8, i8, i8) {
         &PIECE_INFO.location_bounds[i8::from(piece_type) as usize][rotation as usize]
     }
+    #[inline]
     pub fn info_kick_table(piece_type: PieceType, from: i8, to: i8) -> &'static [(i8, i8)] {
         &PIECE_INFO.kick_table[i8::from(piece_type) as usize][from as usize][to as usize]
     }
 
+    #[inline]
     pub fn get_spawn_location(&self) -> &'static (i8, i8) {
         Piece::info_spawn_location(self.piece_type)
     }
+    #[inline]
     pub fn get_shape(
         &self,
         rotation: Option<i8>,
     ) -> &'static [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
         Piece::info_shape(self.piece_type, rotation.unwrap_or(self.rotation))
     }
+    #[inline]
     pub fn get_bit_shape(
         &self,
         rotation: Option<i8>,
@@ -220,27 +230,33 @@ impl Piece {
             x_pos.unwrap_or(self.location.0),
         )
     }
+    #[inline]
     pub fn get_height_map(
         &self,
         rotation: Option<i8>,
     ) -> &'static [(i8, i8); PIECE_SHAPE_SIZE as usize] {
         Piece::info_height_map(self.piece_type, rotation.unwrap_or(self.rotation))
     }
+    #[inline]
     pub fn get_shift_bounds(&self, rotation: Option<i8>) -> &'static (i8, i8) {
         Piece::info_shift_bounds(self.piece_type, rotation.unwrap_or(self.rotation))
     }
+    #[inline]
     pub fn get_location_bounds(&self, rotation: Option<i8>) -> &'static (i8, i8, i8, i8) {
         Piece::info_location_bounds(self.piece_type, rotation.unwrap_or(self.rotation))
     }
+    #[inline]
     pub fn get_kick_table(&self, from: Option<i8>, to: i8) -> &'static [(i8, i8)] {
         Piece::info_kick_table(self.piece_type, from.unwrap_or(self.rotation), to)
     }
 }
 impl Piece {
+    #[inline]
     pub fn reset(&mut self) {
         self.rotation = 0;
         self.location = *self.get_spawn_location();
     }
+    #[inline]
     pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceActionRes {
         let (old_x, old_y) = self.location;
         let old_rot = self.rotation;
@@ -273,6 +289,7 @@ impl Piece {
     pub fn rotate_ccw(&mut self, board: &Board) -> PieceActionRes {
         self.rotate(3, &board)
     }
+    #[inline]
     pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> PieceActionRes {
         let (old_x, old_y) = self.location;
         let new_x = old_x + d_x;
