@@ -13,6 +13,7 @@ struct DbBoard {
     id: PcBoard,
     assigned: bool,
     visited: bool,
+    depth: i32,
     backlinks: Vec<PcBoard>,
     children: Vec<PcBoard>,
 }
@@ -22,6 +23,7 @@ impl Default for DbBoard {
             id: PcBoard::new(),
             assigned: false,
             visited: false,
+            depth: 0,
             backlinks: vec![],
             children: vec![],
         }
@@ -94,7 +96,7 @@ fn main() {
         // Find an unassigned board and assign to self
         let board = collection
             .find_one_and_update(
-                doc! { "assigned": false },
+                doc! { "assigned": false, "depth": { "$lte": 3 } },
                 doc! { "$set": { "assigned": true }},
                 None,
             )
@@ -104,6 +106,7 @@ fn main() {
             break;
         }
         let board = board.unwrap();
+        let depth = board.depth;
 
         // DFS children
         let children = board.id.child_boards();
@@ -112,6 +115,7 @@ fn main() {
         if children.len() > 0 {
             let db_children = children.iter().map(|&board| DbBoard {
                 id: board,
+                depth: depth + 1,
                 ..DbBoard::default()
             });
             let result = collection.insert_many(
@@ -141,9 +145,10 @@ fn main() {
         count += 1;
         stopwatch.stop();
         println!(
-            "Board {}\n{}\nFound {} children\nCount: {}\nAverage Time: {:?}\nTotal Time: {:?}\n",
+            "Board {}\n{}\nDepth {}\nFound {} children\nCount: {}\nAverage Time: {:?}\nTotal Time: {:?}\n",
             board.id.to_u64(),
             board.id,
+            depth,
             children.len(),
             count,
             stopwatch.reading(),
