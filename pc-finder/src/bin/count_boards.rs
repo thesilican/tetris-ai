@@ -1,4 +1,4 @@
-use pc_finder::model::PcBoard;
+use pc_finder::*;
 use rand::prelude::*;
 
 // Roughly count the upper limit of number of valid boards
@@ -12,7 +12,7 @@ fn main() {
         if board.is_valid() {
             valid += 1;
         }
-        if count % 1000 == 0 {
+        if count % 10000 == 0 {
             let pow = (2.0f64.powi(40)) * (valid as f64) / (count as f64) / 1_000_000.0;
             println!("{:>15} / {:<15} = {:0.4}m", valid, count, pow);
             println!("{}", board)

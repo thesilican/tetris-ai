@@ -33,88 +33,49 @@ impl PcBoard {
     }
 
     pub fn is_valid(&self) -> bool {
-        // Everything is valid
+        let mut queue = ArrDeque::<(i32, i32), 40>::new();
+        let mut visited = [[false; 4]; 10];
+        let mut parity_fail = false;
+        'l: for x in 0..10 {
+            for y in 0..4 {
+                if visited[x as usize][y as usize] {
+                    continue;
+                }
+                if self.get(x, y) {
+                    continue;
+                }
+
+                // Mark adjacent cells as visited
+                let mut count = 1;
+                queue.push_back((x, y));
+                visited[x as usize][y as usize] = true;
+                while let Some((x, y)) = queue.pop_front() {
+                    for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if !(0..10).contains(&nx) || !(0..4).contains(&ny) {
+                            continue;
+                        }
+                        if visited[nx as usize][ny as usize] {
+                            continue;
+                        }
+                        if self.get(nx, ny) != self.get(x, y) {
+                            continue;
+                        }
+                        count += 1;
+                        queue.push_back((nx, ny));
+                        visited[nx as usize][ny as usize] = true;
+                    }
+                }
+                if count % 4 != 0 {
+                    parity_fail = true;
+                    break 'l;
+                }
+            }
+        }
+        if parity_fail && self.0[3] != 0 {
+            return false;
+        }
         true
-
-        // let mut queue = ArrDeque::<(i32, i32), 40>::new();
-        // let mut visited = [[false; 4]; 10];
-        // let mut islands_empty = 0;
-        // let mut islands_full = 0;
-
-        // for x in 0..10 {
-        //     for y in 0..4 {
-        //         if visited[x as usize][y as usize] {
-        //             continue;
-        //         }
-
-        //         // Encountered contiguous regions
-        //         if self.get(x, y) {
-        //             islands_full += 1;
-        //         } else {
-        //             islands_empty += 1;
-        //         }
-
-        //         // Mark adjacent cells as visited
-        //         queue.push_back((x, y));
-        //         visited[x as usize][y as usize] = true;
-        //         while let Some((x, y)) = queue.pop_front() {
-        //             for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-        //                 let (nx, ny) = (x + dx, y + dy);
-        //                 if !(0..10).contains(&nx) || !(0..4).contains(&ny) {
-        //                     continue;
-        //                 }
-        //                 if visited[nx as usize][ny as usize] {
-        //                     continue;
-        //                 }
-        //                 if self.get(nx, ny) != self.get(x, y) {
-        //                     continue;
-        //                 }
-        //                 queue.push_back((nx, ny));
-        //                 visited[nx as usize][ny as usize] = true;
-        //             }
-        //         }
-        //     }
-        // }
-        // if islands_empty > 3 || islands_full > 2 {
-        //     return false;
-        // }
-
-        // // Ensure that there are less than 6 "holes"
-        // let mut holes = 0;
-        // for x in 0..10 {
-        //     let mut block = false;
-        //     for y in (0..4).rev() {
-        //         match self.get(x, y) {
-        //             true => block = true,
-        //             false => {
-        //                 if block {
-        //                     holes += 1;
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-        // if holes > 6 {
-        //     return false;
-        // }
-
-        // // Ensure that the number of bits in each row
-        // // is greater than the number of bits in the row above
-        // let mut row_counts = [0; 4];
-        // for y in 0..4 {
-        //     for x in 0..10 {
-        //         if self.get(x, y) {
-        //             row_counts[y as usize] += 1;
-        //         }
-        //     }
-        // }
-        // for i in 0..3 {
-        //     if row_counts[i] + 2 < row_counts[i + 1] {
-        //         return false;
-        //     }
-        // }
-
-        // true
     }
 
     pub fn child_boards(&self) -> Vec<PcBoard> {
@@ -180,7 +141,7 @@ impl Display for PcBoard {
         let sep = if f.alternate() { '/' } else { '\n' };
         for y in (0..4).rev() {
             for x in 0..10 {
-                let bit = if self.get(x, y) { '@' } else { '.' };
+                let bit = if self.get(x, y) { "[]" } else { "▒▒" };
                 write!(f, "{}", bit)?;
             }
             if y != 0 {

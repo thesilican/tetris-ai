@@ -1,8 +1,7 @@
 use mongodb::bson::doc;
 use mongodb::options::InsertManyOptions;
 use mongodb::{sync::Client, IndexModel};
-use pc_finder::model::*;
-use pc_finder::util::AvgStopwatch;
+use pc_finder::*;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;

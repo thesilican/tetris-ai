@@ -1,4 +1,4 @@
-use pc_finder::model::PcBoard;
+use pc_finder::*;
 
 fn main() {
     let board = PcBoard::from_u64(66585598);

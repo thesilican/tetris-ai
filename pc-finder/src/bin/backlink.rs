@@ -1,5 +1,5 @@
 use mongodb::{bson::doc, sync::Client};
-use pc_finder::{model::PcBoard, util::AvgStopwatch};
+use pc_finder::*;
 use serde::Deserialize;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
