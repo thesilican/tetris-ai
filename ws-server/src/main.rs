@@ -3,11 +3,10 @@ mod ai;
 use actix::prelude::*;
 use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
-use ai::get_ai;
-use common::api::Ai;
+use ai::*;
 
 struct MyWsHandler {
-    ai: Box<dyn Ai>,
+    ai: WsAi,
 }
 impl MyWsHandler {
     fn new() -> Self {
@@ -25,8 +24,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWsHandler {
             }
             Ok(ws::Message::Pong(_) | ws::Message::Binary(_)) => {}
             Ok(ws::Message::Text(req)) => {
-                let res = self.ai.api_evaluate(&req);
-                ctx.text(res);
+                // println!("Request: {}", req);
+                match self.ai.evaluate(&req) {
+                    Ok(res) => {
+                        // println!("Response: {}", res);
+                        ctx.text(res);
+                    }
+                    Err(err) => {
+                        println!("Error processing request: {}", err);
+                    }
+                }
             }
             Ok(ws::Message::Close(reason)) => {
                 ctx.close(reason);
