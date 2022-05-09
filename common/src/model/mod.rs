@@ -12,4 +12,5 @@ pub use child_states::*;
 pub use consts::*;
 pub use game::*;
 pub use piece::*;
+pub use piece_computed::*;
 pub use piece_container::*;
