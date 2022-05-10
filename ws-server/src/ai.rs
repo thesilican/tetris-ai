@@ -4,7 +4,7 @@ use std::time::Instant;
 
 #[derive(Debug, Clone, Deserialize)]
 struct WsReq {
-    nonce: i32,
+    nonce: u64,
     game: Game,
 }
 #[derive(Debug, Clone, Serialize)]
@@ -14,12 +14,12 @@ enum WsRes {
         success: bool,
         moves: Vec<GameMove>,
         score: Option<f64>,
-        nonce: i32,
+        nonce: u64,
     },
     Fail {
         success: bool,
         reason: String,
-        nonce: i32,
+        nonce: u64,
     },
 }
 
@@ -27,6 +27,7 @@ enum WsRes {
 pub struct WsAi {
     inner: Box<dyn Ai>,
     expected: Option<Game>,
+    discrepency_count: u64,
 }
 impl WsAi {
     pub fn evaluate(&mut self, req: &str) -> Result<String, GenericErr> {
@@ -43,6 +44,9 @@ impl WsAi {
                     Some(expected) => expected.board != game.board,
                     None => false,
                 };
+                if discrepency {
+                    self.discrepency_count += 1;
+                }
                 if discrepency && FAIL_ON_DISCREPENCY {
                     println!(
                         "Board Discrepency!\nExpected: \n{}\nGot: \n{}\n",
@@ -61,13 +65,14 @@ impl WsAi {
                     }
                     self.expected = Some(game);
                     println!(
-                        "{}\nMoves: {:?}\nScore: {}\nElapsed: {:?}\n",
+                        "{}\nMoves: {:?}\nScore: {}\nElapsed: {:?}\nDiscrepencies: {}\n",
                         game,
                         moves,
                         score
                             .map(|x| format!("{}", x))
                             .unwrap_or("None".to_string()),
-                        start.elapsed()
+                        start.elapsed(),
+                        self.discrepency_count,
                     );
                     WsRes::Success {
                         success: true,
@@ -96,5 +101,6 @@ pub fn get_ai() -> WsAi {
     WsAi {
         expected: None,
         inner: Box::new(ai),
+        discrepency_count: 0,
     }
 }
