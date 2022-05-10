@@ -354,39 +354,7 @@ impl Game {
 impl Display for Game {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         // Board + Current Piece
-        let piece = &self.current_piece;
-        let piece_shape = piece.get_shape(None);
-        let p_x = piece.location.0 as usize;
-        let p_y = piece.location.1 as usize;
-        for j in (0..BOARD_HEIGHT).rev() {
-            for i in 0..BOARD_WIDTH {
-                let x = i as i8 - p_x as i8;
-                let y = j as i8 - p_y as i8;
-                let in_piece_bounds =
-                    x >= 0 && x < PIECE_SHAPE_SIZE as i8 && y >= 0 && y < PIECE_SHAPE_SIZE as i8;
-                let in_piece = in_piece_bounds && piece_shape[x as usize][y as usize];
-
-                if in_piece {
-                    // write!(f, "██")?;
-                    write!(f, "{{}}")?;
-                } else if self.board.get(i, j) {
-                    write!(f, "[]")?;
-                } else if in_piece_bounds {
-                    if j >= BOARD_VISIBLE_HEIGHT {
-                        write!(f, "▒▒")?;
-                    } else {
-                        write!(f, "▓▓")?;
-                    }
-                } else {
-                    if j >= BOARD_VISIBLE_HEIGHT {
-                        write!(f, "▓▓")?;
-                    } else {
-                        write!(f, "██")?;
-                    }
-                }
-            }
-            writeln!(f)?;
-        }
+        write!(f, "{}", self.board.to_string(Some(&self.current_piece)))?;
 
         // Curr, Hold, and Queue pieces
         let curr = format!("{}", &self.current_piece);

@@ -1,7 +1,10 @@
 use super::piece::Piece;
 use crate::model::consts::*;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
+use std::{
+    fmt::{self, Display, Formatter, Write},
+    hash::Hash,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoardLockRes {
@@ -163,6 +166,55 @@ impl Board {
             }
         }
         height_map
+    }
+
+    pub fn to_string(&self, piece: Option<&Piece>) -> String {
+        let mut text = String::new();
+        for j in (0..BOARD_HEIGHT).rev() {
+            for i in 0..BOARD_WIDTH {
+                let (in_piece_bounds, in_piece) = match piece {
+                    Some(piece) => {
+                        let piece_shape = piece.get_shape(None);
+                        let p_x = piece.location.0 as usize;
+                        let p_y = piece.location.1 as usize;
+                        let x = i as i8 - p_x as i8;
+                        let y = j as i8 - p_y as i8;
+                        let in_piece_bounds = x >= 0
+                            && x < PIECE_SHAPE_SIZE as i8
+                            && y >= 0
+                            && y < PIECE_SHAPE_SIZE as i8;
+                        let in_piece = in_piece_bounds && piece_shape[x as usize][y as usize];
+                        (in_piece_bounds, in_piece)
+                    }
+                    None => (false, false),
+                };
+
+                if in_piece {
+                    write!(text, "{{}}").unwrap();
+                } else if self.get(i, j) {
+                    write!(text, "[]").unwrap();
+                } else if in_piece_bounds {
+                    if j >= BOARD_VISIBLE_HEIGHT {
+                        write!(text, "▒▒").unwrap();
+                    } else {
+                        write!(text, "▓▓").unwrap();
+                    }
+                } else {
+                    if j >= BOARD_VISIBLE_HEIGHT {
+                        write!(text, "▓▓").unwrap();
+                    } else {
+                        write!(text, "██").unwrap();
+                    }
+                }
+            }
+            writeln!(text).unwrap();
+        }
+        text
+    }
+}
+impl Display for Board {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_string(None))
     }
 }
 
