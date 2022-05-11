@@ -8,6 +8,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::lazy::SyncLazy;
 
+// Canonical Piece
 // Represents the shape of a particular piece in the 4 bottom
 // rows of a board matrix
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -220,12 +221,9 @@ static ALL_PIECES: SyncLazy<Vec<CanPiece>> = SyncLazy::new(|| {
     pieces
 });
 
-fn add_piece_rec(
-    board: PcBoard,
-    pieces: [CanPiece; 10],
-    len: usize,
-    output: &mut Vec<[CanPiece; 10]>,
-) {
+type Tessellation = [CanPiece; 10];
+
+fn add_piece_rec(board: PcBoard, pieces: Tessellation, len: usize, output: &mut Vec<Tessellation>) {
     for &piece in ALL_PIECES.iter() {
         if len >= 1 {
             if pieces[len - 1] > piece {
@@ -260,7 +258,47 @@ fn main() {
     // let file = std::fs::File::create("out.json").unwrap();
     // serde_json::to_writer(file, &output).unwrap();
 
-    // let file = std::fs::File::open("out.json").unwrap();
-    // let res = serde_json::from_reader::<_, Vec<[CanPiece; 10]>>(file).unwrap();
+    let tessellations = {
+        let file = std::fs::File::open("out.json").unwrap();
+        serde_json::from_reader::<_, Vec<Tessellation>>(file).unwrap()
+    };
     // println!("{:?}", res);
+    // Print tessellations with all 7 pieces
+    for tes in tessellations {
+        let mut flags = [0; 7];
+        for piece in tes {
+            flags[piece.piece_type.to_i8() as usize] += 1;
+        }
+        if flags.iter().all(|&x| 1 <= x && x <= 2) {
+            print_tessellation(tes);
+        }
+    }
+
+    // let tes: [CanPiece;10] = serde_json::from_str("[3075,12300,49200,196800,787200,1099543085056,3849230221312,2255105865809920,2255579452014592,2256258023292928]").unwrap();
+    // print_tessellation(tes);
+}
+
+fn print_tessellation(tes: Tessellation) {
+    let mut output = String::new();
+    for y in (0..4).rev() {
+        for x in 0..10 {
+            for p in tes {
+                let text = match p.piece_type {
+                    PieceType::O => "\x1b[33m[]\x1b[0m",
+                    PieceType::I => "\x1b[36m[]\x1b[0m",
+                    PieceType::T => "\x1b[37m[]\x1b[0m",
+                    PieceType::L => "\x1b[30m[]\x1b[0m",
+                    PieceType::J => "\x1b[34m[]\x1b[0m",
+                    PieceType::S => "\x1b[32m[]\x1b[0m",
+                    PieceType::Z => "\x1b[31m[]\x1b[0m",
+                };
+                if p.get(x, y) {
+                    output.push_str(text);
+                    break;
+                }
+            }
+        }
+        output.push('\n');
+    }
+    println!("{}", output);
 }
