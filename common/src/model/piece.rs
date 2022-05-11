@@ -264,6 +264,13 @@ impl Piece {
     }
 }
 impl Piece {
+    pub fn new(piece_type: PieceType, rotation: i8, location: (i8, i8)) -> Self {
+        Piece {
+            piece_type,
+            rotation,
+            location,
+        }
+    }
     #[inline]
     pub fn reset(&mut self) {
         self.rotation = 0;

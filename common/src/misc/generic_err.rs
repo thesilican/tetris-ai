@@ -52,7 +52,7 @@ impl From<&str> for GenericErr {
 }
 impl From<()> for GenericErr {
     fn from(_: ()) -> Self {
-        GenericErr::with_message("Unknown Error".into())
+        GenericErr::with_message("unknown error".into())
     }
 }
 

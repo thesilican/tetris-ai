@@ -10,7 +10,7 @@ pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(from = "PcBoardSer")]
 #[serde(into = "PcBoardSer")]
-pub struct PcBoard([u16; 4]);
+pub struct PcBoard(pub [u16; 4]);
 impl PcBoard {
     pub const fn new() -> Self {
         PcBoard([0; 4])
@@ -33,48 +33,48 @@ impl PcBoard {
     }
 
     pub fn is_valid(&self) -> bool {
-        let mut queue = ArrDeque::<(i32, i32), 40>::new();
-        let mut visited = [[false; 4]; 10];
-        let mut parity_fail = false;
-        'l: for x in 0..10 {
-            for y in 0..4 {
-                if visited[x as usize][y as usize] {
-                    continue;
-                }
-                if self.get(x, y) {
-                    continue;
-                }
+        // let mut queue = ArrDeque::<(i32, i32), 40>::new();
+        // let mut visited = [[false; 4]; 10];
+        // let mut parity_fail = false;
+        // 'l: for x in 0..10 {
+        //     for y in 0..4 {
+        //         if visited[x as usize][y as usize] {
+        //             continue;
+        //         }
+        //         if self.get(x, y) {
+        //             continue;
+        //         }
 
-                // Mark adjacent cells as visited
-                let mut count = 1;
-                queue.push_back((x, y));
-                visited[x as usize][y as usize] = true;
-                while let Some((x, y)) = queue.pop_front() {
-                    for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-                        let (nx, ny) = (x + dx, y + dy);
-                        if !(0..10).contains(&nx) || !(0..4).contains(&ny) {
-                            continue;
-                        }
-                        if visited[nx as usize][ny as usize] {
-                            continue;
-                        }
-                        if self.get(nx, ny) != self.get(x, y) {
-                            continue;
-                        }
-                        count += 1;
-                        queue.push_back((nx, ny));
-                        visited[nx as usize][ny as usize] = true;
-                    }
-                }
-                if count % 4 != 0 {
-                    parity_fail = true;
-                    break 'l;
-                }
-            }
-        }
-        if parity_fail && self.0[3] != 0 {
-            return false;
-        }
+        //         // Mark adjacent cells as visited
+        //         let mut count = 1;
+        //         queue.push_back((x, y));
+        //         visited[x as usize][y as usize] = true;
+        //         while let Some((x, y)) = queue.pop_front() {
+        //             for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+        //                 let (nx, ny) = (x + dx, y + dy);
+        //                 if !(0..10).contains(&nx) || !(0..4).contains(&ny) {
+        //                     continue;
+        //                 }
+        //                 if visited[nx as usize][ny as usize] {
+        //                     continue;
+        //                 }
+        //                 if self.get(nx, ny) != self.get(x, y) {
+        //                     continue;
+        //                 }
+        //                 count += 1;
+        //                 queue.push_back((nx, ny));
+        //                 visited[nx as usize][ny as usize] = true;
+        //             }
+        //         }
+        //         if count % 4 != 0 {
+        //             parity_fail = true;
+        //             break 'l;
+        //         }
+        //     }
+        // }
+        // if parity_fail && self.0[3] != 0 {
+        //     return false;
+        // }
         true
     }
 

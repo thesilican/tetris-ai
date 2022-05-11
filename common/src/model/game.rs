@@ -1,13 +1,9 @@
 use crate::misc::ArrDeque;
 use crate::model::board::Board;
-use crate::model::consts::BOARD_HEIGHT;
-use crate::model::consts::BOARD_WIDTH;
-use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
-use crate::model::BOARD_VISIBLE_HEIGHT;
 use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
