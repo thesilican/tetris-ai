@@ -3,25 +3,6 @@ use common::*;
 use pc_finder::*;
 use std::{fs::File, lazy::SyncLazy};
 
-// Canonical Piece
-// Represents the shape of a particular piece in the 4 bottom
-// rows of a board matrix
-#[inline]
-fn intersects(board: &PcBoard, piece: &CanPiece) -> bool {
-    board
-        .0
-        .iter()
-        .zip(piece.matrix.iter())
-        .any(|(&a, &b)| a & b != 0)
-}
-
-#[inline]
-fn lock(board: &mut PcBoard, piece: &CanPiece) {
-    for (b, p) in board.0.iter_mut().zip(piece.matrix.iter()) {
-        *b |= *p;
-    }
-}
-
 fn parity_fail(board: &PcBoard) -> bool {
     let mut queue = ArrDeque::<(i32, i32), 40>::new();
     let mut visited = [[false; 4]; 10];
@@ -89,18 +70,18 @@ static ALL_PIECES: SyncLazy<Vec<CanPiece>> = SyncLazy::new(|| {
     pieces
 });
 
-fn add_piece_rec(board: PcBoard, pieces: Tessellation, len: usize, output: &mut Vec<Tessellation>) {
+fn add_piece_rec(board: PcBoard, pieces: [CanPiece; 10], len: usize, output: &mut Vec<Tess>) {
     for &piece in ALL_PIECES.iter() {
         if len >= 1 {
             if pieces[len - 1] > piece {
                 continue;
             }
         }
-        if intersects(&board, &piece) {
+        if board.intersects(&piece) {
             continue;
         }
         let mut board = board;
-        lock(&mut board, &piece);
+        board.lock(&piece);
         if parity_fail(&board) {
             continue;
         }
@@ -110,7 +91,7 @@ fn add_piece_rec(board: PcBoard, pieces: Tessellation, len: usize, output: &mut 
         pieces[len] = piece;
         len += 1;
         if len == 10 {
-            output.push(pieces);
+            output.push(Tess { pieces });
             println!("{}", output.len());
         } else {
             add_piece_rec(board, pieces, len, output);
@@ -118,53 +99,39 @@ fn add_piece_rec(board: PcBoard, pieces: Tessellation, len: usize, output: &mut 
     }
 }
 
+fn save_tessellations(file_name: &str, tessellations: &[Tess]) {
+    let file = File::create(file_name).unwrap();
+    serde_json::to_writer(file, &tessellations).unwrap();
+}
+
+fn load_tessellations(file_name: &str) -> Vec<Tess> {
+    let file = File::open(file_name).unwrap();
+    serde_json::from_reader(file).unwrap()
+}
+
 fn gen_tessellations() {
     // Generate tessellations
     let mut tessellations = Vec::new();
     add_piece_rec(PcBoard::new(), Default::default(), 0, &mut tessellations);
-    let file = File::create("tes.json").unwrap();
-    serde_json::to_writer(file, &tessellations).unwrap();
+    save_tessellations("tess.json", &tessellations);
 
     // Filter tessellations
-    let filtered_tessellations = tessellations
+    let tessellations_7 = tessellations
         .into_iter()
-        .filter(|tes| {
+        .filter(|tess| {
             let mut flags = [0; 7];
-            for piece in tes {
+            for piece in tess.pieces {
                 flags[piece.piece_type.to_i8() as usize] += 1;
             }
             flags.iter().all(|&x| 1 <= x && x <= 2)
         })
         .collect::<Vec<_>>();
-    let file = File::create("tes-7.json").unwrap();
-    serde_json::to_writer(file, &filtered_tessellations).unwrap();
-}
-
-fn print_tessellation(tes: Tessellation) {
-    let mut output = String::new();
-    for y in (0..4).rev() {
-        for x in 0..10 {
-            for p in tes {
-                let text = match p.piece_type {
-                    PieceType::O => "\x1b[33m[]\x1b[0m",
-                    PieceType::I => "\x1b[36m[]\x1b[0m",
-                    PieceType::T => "\x1b[37m[]\x1b[0m",
-                    PieceType::L => "\x1b[30m[]\x1b[0m",
-                    PieceType::J => "\x1b[34m[]\x1b[0m",
-                    PieceType::S => "\x1b[32m[]\x1b[0m",
-                    PieceType::Z => "\x1b[31m[]\x1b[0m",
-                };
-                if p.get(x, y) {
-                    output.push_str(text);
-                    break;
-                }
-            }
-        }
-        output.push('\n');
-    }
-    println!("{}", output);
+    save_tessellations("tess-7.json", &tessellations_7)
 }
 
 fn main() {
-    gen_tessellations();
+    let tessellations = load_tessellations("tess-7.json");
+    for tess in tessellations {
+        println!("{}\n", tess);
+    }
 }

@@ -1,6 +1,12 @@
 use common::*;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections::HashSet, convert::TryInto, fmt::Display, lazy::SyncLazy};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    convert::TryInto,
+    fmt::{self, Display, Formatter},
+    lazy::SyncLazy,
+};
 
 // Fragments used for generating child PcBoards
 pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
@@ -10,25 +16,27 @@ pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(from = "PcBoardSer")]
 #[serde(into = "PcBoardSer")]
-pub struct PcBoard(pub [u16; 4]);
+pub struct PcBoard {
+    pub rows: [u16; 4],
+}
 impl PcBoard {
     pub const fn new() -> Self {
-        PcBoard([0; 4])
+        PcBoard { rows: [0; 4] }
     }
     pub const fn from_rows(rows: [u16; 4]) -> Self {
-        PcBoard(rows)
+        PcBoard { rows }
     }
 
     #[inline]
     pub fn get(&self, x: i32, y: i32) -> bool {
-        self.0[y as usize] >> x & 1 == 1
+        self.rows[y as usize] >> x & 1 == 1
     }
     #[inline]
     pub fn set(&mut self, x: i32, y: i32, on: bool) {
         if on {
-            self.0[y as usize] |= 1 << x;
+            self.rows[y as usize] |= 1 << x;
         } else {
-            self.0[y as usize] &= !(1 << x);
+            self.rows[y as usize] &= !(1 << x);
         }
     }
 
@@ -72,7 +80,7 @@ impl PcBoard {
         //         }
         //     }
         // }
-        // if parity_fail && self.0[3] != 0 {
+        // if parity_fail && self.matrix[3] != 0 {
         //     return false;
         // }
         true
@@ -95,6 +103,20 @@ impl PcBoard {
             result.extend(boards);
         }
         result.into_iter().collect()
+    }
+
+    pub fn intersects(&self, piece: &CanPiece) -> bool {
+        self.rows
+            .iter()
+            .zip(piece.rows.iter())
+            .any(|(&a, &b)| a & b != 0)
+    }
+
+    #[inline]
+    pub fn lock(&mut self, piece: &CanPiece) {
+        for (b, p) in self.rows.iter_mut().zip(piece.rows.iter()) {
+            *b |= *p;
+        }
     }
 
     pub fn from_u64(val: u64) -> Self {
@@ -120,7 +142,9 @@ impl TryFrom<Board> for PcBoard {
         if value.matrix[4] != 0 {
             return Err(());
         }
-        let board = PcBoard(value.matrix[0..4].try_into().unwrap());
+        let board = PcBoard {
+            rows: value.matrix[0..4].try_into().unwrap(),
+        };
         if !board.is_valid() {
             return Err(());
         }
@@ -130,7 +154,7 @@ impl TryFrom<Board> for PcBoard {
 impl From<PcBoard> for Board {
     fn from(pc_board: PcBoard) -> Self {
         let mut board = Board::new();
-        for (i, row) in pc_board.0.into_iter().enumerate() {
+        for (i, row) in pc_board.rows.into_iter().enumerate() {
             board.set_row(i, row);
         }
         board
@@ -156,7 +180,7 @@ impl Display for PcBoard {
 struct PcBoardSer(u64);
 impl From<PcBoard> for PcBoardSer {
     fn from(board: PcBoard) -> Self {
-        let arr = board.0;
+        let arr = board.rows;
         let num = ((arr[0] as u64) << 0)
             + ((arr[1] as u64) << 16)
             + ((arr[2] as u64) << 32)
@@ -168,28 +192,30 @@ impl From<PcBoardSer> for PcBoard {
     fn from(board: PcBoardSer) -> Self {
         let num = board.0;
         let bitmask: u64 = (1 << 16) - 1;
-        let arr = [
+        let matrix = [
             ((num >> 0) & bitmask) as u16,
             ((num >> 16) & bitmask) as u16,
             ((num >> 32) & bitmask) as u16,
             ((num >> 48) & bitmask) as u16,
         ];
-        PcBoard(arr)
+        PcBoard { rows: matrix }
     }
 }
 
+/// Canonical representation of a piece that has
+/// been placed on a PcBoard
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(from = "CanPieceSer")]
 #[serde(into = "CanPieceSer")]
 pub struct CanPiece {
     pub piece_type: PieceType,
     pub rotation: i8,
-    pub matrix: [u16; 4],
+    pub rows: [u16; 4],
 }
 impl CanPiece {
     #[inline]
     pub fn get(&self, x: i32, y: i32) -> bool {
-        self.matrix[y as usize] >> x & 1 == 1
+        self.rows[y as usize] >> x & 1 == 1
     }
 }
 impl TryFrom<Piece> for CanPiece {
@@ -216,7 +242,7 @@ impl TryFrom<Piece> for CanPiece {
         Ok(CanPiece {
             piece_type: piece.piece_type,
             rotation: piece.rotation,
-            matrix,
+            rows: matrix,
         })
     }
 }
@@ -237,7 +263,7 @@ impl Display for CanPiece {
 }
 impl PartialEq for CanPiece {
     fn eq(&self, other: &Self) -> bool {
-        self.matrix == other.matrix
+        self.rows == other.rows
     }
 }
 impl Eq for CanPiece {}
@@ -255,7 +281,7 @@ impl PartialOrd for CanPiece {
             Some(Ordering::Equal) => {}
             ord => return ord,
         }
-        self.matrix.partial_cmp(&other.matrix)
+        self.rows.partial_cmp(&other.rows)
     }
 }
 impl Ord for CanPiece {
@@ -273,7 +299,7 @@ impl Default for CanPiece {
 struct CanPieceSer(u64);
 impl From<CanPiece> for CanPieceSer {
     fn from(board: CanPiece) -> Self {
-        let arr = board.matrix;
+        let arr = board.rows;
         let p_type = board.piece_type.to_i8();
         let rot = board.rotation;
         let num = ((arr[0] as u64) << 0)
@@ -298,11 +324,56 @@ impl From<CanPieceSer> for CanPiece {
         let piece_type = ((num >> 40) & bitmask) as i8;
         let rotation = ((num >> 50) & bitmask) as i8;
         CanPiece {
-            matrix,
+            rows: matrix,
             piece_type: piece_type.try_into().unwrap(),
             rotation,
         }
     }
 }
 
-pub type Tessellation = [CanPiece; 10];
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(from = "TessSer")]
+#[serde(into = "TessSer")]
+pub struct Tess {
+    pub pieces: [CanPiece; 10],
+}
+impl Display for Tess {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for y in (0..4).rev() {
+            for x in 0..10 {
+                for p in self.pieces {
+                    let text = match p.piece_type {
+                        PieceType::O => "\x1b[33m[]\x1b[0m",
+                        PieceType::I => "\x1b[36m[]\x1b[0m",
+                        PieceType::T => "\x1b[37m[]\x1b[0m",
+                        PieceType::L => "\x1b[30m[]\x1b[0m",
+                        PieceType::J => "\x1b[34m[]\x1b[0m",
+                        PieceType::S => "\x1b[32m[]\x1b[0m",
+                        PieceType::Z => "\x1b[31m[]\x1b[0m",
+                    };
+                    if p.get(x, y) {
+                        write!(f, "{}", text)?;
+                        break;
+                    }
+                }
+            }
+            if y != 0 {
+                writeln!(f)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TessSer([CanPiece; 10]);
+impl From<Tess> for TessSer {
+    fn from(tess: Tess) -> Self {
+        TessSer(tess.pieces)
+    }
+}
+impl From<TessSer> for Tess {
+    fn from(tess: TessSer) -> Self {
+        Tess { pieces: tess.0 }
+    }
+}
