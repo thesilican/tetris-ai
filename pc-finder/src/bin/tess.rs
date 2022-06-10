@@ -1,7 +1,7 @@
 #![feature(once_cell)]
 use common::*;
 use pc_finder::*;
-use std::{fs::File, lazy::SyncLazy};
+use std::lazy::SyncLazy;
 
 fn parity_fail(board: &PcBoard) -> bool {
     let mut queue = ArrDeque::<(i32, i32), 40>::new();
@@ -70,68 +70,95 @@ static ALL_PIECES: SyncLazy<Vec<CanPiece>> = SyncLazy::new(|| {
     pieces
 });
 
-fn add_piece_rec(board: PcBoard, pieces: [CanPiece; 10], len: usize, output: &mut Vec<Tess>) {
-    for &piece in ALL_PIECES.iter() {
-        if len >= 1 {
-            if pieces[len - 1] > piece {
+fn gen_tessellations() -> Vec<Tess> {
+    fn rec(
+        board: PcBoard,
+        pieces: [CanPiece; 10],
+        len: usize,
+        flags: [i8; 7],
+        output: &mut Vec<Tess>,
+    ) {
+        for &piece in ALL_PIECES.iter() {
+            let mut board = board;
+            let mut pieces = pieces;
+            let mut len = len;
+            let mut flags = flags;
+            flags[piece.piece_type.to_i8() as usize] += 1;
+            if flags.iter().any(|&x| x > 2) {
                 continue;
             }
-        }
-        if board.intersects(&piece) {
-            continue;
-        }
-        let mut board = board;
-        board.lock(&piece);
-        if parity_fail(&board) {
-            continue;
-        }
-
-        let mut pieces = pieces;
-        let mut len = len;
-        pieces[len] = piece;
-        len += 1;
-        if len == 10 {
-            output.push(Tess { pieces });
-            println!("{}", output.len());
-        } else {
-            add_piece_rec(board, pieces, len, output);
-        }
-    }
-}
-
-fn save_tessellations(file_name: &str, tessellations: &[Tess]) {
-    let file = File::create(file_name).unwrap();
-    serde_json::to_writer(file, &tessellations).unwrap();
-}
-
-fn load_tessellations(file_name: &str) -> Vec<Tess> {
-    let file = File::open(file_name).unwrap();
-    serde_json::from_reader(file).unwrap()
-}
-
-fn gen_tessellations() {
-    // Generate tessellations
-    let mut tessellations = Vec::new();
-    add_piece_rec(PcBoard::new(), Default::default(), 0, &mut tessellations);
-    save_tessellations("tess.json", &tessellations);
-
-    // Filter tessellations
-    let tessellations_7 = tessellations
-        .into_iter()
-        .filter(|tess| {
-            let mut flags = [0; 7];
-            for piece in tess.pieces {
-                flags[piece.piece_type.to_i8() as usize] += 1;
+            if flags.iter().filter(|&&x| x == 2).count() > 3 {
+                continue;
             }
-            flags.iter().all(|&x| 1 <= x && x <= 2)
-        })
-        .collect::<Vec<_>>();
-    save_tessellations("tess-7.json", &tessellations_7)
+            if len >= 1 {
+                if pieces[len - 1] >= piece {
+                    continue;
+                }
+            }
+            if board.intersects(&piece) {
+                continue;
+            }
+            board.lock(&piece);
+            if parity_fail(&board) {
+                continue;
+            }
+
+            pieces[len] = piece;
+            len += 1;
+            if len == 10 {
+                let tess = Tess::new(pieces);
+                output.push(tess);
+                println!("{}", output.len());
+                println!("{}", tess);
+            } else {
+                rec(board, pieces, len, flags, output);
+            }
+        }
+    }
+    let mut output = Vec::new();
+    rec(
+        PcBoard::new(),
+        [Default::default(); 10],
+        0,
+        [0; 7],
+        &mut output,
+    );
+    output
 }
 
-fn main() {
-    let tessellations = load_tessellations("tess-7.json");
+fn save_tessellations(tessellations: &[Tess]) -> GenericResult<()> {
+    let mut con = get_redis_con();
     for tess in tessellations {
-        println!("{}\n", tess);
+        let mut val = Vec::new();
+        tess.serialize(&mut val);
+        redis::cmd("DEL").arg("tessellations").query(&mut con)?;
+        redis::cmd("LPUSH")
+            .arg("tessellations")
+            .arg(base64::encode(val))
+            .query(&mut con)?;
     }
+    Ok(())
+}
+
+fn load_tessellations() -> GenericResult<Vec<Tess>> {
+    let data = redis::cmd("LRANGE")
+        .arg("tessellations")
+        .arg("0")
+        .arg("-1")
+        .query::<Vec<String>>(&mut get_redis_con())?;
+    let mut tessellations = Vec::new();
+    for b64 in data {
+        let tess = Tess::deserialize(&base64::decode(b64)?)?;
+        tessellations.push(tess);
+    }
+    Ok(tessellations)
+}
+
+fn main() -> GenericResult<()> {
+    save_tessellations(&gen_tessellations())?;
+    // let tessellations = load_tessellations()?;
+    // for tess in tessellations {
+    //     println!("{}\n", tess);
+    // }
+    Ok(())
 }

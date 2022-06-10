@@ -1,6 +1,7 @@
-use pc_finder::*;
+fn type_name_of_val<T>(_: T) -> &'static str {
+    std::any::type_name::<T>()
+}
 
 fn main() {
-    let board = PcBoard::from_u64(66585598);
-    println!("{}", board);
+    println!("{}", type_name_of_val(b"hi"));
 }

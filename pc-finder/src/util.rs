@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::lazy::SyncLazy;
 use std::time::{Duration, Instant};
 
 /// A simple struct to create a stopwatch
@@ -37,4 +38,11 @@ impl AvgStopwatch {
     pub fn reading(&self) -> Duration {
         self.times.iter().sum::<Duration>() / self.times.len() as u32
     }
+}
+
+static REDIS_CLIENT: SyncLazy<redis::Client> =
+    SyncLazy::new(|| redis::Client::open("redis://127.0.0.1/").unwrap());
+
+pub fn get_redis_con() -> redis::Connection {
+    REDIS_CLIENT.get_connection().unwrap()
 }

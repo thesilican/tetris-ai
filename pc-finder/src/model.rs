@@ -1,5 +1,4 @@
 use common::*;
-use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::HashSet,
@@ -11,11 +10,15 @@ use std::{
 // Fragments used for generating child PcBoards
 pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 
+pub trait Serializable: Sized {
+    fn serialize(&self, buffer: &mut Vec<u8>);
+    fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr>;
+    fn serialized_len() -> usize;
+}
+
 /// Represents the bottom 4 rows of a tetris board
 /// Invariant: must be valid (see PcBoard::is_valid())
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(from = "PcBoardSer")]
-#[serde(into = "PcBoardSer")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PcBoard {
     pub rows: [u16; 4],
 }
@@ -26,7 +29,6 @@ impl PcBoard {
     pub const fn from_rows(rows: [u16; 4]) -> Self {
         PcBoard { rows }
     }
-
     #[inline]
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.rows[y as usize] >> x & 1 == 1
@@ -86,11 +88,24 @@ impl PcBoard {
         true
     }
 
+    #[inline]
+    pub fn count_filled_squares(&self) -> i8 {
+        let mut count = 0;
+        for y in 0..4 {
+            for x in 0..10 {
+                if self.get(x, y) {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
     pub fn child_boards(&self) -> Vec<PcBoard> {
         let mut result = HashSet::new();
         for piece_type in PieceType::all() {
             let game = Game::from_parts(
-                (*self).into(),
+                Board::from(*self),
                 Piece::from(piece_type),
                 None,
                 &[PieceType::O],
@@ -105,6 +120,7 @@ impl PcBoard {
         result.into_iter().collect()
     }
 
+    #[inline]
     pub fn intersects(&self, piece: &CanPiece) -> bool {
         self.rows
             .iter()
@@ -118,35 +134,22 @@ impl PcBoard {
             *b |= *p;
         }
     }
-
-    pub fn from_u64(val: u64) -> Self {
-        PcBoard::from(PcBoardSer(val))
-    }
-    pub fn to_u64(self) -> u64 {
-        PcBoardSer::from(self).0
-    }
-    pub fn from_i64(val: i64) -> Self {
-        Self::from_u64(val as u64)
-    }
-    pub fn to_i64(self) -> i64 {
-        self.to_u64() as i64
-    }
 }
 
 impl TryFrom<Board> for PcBoard {
-    type Error = ();
+    type Error = GenericErr;
 
     /// Fails if the height of the board is greater than 4
     /// or if self is not valid
     fn try_from(value: Board) -> Result<Self, Self::Error> {
         if value.matrix[4] != 0 {
-            return Err(());
+            return generic_err!();
         }
         let board = PcBoard {
             rows: value.matrix[0..4].try_into().unwrap(),
         };
         if !board.is_valid() {
-            return Err(());
+            return generic_err!();
         }
         Ok(board)
     }
@@ -175,45 +178,36 @@ impl Display for PcBoard {
         Ok(())
     }
 }
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-struct PcBoardSer(u64);
-impl From<PcBoard> for PcBoardSer {
-    fn from(board: PcBoard) -> Self {
-        let arr = board.rows;
-        let num = ((arr[0] as u64) << 0)
-            + ((arr[1] as u64) << 16)
-            + ((arr[2] as u64) << 32)
-            + ((arr[3] as u64) << 48);
-        PcBoardSer(num)
+impl Serializable for PcBoard {
+    fn serialize(&self, buffer: &mut Vec<u8>) {
+        for row in self.rows {
+            buffer.extend(row.to_be_bytes());
+        }
     }
-}
-impl From<PcBoardSer> for PcBoard {
-    fn from(board: PcBoardSer) -> Self {
-        let num = board.0;
-        let bitmask: u64 = (1 << 16) - 1;
-        let matrix = [
-            ((num >> 0) & bitmask) as u16,
-            ((num >> 16) & bitmask) as u16,
-            ((num >> 32) & bitmask) as u16,
-            ((num >> 48) & bitmask) as u16,
-        ];
-        PcBoard { rows: matrix }
+    fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
+        if bytes.len() != Self::serialized_len() {
+            return Err(Default::default());
+        }
+        let mut rows = [0u16; 4];
+        for (row, win) in rows.iter_mut().zip(bytes.chunks(2)) {
+            *row = u16::from_be_bytes(win.try_into()?);
+        }
+        Ok(PcBoard { rows })
+    }
+    fn serialized_len() -> usize {
+        8
     }
 }
 
 /// Canonical representation of a piece that has
 /// been placed on a PcBoard
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(from = "CanPieceSer")]
-#[serde(into = "CanPieceSer")]
+#[derive(Debug, Clone, Copy)]
 pub struct CanPiece {
     pub piece_type: PieceType,
     pub rotation: i8,
     pub rows: [u16; 4],
 }
 impl CanPiece {
-    #[inline]
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.rows[y as usize] >> x & 1 == 1
     }
@@ -294,48 +288,69 @@ impl Default for CanPiece {
         Piece::new(PieceType::O, 0, (0, 0)).try_into().unwrap()
     }
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-struct CanPieceSer(u64);
-impl From<CanPiece> for CanPieceSer {
-    fn from(board: CanPiece) -> Self {
-        let arr = board.rows;
-        let p_type = board.piece_type.to_i8();
-        let rot = board.rotation;
-        let num = ((arr[0] as u64) << 0)
-            + ((arr[1] as u64) << 10)
-            + ((arr[2] as u64) << 20)
-            + ((arr[3] as u64) << 30)
-            + ((p_type as u64) << 40)
-            + ((rot as u64) << 50);
-        CanPieceSer(num)
-    }
-}
-impl From<CanPieceSer> for CanPiece {
-    fn from(board: CanPieceSer) -> Self {
-        let num = board.0;
-        let bitmask: u64 = (1 << 10) - 1;
-        let matrix = [
-            ((num >> 0) & bitmask) as u16,
-            ((num >> 10) & bitmask) as u16,
-            ((num >> 20) & bitmask) as u16,
-            ((num >> 30) & bitmask) as u16,
-        ];
-        let piece_type = ((num >> 40) & bitmask) as i8;
-        let rotation = ((num >> 50) & bitmask) as i8;
-        CanPiece {
-            rows: matrix,
-            piece_type: piece_type.try_into().unwrap(),
-            rotation,
+impl Serializable for CanPiece {
+    fn serialize(&self, buffer: &mut Vec<u8>) {
+        for row in self.rows {
+            buffer.extend(row.to_be_bytes());
         }
+        buffer.push(self.piece_type.to_i8() as u8);
+        buffer.push(self.rotation as u8);
+    }
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
+        if bytes.len() != Self::serialized_len() {
+            return generic_err!();
+        }
+        let mut rows = [0; 4];
+        for (row, win) in rows.iter_mut().zip(bytes.chunks(2)) {
+            *row = u16::from_be_bytes(win.try_into()?);
+        }
+        let piece_type = PieceType::try_from(bytes[8] as i8)?;
+        let rotation = bytes[9] as i8;
+        Ok(CanPiece {
+            rows,
+            piece_type,
+            rotation,
+        })
+    }
+
+    fn serialized_len() -> usize {
+        10
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(from = "TessSer")]
-#[serde(into = "TessSer")]
+#[derive(Debug, Clone, Copy)]
 pub struct Tess {
     pub pieces: [CanPiece; 10],
+}
+impl Tess {
+    pub fn new(pieces: [CanPiece; 10]) -> Self {
+        assert!(pieces.is_sorted());
+        Tess { pieces }
+    }
+}
+impl Serializable for Tess {
+    fn serialize(&self, buffer: &mut Vec<u8>) {
+        for piece in self.pieces {
+            piece.serialize(buffer);
+        }
+    }
+    fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
+        if bytes.len() != Self::serialized_len() {
+            return generic_err!();
+        }
+        let mut pieces = [Default::default(); 10];
+        for (piece, win) in pieces
+            .iter_mut()
+            .zip(bytes.chunks(CanPiece::serialized_len()))
+        {
+            *piece = CanPiece::deserialize(win)?;
+        }
+        Ok(Tess { pieces })
+    }
+    fn serialized_len() -> usize {
+        CanPiece::serialized_len() * 10
+    }
 }
 impl Display for Tess {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -362,18 +377,5 @@ impl Display for Tess {
             }
         }
         Ok(())
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct TessSer([CanPiece; 10]);
-impl From<Tess> for TessSer {
-    fn from(tess: Tess) -> Self {
-        TessSer(tess.pieces)
-    }
-}
-impl From<TessSer> for Tess {
-    fn from(tess: TessSer) -> Self {
-        Tess { pieces: tess.0 }
     }
 }

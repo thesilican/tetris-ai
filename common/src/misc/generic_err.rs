@@ -71,3 +71,18 @@ impl_generic_err!(std::io::Error);
 impl_generic_err!(std::fmt::Error);
 impl_generic_err!(std::num::ParseIntError);
 impl_generic_err!(std::string::FromUtf8Error);
+impl_generic_err!(std::array::TryFromSliceError);
+impl_generic_err!(redis::RedisError);
+impl_generic_err!(base64::DecodeError);
+
+#[macro_export]
+macro_rules! generic_err {
+    () => {
+        Err(GenericErr::with_message("unknown error"))
+    };
+    ($($arg:tt)*) => {
+        Err(GenericErr::from(format!($($arg)*)))
+    };
+}
+
+pub type GenericResult<T> = Result<T, GenericErr>;
