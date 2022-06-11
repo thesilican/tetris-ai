@@ -12,7 +12,7 @@ use std::{
 // Fragments used for generating child PcBoards
 pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 
-const BASE64_CONFIG: Config = Config::new(CharacterSet::UrlSafe, false);
+const BASE64_CONFIG: Config = Config::new(CharacterSet::UrlSafe, true);
 pub trait Serializable: Sized {
     fn serialize(&self, buffer: &mut Vec<u8>);
     fn deserialize(bytes: &[u8]) -> GenericResult<Self>;
@@ -51,52 +51,6 @@ impl PcBoard {
         } else {
             self.rows[y as usize] &= !(1 << x);
         }
-    }
-
-    pub fn is_valid(&self) -> bool {
-        // let mut queue = ArrDeque::<(i32, i32), 40>::new();
-        // let mut visited = [[false; 4]; 10];
-        // let mut parity_fail = false;
-        // 'l: for x in 0..10 {
-        //     for y in 0..4 {
-        //         if visited[x as usize][y as usize] {
-        //             continue;
-        //         }
-        //         if self.get(x, y) {
-        //             continue;
-        //         }
-
-        //         // Mark adjacent cells as visited
-        //         let mut count = 1;
-        //         queue.push_back((x, y));
-        //         visited[x as usize][y as usize] = true;
-        //         while let Some((x, y)) = queue.pop_front() {
-        //             for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-        //                 let (nx, ny) = (x + dx, y + dy);
-        //                 if !(0..10).contains(&nx) || !(0..4).contains(&ny) {
-        //                     continue;
-        //                 }
-        //                 if visited[nx as usize][ny as usize] {
-        //                     continue;
-        //                 }
-        //                 if self.get(nx, ny) != self.get(x, y) {
-        //                     continue;
-        //                 }
-        //                 count += 1;
-        //                 queue.push_back((nx, ny));
-        //                 visited[nx as usize][ny as usize] = true;
-        //             }
-        //         }
-        //         if count % 4 != 0 {
-        //             parity_fail = true;
-        //             break 'l;
-        //         }
-        //     }
-        // }
-        // if parity_fail && self.matrix[3] != 0 {
-        //     return false;
-        // }
-        true
     }
 
     #[inline]
@@ -155,7 +109,6 @@ impl TryFrom<Board> for PcBoard {
     type Error = GenericErr;
 
     /// Fails if the height of the board is greater than 4
-    /// or if self is not valid
     fn try_from(value: Board) -> Result<Self, Self::Error> {
         if value.matrix[4] != 0 {
             return generic_err!();
@@ -163,9 +116,6 @@ impl TryFrom<Board> for PcBoard {
         let board = PcBoard {
             rows: value.matrix[0..4].try_into().unwrap(),
         };
-        if !board.is_valid() {
-            return generic_err!();
-        }
         Ok(board)
     }
 }
@@ -195,22 +145,32 @@ impl Display for PcBoard {
 }
 impl Serializable for PcBoard {
     fn serialize(&self, buffer: &mut Vec<u8>) {
-        for row in self.rows {
-            buffer.extend(row.to_be_bytes());
-        }
+        let num = ((self.rows[0] as u64) << 0)
+            + ((self.rows[1] as u64) << 10)
+            + ((self.rows[2] as u64) << 20)
+            + ((self.rows[3] as u64) << 30);
+        buffer.extend(&num.to_le_bytes()[0..5]);
     }
     fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
         if bytes.len() != Self::serialized_len() {
             return Err(Default::default());
         }
-        let mut rows = [0u16; 4];
-        for (row, win) in rows.iter_mut().zip(bytes.chunks(2)) {
-            *row = u16::from_be_bytes(win.try_into()?);
+        let mut buffer = [0; 8];
+        for i in 0..5 {
+            buffer[i] = bytes[i];
         }
+        let num = u64::from_le_bytes(buffer);
+        let bitmask: u64 = (1 << 10) - 1;
+        let rows = [
+            ((num >> 0) & bitmask) as u16,
+            ((num >> 10) & bitmask) as u16,
+            ((num >> 20) & bitmask) as u16,
+            ((num >> 30) & bitmask) as u16,
+        ];
         Ok(PcBoard { rows })
     }
     fn serialized_len() -> usize {
-        8
+        5
     }
 }
 
@@ -313,23 +273,33 @@ impl Default for CanPiece {
 }
 impl Serializable for CanPiece {
     fn serialize(&self, buffer: &mut Vec<u8>) {
-        for row in self.rows {
-            buffer.extend(row.to_be_bytes());
-        }
-        buffer.push(self.piece_type.to_i8() as u8);
-        buffer.push(self.rotation as u8);
+        let num = ((self.rows[0] as u64) << 0)
+            + ((self.rows[1] as u64) << 10)
+            + ((self.rows[2] as u64) << 20)
+            + ((self.rows[3] as u64) << 30)
+            + ((self.piece_type.to_i8() as u64) << 40)
+            + ((self.rotation as u64) << 43);
+        buffer.extend(&num.to_le_bytes()[0..6]);
     }
 
     fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
         if bytes.len() != Self::serialized_len() {
             return generic_err!();
         }
-        let mut rows = [0; 4];
-        for (row, win) in rows.iter_mut().zip(bytes.chunks(2)) {
-            *row = u16::from_be_bytes(win.try_into()?);
+        let mut buffer = [0; 8];
+        for i in 0..6 {
+            buffer[i] = bytes[i];
         }
-        let piece_type = PieceType::try_from(bytes[8] as i8)?;
-        let rotation = bytes[9] as i8;
+        let num = u64::from_le_bytes(buffer);
+        let bitmask: u64 = (1 << 10) - 1;
+        let rows = [
+            ((num >> 0) & bitmask) as u16,
+            ((num >> 10) & bitmask) as u16,
+            ((num >> 20) & bitmask) as u16,
+            ((num >> 30) & bitmask) as u16,
+        ];
+        let piece_type = PieceType::try_from(((num >> 40) & 0b111) as i8)?;
+        let rotation = ((num >> 43) & 0b111) as i8;
         Ok(CanPiece {
             rows,
             piece_type,
@@ -338,7 +308,7 @@ impl Serializable for CanPiece {
     }
 
     fn serialized_len() -> usize {
-        10
+        6
     }
 }
 

@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::lazy::SyncLazy;
 use std::time::{Duration, Instant};
 
 /// A simple struct to create a stopwatch
