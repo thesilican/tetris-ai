@@ -78,10 +78,10 @@ impl_generic_err!(base64::DecodeError);
 #[macro_export]
 macro_rules! generic_err {
     () => {
-        Err(GenericErr::with_message("unknown error"))
+        generic_err!("unknown error")
     };
     ($($arg:tt)*) => {
-        Err(GenericErr::from(format!($($arg)*)))
+        ::std::result::Result::Err($crate::GenericErr::from(format!($($arg)*)))
     };
 }
 

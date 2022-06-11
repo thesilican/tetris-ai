@@ -10,8 +10,8 @@ serde_json = "1.0"
 rand = "0.8.4"
 fnv = "1.0.3"
 twox-hash = "1.6.1"
-redis = "*"
-base64 = "*"
+redis = "0.21.5"
+base64 = "0.13.0"
 
 [dev-dependencies]
 termion = "1.5"

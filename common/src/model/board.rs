@@ -218,7 +218,6 @@ impl Display for Board {
     }
 }
 
-// Small type used for ser/de
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct BoardSer([[u8; BOARD_HEIGHT]; BOARD_WIDTH]);
 impl From<BoardSer> for Board {

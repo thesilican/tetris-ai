@@ -3,13 +3,12 @@ use super::game::GameAction;
 use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
-use crate::KickSeq;
+use crate::{generic_err, GenericResult, KickSeq};
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
+use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::lazy::SyncLazy;
-use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "char")]
@@ -40,8 +39,42 @@ impl PieceType {
     pub fn all() -> impl Iterator<Item = PieceType> {
         ALL_PIECE_TYPES.iter().map(|x| *x)
     }
-    #[inline]
-    pub const fn to_i8(self) -> i8 {
+    pub fn from_char(val: char) -> GenericResult<Self> {
+        match val {
+            'O' => Ok(PieceType::O),
+            'I' => Ok(PieceType::I),
+            'T' => Ok(PieceType::T),
+            'L' => Ok(PieceType::L),
+            'J' => Ok(PieceType::J),
+            'S' => Ok(PieceType::S),
+            'Z' => Ok(PieceType::Z),
+            _ => generic_err!("unknown char value for PieceType: {}", val),
+        }
+    }
+    pub fn to_char(self) -> char {
+        match self {
+            PieceType::O => 'O',
+            PieceType::I => 'I',
+            PieceType::T => 'T',
+            PieceType::L => 'L',
+            PieceType::J => 'J',
+            PieceType::S => 'S',
+            PieceType::Z => 'Z',
+        }
+    }
+    pub fn from_u8(val: u8) -> GenericResult<Self> {
+        match val {
+            0 => Ok(PieceType::O),
+            1 => Ok(PieceType::I),
+            2 => Ok(PieceType::T),
+            3 => Ok(PieceType::L),
+            4 => Ok(PieceType::J),
+            5 => Ok(PieceType::S),
+            6 => Ok(PieceType::Z),
+            _ => generic_err!("unknown u8 value for PieceType: {}", val),
+        }
+    }
+    pub const fn to_u8(self) -> u8 {
         match self {
             PieceType::O => 0,
             PieceType::I => 1,
@@ -53,74 +86,16 @@ impl PieceType {
         }
     }
 }
-impl TryFrom<i8> for PieceType {
-    type Error = GenericErr;
-
-    fn try_from(value: i8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(PieceType::O),
-            1 => Ok(PieceType::I),
-            2 => Ok(PieceType::T),
-            3 => Ok(PieceType::L),
-            4 => Ok(PieceType::J),
-            5 => Ok(PieceType::S),
-            6 => Ok(PieceType::Z),
-            _ => Err("Unknown piece type".into()),
-        }
-    }
-}
-impl From<PieceType> for i8 {
-    fn from(piece_type: PieceType) -> Self {
-        match piece_type {
-            PieceType::O => 0,
-            PieceType::I => 1,
-            PieceType::T => 2,
-            PieceType::L => 3,
-            PieceType::J => 4,
-            PieceType::S => 5,
-            PieceType::Z => 6,
-        }
-    }
-}
-impl FromStr for PieceType {
-    type Err = GenericErr;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let c: char = s
-            .to_uppercase()
-            .chars()
-            .next()
-            .ok_or("Unable to parse piece type")?;
-        c.try_into()
-    }
-}
 impl TryFrom<char> for PieceType {
     type Error = GenericErr;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
-        match value {
-            'O' => Ok(PieceType::O),
-            'I' => Ok(PieceType::I),
-            'T' => Ok(PieceType::T),
-            'L' => Ok(PieceType::L),
-            'J' => Ok(PieceType::J),
-            'S' => Ok(PieceType::S),
-            'Z' => Ok(PieceType::Z),
-            _ => Err("Unknown piece type".into()),
-        }
+        Self::from_char(value)
     }
 }
 impl From<PieceType> for char {
     fn from(value: PieceType) -> Self {
-        match value {
-            PieceType::O => 'O',
-            PieceType::I => 'I',
-            PieceType::T => 'T',
-            PieceType::L => 'L',
-            PieceType::J => 'J',
-            PieceType::S => 'S',
-            PieceType::Z => 'Z',
-        }
+        value.to_char()
     }
 }
 impl Display for PieceType {
@@ -182,14 +157,14 @@ pub struct Piece {
 impl Piece {
     #[inline]
     pub const fn info_spawn_location(piece_type: PieceType) -> (i8, i8) {
-        PIECE_INFO.spawn_locations[piece_type.to_i8() as usize]
+        PIECE_INFO.spawn_locations[piece_type.to_u8() as usize]
     }
     #[inline]
     pub const fn info_shape(
         piece_type: PieceType,
         rotation: i8,
     ) -> [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
-        PIECE_INFO.shapes[piece_type.to_i8() as usize][rotation as usize]
+        PIECE_INFO.shapes[piece_type.to_u8() as usize][rotation as usize]
     }
     #[inline]
     pub const fn info_bit_shape(
@@ -197,7 +172,7 @@ impl Piece {
         rotation: i8,
         x_pos: i8,
     ) -> [u16; PIECE_SHAPE_SIZE as usize] {
-        PIECE_INFO.bit_shapes[piece_type.to_i8() as usize][rotation as usize]
+        PIECE_INFO.bit_shapes[piece_type.to_u8() as usize][rotation as usize]
             [(x_pos + (PIECE_MAX_X_SHIFT as i8) - (PIECE_SPAWN_COLUMN as i8)) as usize]
     }
     #[inline]
@@ -205,19 +180,19 @@ impl Piece {
         piece_type: PieceType,
         rotation: i8,
     ) -> [(i8, i8); PIECE_SHAPE_SIZE as usize] {
-        PIECE_INFO.height_maps[piece_type.to_i8() as usize][rotation as usize]
+        PIECE_INFO.height_maps[piece_type.to_u8() as usize][rotation as usize]
     }
     #[inline]
     pub const fn info_shift_bounds(piece_type: PieceType, rotation: i8) -> (i8, i8) {
-        PIECE_INFO.shift_bounds[piece_type.to_i8() as usize][rotation as usize]
+        PIECE_INFO.shift_bounds[piece_type.to_u8() as usize][rotation as usize]
     }
     #[inline]
     pub const fn info_location_bounds(piece_type: PieceType, rotation: i8) -> (i8, i8, i8, i8) {
-        PIECE_INFO.location_bounds[piece_type.to_i8() as usize][rotation as usize]
+        PIECE_INFO.location_bounds[piece_type.to_u8() as usize][rotation as usize]
     }
     #[inline]
     pub const fn info_kick_table(piece_type: PieceType, from: i8, to: i8) -> KickSeq {
-        PIECE_INFO.kick_table[piece_type.to_i8() as usize][from as usize][to as usize]
+        PIECE_INFO.kick_table[piece_type.to_u8() as usize][from as usize][to as usize]
     }
 
     #[inline]

@@ -6,7 +6,7 @@ use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
 use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
-use crate::GenericErr;
+use crate::GenericResult;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -68,6 +68,19 @@ pub enum GameMove {
     HardDrop,
 }
 impl GameMove {
+    pub fn from_u8(val: u8) -> GenericResult<Self> {
+        match val {
+            0 => Ok(GameMove::ShiftLeft),
+            1 => Ok(GameMove::ShiftRight),
+            2 => Ok(GameMove::RotateCW),
+            3 => Ok(GameMove::Rotate180),
+            4 => Ok(GameMove::RotateCCW),
+            5 => Ok(GameMove::Hold),
+            6 => Ok(GameMove::SoftDrop),
+            7 => Ok(GameMove::HardDrop),
+            _ => generic_err!("unknown u8 value for GameMove"),
+        }
+    }
     pub fn to_u8(self) -> u8 {
         match self {
             GameMove::ShiftLeft => 0,
@@ -115,29 +128,7 @@ impl TryFrom<GameAction> for GameMove {
 }
 impl Default for GameMove {
     fn default() -> Self {
-        GameMove::ShiftLeft
-    }
-}
-impl From<GameMove> for u8 {
-    fn from(value: GameMove) -> Self {
-        value.to_u8()
-    }
-}
-impl TryFrom<u8> for GameMove {
-    type Error = GenericErr;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(GameMove::ShiftLeft),
-            1 => Ok(GameMove::ShiftRight),
-            2 => Ok(GameMove::RotateCW),
-            3 => Ok(GameMove::Rotate180),
-            4 => Ok(GameMove::RotateCCW),
-            5 => Ok(GameMove::Hold),
-            6 => Ok(GameMove::SoftDrop),
-            7 => Ok(GameMove::HardDrop),
-            _ => generic_err!(),
-        }
+        Self::from_u8(0).unwrap()
     }
 }
 
