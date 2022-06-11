@@ -1,7 +1,10 @@
-fn type_name_of_val<T>(_: T) -> &'static str {
-    std::any::type_name::<T>()
-}
+use common::*;
+use pc_finder::*;
 
-fn main() {
-    println!("{}", type_name_of_val(b"hi"));
+fn main() -> GenericResult<()> {
+    let tess = Tess::base64_deserialize("AAMAAwAAAAAAAAAMAAwAAAAAAAAA8AAAAAAAAAEAAAAAcAAgAAACAAAAAgADAAIAAgMAAAAAABAAcAMCAAAAAAAHAAEEAAAAAAAACAAOBAIAAAAAAMABgAUAAwABgAAAAAAGAA")?;
+    println!("{}", tess);
+    // let board = PcBoard::base64_deserialize("AwABgAAAAAA=")?;
+    // println!("{}", board);
+    Ok(())
 }

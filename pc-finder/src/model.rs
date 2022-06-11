@@ -1,19 +1,30 @@
+use base64::{CharacterSet, Config};
 use common::*;
 use std::{
     cmp::Ordering,
     collections::HashSet,
     convert::TryInto,
     fmt::{self, Display, Formatter},
+    hash::{Hash, Hasher},
     lazy::SyncLazy,
 };
 
 // Fragments used for generating child PcBoards
 pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 
+const BASE64_CONFIG: Config = Config::new(CharacterSet::UrlSafe, false);
 pub trait Serializable: Sized {
     fn serialize(&self, buffer: &mut Vec<u8>);
-    fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr>;
+    fn deserialize(bytes: &[u8]) -> GenericResult<Self>;
     fn serialized_len() -> usize;
+    fn base64_serialize(&self) -> String {
+        let mut buffer = Vec::new();
+        self.serialize(&mut buffer);
+        base64::encode_config(buffer, BASE64_CONFIG)
+    }
+    fn base64_deserialize(b64: &str) -> GenericResult<Self> {
+        Self::deserialize(&base64::decode_config(b64, BASE64_CONFIG)?)
+    }
 }
 
 /// Represents the bottom 4 rows of a tetris board
@@ -102,7 +113,8 @@ impl PcBoard {
     }
 
     pub fn child_boards(&self) -> Vec<PcBoard> {
-        let mut result = HashSet::new();
+        let mut visited = HashSet::new();
+        let mut result = Vec::new();
         for piece_type in PieceType::all() {
             let game = Game::from_parts(
                 Board::from(*self),
@@ -112,12 +124,15 @@ impl PcBoard {
                 true,
             );
             let child_states = game.child_states(FRAGMENTS);
-            let boards = child_states
-                .into_iter()
-                .filter_map(|x| PcBoard::try_from(x.game.board).ok());
-            result.extend(boards);
+            for child in child_states {
+                if let Ok(board) = PcBoard::try_from(child.game.board) {
+                    if visited.insert(board) {
+                        result.push(board);
+                    }
+                }
+            }
         }
-        result.into_iter().collect()
+        result
     }
 
     #[inline]
@@ -208,6 +223,9 @@ pub struct CanPiece {
     pub rows: [u16; 4],
 }
 impl CanPiece {
+    pub fn new(piece: Piece) -> GenericResult<Self> {
+        piece.try_into()
+    }
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.rows[y as usize] >> x & 1 == 1
     }
@@ -261,6 +279,11 @@ impl PartialEq for CanPiece {
     }
 }
 impl Eq for CanPiece {}
+impl Hash for CanPiece {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.rows.hash(state);
+    }
+}
 impl PartialOrd for CanPiece {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self
@@ -319,7 +342,7 @@ impl Serializable for CanPiece {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tess {
     pub pieces: [CanPiece; 10],
 }
@@ -327,6 +350,10 @@ impl Tess {
     pub fn new(pieces: [CanPiece; 10]) -> Self {
         assert!(pieces.is_sorted());
         Tess { pieces }
+    }
+
+    pub fn contains(&self, piece: CanPiece) -> bool {
+        self.pieces.contains(&piece)
     }
 }
 impl Serializable for Tess {

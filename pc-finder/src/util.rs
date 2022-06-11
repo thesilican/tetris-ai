@@ -39,10 +39,3 @@ impl AvgStopwatch {
         self.times.iter().sum::<Duration>() / self.times.len() as u32
     }
 }
-
-static REDIS_CLIENT: SyncLazy<redis::Client> =
-    SyncLazy::new(|| redis::Client::open("redis://127.0.0.1/").unwrap());
-
-pub fn get_redis_con() -> redis::Connection {
-    REDIS_CLIENT.get_connection().unwrap()
-}

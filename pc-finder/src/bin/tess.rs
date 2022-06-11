@@ -1,7 +1,33 @@
 #![feature(once_cell)]
 use common::*;
 use pc_finder::*;
-use std::lazy::SyncLazy;
+use std::{collections::HashSet, lazy::SyncLazy};
+
+static ALL_PIECES: SyncLazy<Vec<CanPiece>> = SyncLazy::new(|| {
+    let mut pieces = Vec::new();
+    for piece_type in PieceType::all() {
+        let max_rot = match piece_type {
+            PieceType::O => 1,
+            PieceType::I => 2,
+            PieceType::T => 4,
+            PieceType::L => 4,
+            PieceType::J => 4,
+            PieceType::S => 2,
+            PieceType::Z => 2,
+        };
+        for rot in 0..max_rot {
+            let (min_x, max_x, min_y, max_y) = Piece::info_location_bounds(piece_type, rot);
+            for y in min_y..=(max_y - 20) {
+                for x in min_x..=max_x {
+                    let piece = Piece::new(piece_type, rot, (x, y));
+                    let can_piece = CanPiece::try_from(piece).unwrap();
+                    pieces.push(can_piece);
+                }
+            }
+        }
+    }
+    pieces
+});
 
 fn parity_fail(board: &PcBoard) -> bool {
     let mut queue = ArrDeque::<(i32, i32), 40>::new();
@@ -43,32 +69,6 @@ fn parity_fail(board: &PcBoard) -> bool {
     }
     false
 }
-
-static ALL_PIECES: SyncLazy<Vec<CanPiece>> = SyncLazy::new(|| {
-    let mut pieces = Vec::new();
-    for piece_type in PieceType::all() {
-        let max_rot = match piece_type {
-            PieceType::O => 1,
-            PieceType::I => 2,
-            PieceType::T => 4,
-            PieceType::L => 4,
-            PieceType::J => 4,
-            PieceType::S => 2,
-            PieceType::Z => 2,
-        };
-        for rot in 0..max_rot {
-            let (min_x, max_x, min_y, max_y) = Piece::info_location_bounds(piece_type, rot);
-            for y in min_y..=(max_y - 20) {
-                for x in min_x..=max_x {
-                    let piece = Piece::new(piece_type, rot, (x, y));
-                    let can_piece = CanPiece::try_from(piece).unwrap();
-                    pieces.push(can_piece);
-                }
-            }
-        }
-    }
-    pieces
-});
 
 fn gen_tessellations() -> Vec<Tess> {
     fn rec(
@@ -123,42 +123,16 @@ fn gen_tessellations() -> Vec<Tess> {
         [0; 7],
         &mut output,
     );
+    {
+        // Check that tessellations are unique
+        let set = output.iter().map(|&x| x).collect::<HashSet<_>>();
+        assert_eq!(set.len(), output.len());
+    }
     output
 }
 
-fn save_tessellations(tessellations: &[Tess]) -> GenericResult<()> {
-    let mut con = get_redis_con();
-    for tess in tessellations {
-        let mut val = Vec::new();
-        tess.serialize(&mut val);
-        redis::cmd("DEL").arg("tessellations").query(&mut con)?;
-        redis::cmd("LPUSH")
-            .arg("tessellations")
-            .arg(base64::encode(val))
-            .query(&mut con)?;
-    }
-    Ok(())
-}
-
-fn load_tessellations() -> GenericResult<Vec<Tess>> {
-    let data = redis::cmd("LRANGE")
-        .arg("tessellations")
-        .arg("0")
-        .arg("-1")
-        .query::<Vec<String>>(&mut get_redis_con())?;
-    let mut tessellations = Vec::new();
-    for b64 in data {
-        let tess = Tess::deserialize(&base64::decode(b64)?)?;
-        tessellations.push(tess);
-    }
-    Ok(tessellations)
-}
-
 fn main() -> GenericResult<()> {
-    save_tessellations(&gen_tessellations())?;
-    // let tessellations = load_tessellations()?;
-    // for tess in tessellations {
-    //     println!("{}\n", tess);
-    // }
-    Ok(())
+    // Generate tessellations to be used by gen
+    let tessellations = gen_tessellations();
+    save_tessellations(&tessellations)
 }

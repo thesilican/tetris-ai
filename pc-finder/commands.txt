@@ -1,0 +1,12 @@
+# Delete
+flushdb
+
+# Delete everything except tessellations
+redis-cli --scan --pattern "children:*" | xargs redis-cli del
+redis-cli --scan --pattern "parents:*" | xargs redis-cli del
+redis-cli del visited
+redis-cli del stack
+
+# Delete visited & stack
+redis-cli del visited
+redis-cli del stack
