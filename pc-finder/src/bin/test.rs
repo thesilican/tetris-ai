@@ -7,8 +7,6 @@ fn main() -> GenericResult<()> {
     // let board = "2wcQAAA=";
     // println!("{}", PcBoard::base64_deserialize(board)?);
 
-    dbg!(std::mem::size_of::<PcTableVal>());
-
     // let res = fetch_parents(PcBoard::base64_deserialize("AAAAAAAAAAA")?)?;
     // for parent in res {
     //     println!("{}\n", parent);

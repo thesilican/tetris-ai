@@ -83,7 +83,7 @@ fn gen_tessellations() -> Vec<Tess> {
             let mut pieces = pieces;
             let mut len = len;
             let mut flags = flags;
-            flags[piece.piece_type.to_i8() as usize] += 1;
+            flags[piece.piece_type.to_u8() as usize] += 1;
             if flags.iter().any(|&x| x > 2) {
                 continue;
             }

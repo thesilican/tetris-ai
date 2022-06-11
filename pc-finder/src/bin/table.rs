@@ -27,8 +27,8 @@ fn main() -> GenericResult<()> {
                 if !visited.insert(board) {
                     continue;
                 }
-                let val = PcTableVal::new(board, child.moves);
-                table.insert(key, val);
+                let val = PcTableLeaf::new(board, child.moves);
+                table.insert_leaf(key, val);
             }
             println!(
                 "{}\nBoard: {:>6} Piece: {} Children: {:>3}\n",
@@ -39,8 +39,8 @@ fn main() -> GenericResult<()> {
             );
         }
     }
-    let ser = table.b64_serialize();
-    let de = PcTable::b64_deserialize(&ser)?;
+    let ser = table.base64_serialize();
+    let de = PcTable::base64_deserialize(&ser)?;
     println!("{}", de.len());
     Ok(())
 }
