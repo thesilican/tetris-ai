@@ -15,16 +15,17 @@ fn main() -> GenericResult<()> {
         let children = fetch_children(board)?;
         let mut children_count = 0;
         for child in children {
-            if visited.contains(&board) || !pruned.contains(&board) {
+            if visited.contains(&child) || !pruned.contains(&child) {
                 continue;
             }
             children_count += 1;
             queue.push_back((depth + 1, child));
         }
         println!(
-            "Depth: {}\nChildren: {}\n{}\n",
-            depth, children_count, board
+            "Depth: {}\n{}\nChildren: {}\n",
+            depth, board, children_count
         );
     }
+    println!("Total: {} boards", pruned.len());
     Ok(())
 }

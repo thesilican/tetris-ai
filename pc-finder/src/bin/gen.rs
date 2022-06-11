@@ -97,17 +97,17 @@ fn main() -> GenericResult<()> {
         let children = board.child_boards();
         let mut good_children = Vec::new();
         for &child in children.iter() {
-            if visited.contains(&child) {
-                continue;
-            }
             if !tessellations
                 .iter()
                 .any(|&tess| board_fits_tess(child, tess))
             {
                 continue;
             }
-            stack.push(child);
             good_children.push(child);
+            if visited.contains(&child) {
+                continue;
+            }
+            stack.push(child);
         }
         record_parent_children(board, &good_children)?;
         if EXIT.load(Ordering::Relaxed) {
