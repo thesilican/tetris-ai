@@ -12,6 +12,7 @@ ctrlc = "3.2.1"
 rand = "0.8.5"
 rayon = "1.5"
 base64 = "*"
+tinyvec = { version = "1.6", features = ["alloc"] }
 
 [profile.release]
 debug = true

@@ -1,3 +1,4 @@
+use crate::generic_err;
 use crate::misc::ArrDeque;
 use crate::model::board::Board;
 use crate::model::piece::Piece;
@@ -5,6 +6,7 @@ use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
 use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
+use crate::GenericErr;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -65,6 +67,20 @@ pub enum GameMove {
     Hold,
     HardDrop,
 }
+impl GameMove {
+    pub fn to_u8(self) -> u8 {
+        match self {
+            GameMove::ShiftLeft => 0,
+            GameMove::ShiftRight => 1,
+            GameMove::RotateCW => 2,
+            GameMove::Rotate180 => 3,
+            GameMove::RotateCCW => 4,
+            GameMove::SoftDrop => 5,
+            GameMove::Hold => 6,
+            GameMove::HardDrop => 7,
+        }
+    }
+}
 impl Display for GameMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -94,6 +110,33 @@ impl TryFrom<GameAction> for GameMove {
             GameAction::Hold => Ok(GameMove::Hold),
             GameAction::Lock => Err(()),
             GameAction::AddGarbage { .. } => Err(()),
+        }
+    }
+}
+impl Default for GameMove {
+    fn default() -> Self {
+        GameMove::ShiftLeft
+    }
+}
+impl From<GameMove> for u8 {
+    fn from(value: GameMove) -> Self {
+        value.to_u8()
+    }
+}
+impl TryFrom<u8> for GameMove {
+    type Error = GenericErr;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(GameMove::ShiftLeft),
+            1 => Ok(GameMove::ShiftRight),
+            2 => Ok(GameMove::RotateCW),
+            3 => Ok(GameMove::Rotate180),
+            4 => Ok(GameMove::RotateCCW),
+            5 => Ok(GameMove::Hold),
+            6 => Ok(GameMove::SoftDrop),
+            7 => Ok(GameMove::HardDrop),
+            _ => generic_err!(),
         }
     }
 }

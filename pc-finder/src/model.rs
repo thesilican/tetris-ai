@@ -2,27 +2,27 @@ use base64::{CharacterSet, Config};
 use common::*;
 use std::{
     cmp::Ordering,
-    collections::HashSet,
+    collections::{hash_map::Entry, HashMap, HashSet},
     convert::TryInto,
     fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
     lazy::SyncLazy,
 };
+use tinyvec::{ArrayVec, TinyVec};
 
 // Fragments used for generating child PcBoards
 pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
 
 const BASE64_CONFIG: Config = Config::new(CharacterSet::UrlSafe, true);
-pub trait Serializable: Sized {
+pub trait SerdeBytes: Sized {
     fn serialize(&self, buffer: &mut Vec<u8>);
     fn deserialize(bytes: &[u8]) -> GenericResult<Self>;
-    fn serialized_len() -> usize;
-    fn base64_serialize(&self) -> String {
+    fn b64_serialize(&self) -> String {
         let mut buffer = Vec::new();
         self.serialize(&mut buffer);
         base64::encode_config(buffer, BASE64_CONFIG)
     }
-    fn base64_deserialize(b64: &str) -> GenericResult<Self> {
+    fn b64_deserialize(b64: &str) -> GenericResult<Self> {
         Self::deserialize(&base64::decode_config(b64, BASE64_CONFIG)?)
     }
 }
@@ -104,7 +104,6 @@ impl PcBoard {
         }
     }
 }
-
 impl TryFrom<Board> for PcBoard {
     type Error = GenericErr;
 
@@ -143,7 +142,8 @@ impl Display for PcBoard {
         Ok(())
     }
 }
-impl Serializable for PcBoard {
+impl SerdeBytes for PcBoard {
+    // Serializes to 5 bytes
     fn serialize(&self, buffer: &mut Vec<u8>) {
         let num = ((self.rows[0] as u64) << 0)
             + ((self.rows[1] as u64) << 10)
@@ -152,7 +152,7 @@ impl Serializable for PcBoard {
         buffer.extend(&num.to_le_bytes()[0..5]);
     }
     fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
-        if bytes.len() != Self::serialized_len() {
+        if bytes.len() != 5 {
             return Err(Default::default());
         }
         let mut buffer = [0; 8];
@@ -169,8 +169,10 @@ impl Serializable for PcBoard {
         ];
         Ok(PcBoard { rows })
     }
-    fn serialized_len() -> usize {
-        5
+}
+impl Default for PcBoard {
+    fn default() -> Self {
+        PcBoard::new()
     }
 }
 
@@ -271,7 +273,9 @@ impl Default for CanPiece {
         Piece::new(PieceType::O, 0, (0, 0)).try_into().unwrap()
     }
 }
-impl Serializable for CanPiece {
+impl SerdeBytes for CanPiece {
+    // Serializes to 6 bytes
+
     fn serialize(&self, buffer: &mut Vec<u8>) {
         let num = ((self.rows[0] as u64) << 0)
             + ((self.rows[1] as u64) << 10)
@@ -283,7 +287,7 @@ impl Serializable for CanPiece {
     }
 
     fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
-        if bytes.len() != Self::serialized_len() {
+        if bytes.len() != 6 {
             return generic_err!();
         }
         let mut buffer = [0; 8];
@@ -306,10 +310,6 @@ impl Serializable for CanPiece {
             rotation,
         })
     }
-
-    fn serialized_len() -> usize {
-        6
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -326,27 +326,22 @@ impl Tess {
         self.pieces.contains(&piece)
     }
 }
-impl Serializable for Tess {
+impl SerdeBytes for Tess {
+    // Serializes to 60 bytes (10 * 6 per CanPiece)
     fn serialize(&self, buffer: &mut Vec<u8>) {
         for piece in self.pieces {
             piece.serialize(buffer);
         }
     }
     fn deserialize(bytes: &[u8]) -> Result<Self, GenericErr> {
-        if bytes.len() != Self::serialized_len() {
+        if bytes.len() != 60 {
             return generic_err!();
         }
         let mut pieces = [Default::default(); 10];
-        for (piece, win) in pieces
-            .iter_mut()
-            .zip(bytes.chunks(CanPiece::serialized_len()))
-        {
+        for (piece, win) in pieces.iter_mut().zip(bytes.chunks(6)) {
             *piece = CanPiece::deserialize(win)?;
         }
         Ok(Tess { pieces })
-    }
-    fn serialized_len() -> usize {
-        CanPiece::serialized_len() * 10
     }
 }
 impl Display for Tess {
@@ -374,5 +369,168 @@ impl Display for Tess {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PcTableKey {
+    board: PcBoard,
+    piece: PieceType,
+}
+impl PcTableKey {
+    pub fn new(board: PcBoard, piece: PieceType) -> Self {
+        PcTableKey { board, piece }
+    }
+}
+impl SerdeBytes for PcTableKey {
+    // Serializes to 6 bytes (5 from PcBoard + 1)
+    fn serialize(&self, buffer: &mut Vec<u8>) {
+        self.board.serialize(buffer);
+        buffer.push(self.piece.to_i8() as u8);
+    }
+
+    fn deserialize(bytes: &[u8]) -> GenericResult<Self> {
+        if bytes.len() != 6 {
+            return generic_err!();
+        }
+        let board = PcBoard::deserialize(&bytes[0..5])?;
+        let piece = PieceType::try_from(bytes[5] as i8)?;
+        Ok(PcTableKey { board, piece })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PcTableVal {
+    board: PcBoard,
+    moves: ArrayVec<[GameMove; 12]>,
+}
+impl PcTableVal {
+    pub fn new(board: PcBoard, moves: &[GameMove]) -> Self {
+        PcTableVal {
+            board,
+            moves: moves.into_iter().map(|&x| x).collect(),
+        }
+    }
+}
+impl SerdeBytes for PcTableVal {
+    // Serializes to 10 bytes
+    fn serialize(&self, buffer: &mut Vec<u8>) {
+        self.board.serialize(buffer);
+        let mut num: u64 = 0;
+        for i in 0..12 {
+            let bits = self.moves[i].to_u8() as u64;
+            num |= bits << (i * 3);
+        }
+        buffer.extend(&num.to_le_bytes()[0..5])
+    }
+
+    fn deserialize(bytes: &[u8]) -> GenericResult<Self> {
+        if bytes.len() != 10 {
+            return generic_err!();
+        }
+        let board = PcBoard::deserialize(&bytes[0..5])?;
+        let mut buffer = [0; 8];
+        for i in 0..5 {
+            buffer[i] = bytes[i + 5];
+        }
+        let num = u64::from_le_bytes(buffer);
+        let mut moves = ArrayVec::new();
+        const MASK: u64 = 0b111;
+        for i in 0..12 {
+            let bits = (num >> (i * 3)) & MASK;
+            let val = GameMove::try_from(bits as u8)?;
+            moves.push(val);
+        }
+        Ok(PcTableVal { board, moves })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PcTable {
+    map: HashMap<PcTableKey, TinyVec<[PcTableVal; 16]>>,
+}
+impl PcTable {
+    pub fn new() -> Self {
+        PcTable {
+            map: HashMap::new(),
+        }
+    }
+    pub fn insert(&mut self, key: PcTableKey, val: PcTableVal) {
+        match self.map.entry(key) {
+            Entry::Occupied(mut o) => {
+                o.get_mut().push(val);
+            }
+            Entry::Vacant(v) => {
+                let mut arr = TinyVec::new();
+                arr.push(val);
+                v.insert(arr);
+            }
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+    pub fn lookup(
+        &self,
+        board: PcBoard,
+        piece: PieceType,
+    ) -> impl Iterator<Item = &PcTableVal> + '_ {
+        self.map
+            .get(&PcTableKey { board, piece })
+            .map(|x| x.as_slice())
+            .unwrap_or(&[])
+            .iter()
+    }
+    pub fn lookup_all(&self, board: PcBoard) -> impl Iterator<Item = &PcTableVal> + '_ {
+        self.lookup(board, PieceType::O)
+            .chain(self.lookup(board, PieceType::I))
+            .chain(self.lookup(board, PieceType::T))
+            .chain(self.lookup(board, PieceType::L))
+            .chain(self.lookup(board, PieceType::J))
+            .chain(self.lookup(board, PieceType::S))
+            .chain(self.lookup(board, PieceType::Z))
+    }
+}
+impl SerdeBytes for PcTable {
+    fn serialize(&self, buffer: &mut Vec<u8>) {
+        // Serialization format:
+        // PcTable: len (u64, 4 bytes) + Entry (* len)
+        // Entry: PcTableKey (6 bytes) + PcTableValList
+        // PcTableValList: len (1 byte) + PcTableVal (10 bytes) (* len)
+        buffer.extend((self.map.len() as u64).to_le_bytes());
+        for (key, vals) in self.map.iter() {
+            key.serialize(buffer);
+            assert!(vals.len() < u8::MAX as usize);
+            buffer.push(vals.len() as u8);
+            for val in vals {
+                val.serialize(buffer);
+            }
+        }
+    }
+
+    fn deserialize(bytes: &[u8]) -> GenericResult<Self> {
+        let mut cursor = 0;
+        let mut read = |amount: usize| {
+            if cursor + amount > bytes.len() {
+                return generic_err!("reached end of byte stream");
+            }
+            let slice = &bytes[cursor..][..amount];
+            cursor += amount;
+            Ok(slice)
+        };
+        let len = u64::from_le_bytes(read(4)?.try_into()?);
+        let mut table = PcTable::new();
+        for _ in 0..len {
+            let key = PcTableKey::deserialize(read(6)?)?;
+            let len = read(1)?[0];
+            for _ in 0..len {
+                let val = PcTableVal::deserialize(read(10)?)?;
+                table.insert(key, val);
+            }
+        }
+        if cursor != bytes.len() {
+            return generic_err!("unexpected extra bytes remaining");
+        }
+        Ok(table)
     }
 }
