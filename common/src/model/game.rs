@@ -63,8 +63,8 @@ pub enum GameMove {
     RotateCW,
     Rotate180,
     RotateCCW,
-    SoftDrop,
     Hold,
+    SoftDrop,
     HardDrop,
 }
 impl GameMove {
@@ -88,8 +88,8 @@ impl GameMove {
             GameMove::RotateCW => 2,
             GameMove::Rotate180 => 3,
             GameMove::RotateCCW => 4,
-            GameMove::SoftDrop => 5,
-            GameMove::Hold => 6,
+            GameMove::Hold => 5,
+            GameMove::SoftDrop => 6,
             GameMove::HardDrop => 7,
         }
     }

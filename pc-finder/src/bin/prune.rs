@@ -8,23 +8,23 @@ fn main() -> GenericResult<()> {
     static EXIT: AtomicBool = AtomicBool::new(false);
     ctrlc::set_handler(|| EXIT.store(true, Ordering::Relaxed)).unwrap();
 
-    let mut visited = load_visited()?;
+    let mut pruned = load_pruned()?;
     let mut stack = load_stack()?;
     stack.push(PcBoard::new());
     while let Some(board) = stack.pop() {
-        if visited.contains(&board) {
+        if pruned.contains(&board) {
             continue;
         }
-        visited.insert(board);
+        pruned.insert(board);
         println!(
             "{}\n  Stack: {:>8}\nVisited: {:>8}\n",
             board,
             stack.len(),
-            visited.len()
+            pruned.len()
         );
         let parents = fetch_parents(board)?;
         for parent in parents {
-            if visited.contains(&parent) {
+            if pruned.contains(&parent) {
                 continue;
             }
             stack.push(parent);
@@ -37,6 +37,6 @@ fn main() -> GenericResult<()> {
         println!("Finished!");
     }
     save_stack(&stack)?;
-    save_visited(&visited)?;
+    save_pruned(&pruned)?;
     Ok(())
 }

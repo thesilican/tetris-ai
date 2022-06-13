@@ -4,7 +4,9 @@ use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     convert::TryInto,
     fmt::{self, Display, Formatter},
+    fs::File,
     hash::{Hash, Hasher},
+    io::{Read, Write},
     lazy::SyncLazy,
 };
 use tinyvec::{ArrayVec, TinyVec};
@@ -367,7 +369,7 @@ impl SerdeBytes for PcTableKey {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PcTableLeaf {
     board: PcBoard,
     moves: ArrayVec<[GameMove; 12]>,
@@ -392,9 +394,10 @@ impl SerdeBytes for PcTableLeaf {
     fn serialize(&self, buf: &mut Buffer) {
         self.board.serialize(buf);
         let mut num: u64 = 0;
-        for i in 0..12 {
-            let bits = self.moves[i].to_u8() as u64;
-            num |= bits << (i * 3);
+        num |= self.moves.len() as u64;
+        for (i, game_move) in self.moves.iter().enumerate() {
+            let bits = game_move.to_u8() as u64;
+            num |= bits << ((i * 3) + 4)
         }
         buf.write_packed(num, 5);
     }
@@ -402,10 +405,10 @@ impl SerdeBytes for PcTableLeaf {
     fn deserialize(cur: &mut Cursor) -> GenericResult<Self> {
         let board = PcBoard::deserialize(cur)?;
         let num = cur.read_packed(5)?;
+        let len = num & 0b1111;
         let mut moves = ArrayVec::new();
-        const MASK: u64 = 0b111;
-        for i in 0..12 {
-            let bits = (num >> (i * 3)) & MASK;
+        for i in 0..len {
+            let bits = (num >> ((i * 3) + 4)) & 0b111;
             let val = GameMove::from_u8(bits as u8)?;
             moves.push(val);
         }
@@ -413,42 +416,41 @@ impl SerdeBytes for PcTableLeaf {
     }
 }
 
-#[derive(Debug, Clone)]
-struct PcTableVal {
-    score: i32,
-    leaves: TinyVec<[PcTableLeaf; 16]>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PcTableVal {
+    leaves: TinyVec<[PcTableLeaf; 2]>,
 }
 impl PcTableVal {
-    pub fn new(score: i32, leaves: impl IntoIterator<Item = PcTableLeaf>) -> Self {
+    pub fn new(leaves: &[PcTableLeaf]) -> Self {
         PcTableVal {
-            score,
-            leaves: leaves.into_iter().collect(),
+            leaves: leaves.into_iter().map(|&x| x).collect(),
         }
+    }
+    pub fn leaves(&self) -> &[PcTableLeaf] {
+        &self.leaves
     }
 }
 impl SerdeBytes for PcTableVal {
     // Serialization layout
-    // score (4 bytes) + len (1 byte) + leaves (10 bytes * len)
+    // len (1 byte) + leaves (10 bytes * len)
     fn serialize(&self, buf: &mut Buffer) {
-        buf.write_u32(self.score as u32);
         buf.write_u8(self.leaves.len() as u8);
         for leaf in &self.leaves {
             leaf.serialize(buf);
         }
     }
     fn deserialize(cur: &mut Cursor) -> GenericResult<Self> {
-        let score = cur.read_u32()? as i32;
         let len = cur.read_u8()?;
         let mut leaves = TinyVec::new();
         for _ in 0..len {
             let leaf = PcTableLeaf::deserialize(cur)?;
             leaves.push(leaf);
         }
-        Ok(PcTableVal { score, leaves })
+        Ok(PcTableVal { leaves })
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PcTable {
     map: HashMap<PcTableKey, PcTableVal>,
 }
@@ -458,31 +460,24 @@ impl PcTable {
             map: HashMap::new(),
         }
     }
+    pub fn with_map(map: HashMap<PcTableKey, PcTableVal>) -> Self {
+        PcTable { map }
+    }
+    pub fn map(&self) -> &HashMap<PcTableKey, PcTableVal> {
+        &self.map
+    }
     pub fn insert_leaf(&mut self, key: PcTableKey, leaf: PcTableLeaf) {
         match self.map.entry(key) {
             Entry::Occupied(mut o) => {
                 o.get_mut().leaves.push(leaf);
             }
             Entry::Vacant(v) => {
-                v.insert(PcTableVal::new(0, [leaf]));
-            }
-        }
-    }
-    pub fn set_score(&mut self, key: PcTableKey, score: i32) {
-        match self.map.entry(key) {
-            Entry::Occupied(mut o) => {
-                o.get_mut().score = score;
-            }
-            Entry::Vacant(v) => {
-                v.insert(PcTableVal::new(score, []));
+                v.insert(PcTableVal::new(&[leaf]));
             }
         }
     }
     pub fn len(&self) -> usize {
         self.map.len()
-    }
-    pub fn score(&self, board: PcBoard, piece: PieceType) -> Option<i32> {
-        self.map.get(&PcTableKey { board, piece }).map(|x| x.score)
     }
     pub fn leaves(
         &self,
@@ -503,6 +498,21 @@ impl PcTable {
             .chain(self.leaves(board, PieceType::J))
             .chain(self.leaves(board, PieceType::S))
             .chain(self.leaves(board, PieceType::Z))
+    }
+    pub fn save_to_file(&self, filename: &str) -> GenericResult<()> {
+        println!("Saving pc-table to {}", filename);
+        let mut buf = Buffer::new();
+        self.serialize(&mut buf);
+        let mut file = File::create(filename)?;
+        file.write_all(buf.read())?;
+        Ok(())
+    }
+    pub fn load_from_file(filename: &str) -> GenericResult<Self> {
+        println!("Loading pc-table from {}", filename);
+        let mut file = File::open(filename)?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
+        Self::deserialize(&mut Cursor::new(&buf))
     }
 }
 impl SerdeBytes for PcTable {

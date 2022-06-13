@@ -1,7 +1,11 @@
 use crate::*;
 use ::redis::{cmd, Client, Connection};
 use common::*;
-use std::{collections::HashSet, lazy::SyncLazy, sync::Mutex};
+use std::{
+    collections::{HashMap, HashSet},
+    lazy::SyncLazy,
+    sync::Mutex,
+};
 
 static REDIS_CONNECTION: SyncLazy<Mutex<Connection>> = SyncLazy::new(|| {
     let client = Client::open("redis://127.0.0.1/").unwrap();
@@ -118,6 +122,33 @@ pub fn load_visited() -> GenericResult<HashSet<PcBoard>> {
     Ok(res)
 }
 
+pub fn save_pruned(pruned: &HashSet<PcBoard>) -> GenericResult<()> {
+    println!("Saving pruned to Redis");
+    let con = &mut *REDIS_CONNECTION.lock().unwrap();
+    let pruned = pruned
+        .iter()
+        .map(SerdeBytes::base64_serialize)
+        .collect::<Vec<String>>();
+    cmd("DEL").arg("pruned").query(con)?;
+    if pruned.len() > 0 {
+        cmd("SADD").arg("pruned").arg(pruned).query(con)?;
+    }
+    Ok(())
+}
+
+pub fn load_pruned() -> GenericResult<HashSet<PcBoard>> {
+    println!("Loading pruned to Redis");
+    let con = &mut *REDIS_CONNECTION.lock().unwrap();
+    let pruned = cmd("SMEMBERS")
+        .arg("pruned")
+        .query::<HashSet<String>>(con)?;
+    let mut res = HashSet::new();
+    for text in pruned {
+        res.insert(PcBoard::base64_deserialize(&text)?);
+    }
+    Ok(res)
+}
+
 pub fn save_stack(stack: &Vec<PcBoard>) -> GenericResult<()> {
     println!("Saving stack to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
@@ -143,6 +174,37 @@ pub fn load_stack() -> GenericResult<Vec<PcBoard>> {
     let mut res = Vec::new();
     for text in stack {
         res.push(PcBoard::base64_deserialize(&text)?);
+    }
+    Ok(res)
+}
+
+pub fn save_pc_table(pc_table: &HashMap<PcTableKey, PcTableVal>) -> GenericResult<()> {
+    println!("Saving pc-table to Redis");
+    let con = &mut *REDIS_CONNECTION.lock().unwrap();
+    let pc_table = pc_table
+        .iter()
+        .map(|(k, v)| [k.base64_serialize(), v.base64_serialize()])
+        .flatten()
+        .collect::<Vec<_>>();
+    cmd("DEL").arg("pc-table").query(con)?;
+    if pc_table.len() > 0 {
+        cmd("HSET").arg("pc-table").arg(pc_table).query(con)?;
+    }
+    Ok(())
+}
+
+pub fn load_pc_table() -> GenericResult<HashMap<PcTableKey, PcTableVal>> {
+    println!("Loading pc-table from Redis");
+    let con = &mut *REDIS_CONNECTION.lock().unwrap();
+    let pc_table = cmd("HGETALL")
+        .arg("pc-table")
+        .query::<HashMap<String, String>>(con)?;
+    let mut res = HashMap::new();
+    for (k, v) in pc_table {
+        res.insert(
+            PcTableKey::base64_deserialize(&k)?,
+            PcTableVal::base64_deserialize(&v)?,
+        );
     }
     Ok(res)
 }
