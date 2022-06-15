@@ -1,5 +1,4 @@
 use common::*;
-use pc_finder::*;
 
 fn main() -> GenericResult<()> {
     // let tess = "BhgAAAAACCCAAAIJAAAAHCACgAMEAAACAAAAARwTAAAIIMAbAQQwAAAMAABAwAEUYAADAAAFEMAAAgAO";

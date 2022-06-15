@@ -1,7 +1,6 @@
-use std::{collections::HashSet, sync::atomic::AtomicUsize};
-
 use common::*;
 use pc_finder::*;
+use std::collections::HashSet;
 
 fn main() -> GenericResult<()> {
     let pruned = load_pruned()?;

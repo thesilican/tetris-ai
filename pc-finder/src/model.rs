@@ -514,6 +514,10 @@ impl PcTable {
         file.read_to_end(&mut buf)?;
         Self::deserialize(&mut Cursor::new(&buf))
     }
+    pub fn load_static() -> Self {
+        let bytes = &*include_bytes!("../data/pc-table.bin");
+        Self::deserialize(&mut Cursor::new(bytes)).unwrap()
+    }
 }
 impl SerdeBytes for PcTable {
     // Serialization format:
