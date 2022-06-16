@@ -8,11 +8,19 @@ edition = "2021"
 redis = { version = "*" }
 fnv = "1.0"
 common = { path = "../common" }
-ctrlc = "3.2.1"
+ctrlc = { version = "3.2", optional = true }
 rand = "0.8.5"
 rayon = "1.5"
-base64 = "*"
+base64 = "0.13.0"
 tinyvec = { version = "1.6", features = ["alloc"] }
+
+[[bin]]
+name = "prune"
+required-features = ["ctrlc"]
+
+[[bin]]
+name = "gen"
+required-features = ["ctrlc"]
 
 [profile.release]
 debug = true
