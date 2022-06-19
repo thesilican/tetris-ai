@@ -1,6 +1,5 @@
 use crate::{PcBoard, PcTable};
 use common::*;
-use tinyvec::TinyVec;
 
 #[derive(Debug, Clone, Copy, Default)]
 struct PcGame {
@@ -19,52 +18,18 @@ impl PcGame {
             queue: game.queue_pieces,
         })
     }
-    pub fn children<'a>(&self, table: &'a PcTable) -> TinyVec<[PcChild<'a>; 4]> {
-        let mut children = TinyVec::new();
-        for should_hold in [true, false] {
-            let mut game = self.clone();
-            if should_hold {
-                let hold = match game.hold {
-                    Some(piece) => piece,
-                    None => match game.queue.pop_front() {
-                        Some(piece) => piece,
-                        None => continue,
-                    },
-                };
-                game.hold = Some(game.current);
-                game.current = hold;
-            }
-            let next = match game.queue.pop_front() {
+    pub fn swap_hold(&mut self) -> Result<(), ()> {
+        let hold = match self.hold {
+            Some(piece) => piece,
+            None => match self.queue.pop_front() {
                 Some(piece) => piece,
-                None => continue,
-            };
-            let queue = game.queue;
-            let hold = game.hold;
-            let current = game.current;
-            let leaves = table.leaves(game.board, current);
-            for leaf in leaves {
-                let game = PcGame {
-                    board: leaf.board(),
-                    current: next,
-                    hold,
-                    queue,
-                };
-                children.push(PcChild {
-                    game,
-                    hold: should_hold,
-                    moves: leaf.moves(),
-                });
-            }
-        }
-        children
+                None => return Err(()),
+            },
+        };
+        self.hold = Some(self.current);
+        self.current = hold;
+        Ok(())
     }
-}
-
-#[derive(Debug, Clone, Default)]
-struct PcChild<'a> {
-    game: PcGame,
-    hold: bool,
-    moves: &'a [GameMove],
 }
 
 #[derive(Debug)]
@@ -80,35 +45,52 @@ impl PcFinderAi {
 }
 impl Ai for PcFinderAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
-        struct Res<'a> {
-            score: f64,
-            hold: bool,
-            moves: &'a [GameMove],
+        enum Res<'a> {
+            NotFound,
+            Found {
+                hold: bool,
+                pc_moves: &'a [GameMove],
+            },
         }
         fn rec(game: PcGame, depth: i32, table: &PcTable) -> Res {
-            let children = game.children(table);
-            let mut res = Res {
-                score: f64::NEG_INFINITY,
-                hold: false,
-                moves: &[],
-            };
-            for child in children {
-                // println!("{}", child.game.board);
-                if child.game.board == PcBoard::default() {
-                    return Res {
-                        score: f64::INFINITY,
-                        hold: child.hold,
-                        moves: child.moves,
-                    };
+            // Iterate through children
+            for should_hold in [true, false] {
+                let mut game = game.clone();
+                if should_hold {
+                    if let Err(_) = game.swap_hold() {
+                        continue;
+                    }
                 }
-                let Res { score, .. } = rec(child.game, depth + 1, table);
-                if score > res.score {
-                    res.score = score;
-                    res.hold = child.hold;
-                    res.moves = child.moves;
+                let next = match game.queue.pop_front() {
+                    Some(piece) => piece,
+                    None => continue,
+                };
+                let queue = game.queue;
+                let hold = game.hold;
+                let current = game.current;
+                let leaves = table.leaves(game.board, current);
+                for leaf in leaves {
+                    if leaf.board() == PcBoard::default() {
+                        return Res::Found {
+                            hold: should_hold,
+                            pc_moves: leaf.moves(),
+                        };
+                    }
+                    let game = PcGame {
+                        board: leaf.board(),
+                        current: next,
+                        hold,
+                        queue,
+                    };
+                    if let Res::Found { .. } = rec(game, depth + 1, table) {
+                        return Res::Found {
+                            hold: should_hold,
+                            pc_moves: leaf.moves(),
+                        };
+                    }
                 }
             }
-            res
+            Res::NotFound
         }
         let pc_game = match PcGame::from_game(*game) {
             Ok(pc_game) => pc_game,
@@ -118,20 +100,21 @@ impl Ai for PcFinderAi {
                 }
             }
         };
-        let Res { score, moves, hold } = rec(pc_game, 0, &self.table);
-        if score == f64::NEG_INFINITY {
-            AiRes::Fail {
-                reason: "Unable to find PC solution".to_string(),
-            }
-        } else {
-            let mut moves_ret = Vec::new();
-            if hold {
-                moves_ret.push(GameMove::Hold);
-            }
-            moves_ret.extend(moves);
-            AiRes::Success {
-                score: Some(score),
-                moves: moves_ret,
+        let res = rec(pc_game, 0, &self.table);
+        match res {
+            Res::NotFound => AiRes::Fail {
+                reason: "unable to find pc solution".to_string(),
+            },
+            Res::Found { hold, pc_moves } => {
+                let mut moves = Vec::new();
+                if hold {
+                    moves.push(GameMove::Hold);
+                }
+                moves.extend(pc_moves);
+                AiRes::Success {
+                    moves,
+                    score: Some(0.0),
+                }
             }
         }
     }
