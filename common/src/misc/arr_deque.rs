@@ -127,6 +127,19 @@ where
         }
     }
 }
+impl<T, const N: usize> Default for ArrDeque<T, N>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        let arr = [(); N].map(|_| None);
+        Self {
+            head: 0,
+            len: 0,
+            arr,
+        }
+    }
+}
 impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut arr = ArrDeque::new();

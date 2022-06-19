@@ -216,7 +216,9 @@ impl Game {
     }
     pub fn from_bag_shuffled(bag: &mut Bag) -> Self {
         bag.shuffle();
-        Game::from_bag(bag)
+        let mut game = Game::from_bag(bag);
+        game.refill_queue_shuffled(bag);
+        game
     }
     pub fn from_pieces(
         current_piece: PieceType,
