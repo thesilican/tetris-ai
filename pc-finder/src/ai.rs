@@ -30,6 +30,15 @@ impl PcGame {
         self.current = hold;
         Ok(())
     }
+    pub fn hard_drop(&mut self) -> Result<(), ()> {
+        match self.queue.pop_front() {
+            Some(piece) => {
+                self.current = piece;
+                Ok(())
+            }
+            None => Err(()),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -45,14 +54,18 @@ impl PcFinderAi {
 }
 impl Ai for PcFinderAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
-        enum Res<'a> {
-            NotFound,
-            Found {
-                hold: bool,
-                pc_moves: &'a [GameMove],
-            },
+        struct Res<'a> {
+            score: i32,
+            hold: bool,
+            pc_moves: &'a [GameMove],
         }
         fn rec(game: PcGame, depth: i32, table: &PcTable) -> Res {
+            let mut total_score: i32 = 0;
+            let mut best_res = Res {
+                score: i32::MIN,
+                hold: false,
+                pc_moves: &[],
+            };
             // Iterate through children
             for should_hold in [true, false] {
                 let mut game = game.clone();
@@ -61,36 +74,45 @@ impl Ai for PcFinderAi {
                         continue;
                     }
                 }
-                let next = match game.queue.pop_front() {
-                    Some(piece) => piece,
-                    None => continue,
-                };
-                let queue = game.queue;
-                let hold = game.hold;
                 let current = game.current;
+                if let Err(_) = game.hard_drop() {
+                    continue;
+                }
                 let leaves = table.leaves(game.board, current);
                 for leaf in leaves {
                     if leaf.board() == PcBoard::default() {
-                        return Res::Found {
+                        return Res {
+                            score: i32::MAX,
                             hold: should_hold,
                             pc_moves: leaf.moves(),
                         };
                     }
                     let game = PcGame {
                         board: leaf.board(),
-                        current: next,
-                        hold,
-                        queue,
+                        current: game.current,
+                        hold: game.hold,
+                        queue: game.queue,
                     };
-                    if let Res::Found { .. } = rec(game, depth + 1, table) {
-                        return Res::Found {
+                    let res = rec(game, depth + 1, table);
+                    if res.score == i32::MAX {
+                        return Res {
+                            score: i32::MAX,
                             hold: should_hold,
                             pc_moves: leaf.moves(),
                         };
                     }
+                    total_score = total_score.saturating_add(res.score).saturating_add(1);
+                    if res.score > best_res.score {
+                        best_res.score = res.score;
+                        best_res.hold = should_hold;
+                        best_res.pc_moves = leaf.moves();
+                    }
                 }
             }
-            Res::NotFound
+            Res {
+                score: total_score,
+                ..best_res
+            }
         }
         let pc_game = match PcGame::from_game(*game) {
             Ok(pc_game) => pc_game,
@@ -101,20 +123,19 @@ impl Ai for PcFinderAi {
             }
         };
         let res = rec(pc_game, 0, &self.table);
-        match res {
-            Res::NotFound => AiRes::Fail {
+        if res.score == i32::MIN {
+            AiRes::Fail {
                 reason: "unable to find pc solution".to_string(),
-            },
-            Res::Found { hold, pc_moves } => {
-                let mut moves = Vec::new();
-                if hold {
-                    moves.push(GameMove::Hold);
-                }
-                moves.extend(pc_moves);
-                AiRes::Success {
-                    moves,
-                    score: Some(0.0),
-                }
+            }
+        } else {
+            let mut moves = Vec::new();
+            if res.hold {
+                moves.push(GameMove::Hold);
+            }
+            moves.extend(res.pc_moves);
+            AiRes::Success {
+                moves,
+                score: Some(0.0),
             }
         }
     }
