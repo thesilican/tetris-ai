@@ -1,11 +1,9 @@
 use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, MOVES_1F};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(from = "AiResSer")]
-#[serde(into = "AiResSer")]
+#[derive(Debug, Clone)]
 pub enum AiRes {
     Success {
         moves: Vec<GameMove>,
@@ -14,6 +12,19 @@ pub enum AiRes {
     Fail {
         reason: String,
     },
+}
+impl AiRes {
+    fn expected(&self, mut game: Game) -> Option<Game> {
+        match self {
+            AiRes::Success { moves, .. } => {
+                for &game_move in moves {
+                    game.make_move(game_move);
+                }
+                Some(game)
+            }
+            AiRes::Fail { .. } => None,
+        }
+    }
 }
 impl Display for AiRes {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -37,40 +48,35 @@ impl Display for AiRes {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(untagged)]
-// Tagged version of AiResSer, used for ser/de
+// Tagged version of AiResSer
 enum AiResSer {
     Success {
         success: bool,
         moves: Vec<GameMove>,
         score: Option<f64>,
+        expected: Game,
     },
     Fail {
         success: bool,
         reason: String,
     },
 }
-impl From<AiRes> for AiResSer {
-    fn from(ai_res: AiRes) -> Self {
+impl AiResSer {
+    fn from(ai_res: AiRes, game: Game) -> Self {
+        let expected = ai_res.expected(game);
         match ai_res {
             AiRes::Success { moves, score } => AiResSer::Success {
                 success: true,
                 moves,
                 score,
+                expected: expected.unwrap(),
             },
             AiRes::Fail { reason } => AiResSer::Fail {
                 success: false,
                 reason,
             },
-        }
-    }
-}
-impl From<AiResSer> for AiRes {
-    fn from(ai_res_ser: AiResSer) -> Self {
-        match ai_res_ser {
-            AiResSer::Success { moves, score, .. } => AiRes::Success { moves, score },
-            AiResSer::Fail { reason, .. } => AiRes::Fail { reason },
         }
     }
 }
@@ -82,14 +88,16 @@ pub trait Ai {
         let game = match serde_json::from_str(&req) {
             Ok(game) => game,
             Err(parse_err) => {
-                let output = AiRes::Fail {
+                let res_ser = AiResSer::Fail {
+                    success: false,
                     reason: format!("Invalid request: {}", parse_err),
                 };
-                return serde_json::to_string(&output).unwrap();
+                return serde_json::to_string(&res_ser).unwrap();
             }
         };
         let res = self.evaluate(&game);
-        serde_json::to_string(&res).unwrap()
+        let res_ser = AiResSer::from(res, game);
+        serde_json::to_string(&res_ser).unwrap()
     }
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
