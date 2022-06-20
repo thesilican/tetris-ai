@@ -99,7 +99,10 @@ impl Game {
                     Entry::Occupied(entry) => {
                         let &index = entry.get();
                         let other_moves = child_states[index].moves;
-                        if moves.len() < other_moves.len() {
+                        if moves.len() < other_moves.len()
+                            || (moves.len() == other_moves.len()
+                                && moves.iter().all(|&x| x != GameMove::SoftDrop))
+                        {
                             // Replace with faster moves
                             child_states[index].moves = moves;
                         }
