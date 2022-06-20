@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::{PcBoard, PcTable};
 use common::*;
 
@@ -61,6 +63,7 @@ impl PcGame {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 struct PcChild<'a> {
     game: PcGame,
     hold: bool,
@@ -80,38 +83,49 @@ impl PcFinderAi {
 }
 impl Ai for PcFinderAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
-        struct Res<'a> {
-            score: i32,
-            hold: bool,
-            pc_moves: &'a [GameMove],
-        }
-        fn rec<'a>(game: PcGame, depth: i32, table: &'a PcTable) -> Res<'a> {
-            let mut total_score: i32 = 0;
-            let mut best_res = Res {
-                score: i32::MIN,
-                hold: false,
-                pc_moves: &[],
-            };
-            // Iterate through children
-            for child in game.children(table) {
-                if child.game.board == PcBoard::default() {
-                    return Res {
-                        score: i32::MAX,
-                        hold: child.hold,
-                        pc_moves: child.pc_moves,
-                    };
-                }
-                let res = rec(child.game, depth + 1, table);
-                total_score = total_score.saturating_add(res.score).saturating_add(1);
-                if res.score > best_res.score {
-                    best_res.score = res.score;
-                    best_res.hold = child.hold;
-                    best_res.pc_moves = child.pc_moves;
+        fn rec<'a>(game: PcGame, table: &'a PcTable) -> Option<PcChild<'a>> {
+            let ancestors = game.children(table).collect::<Vec<_>>();
+            for &ancestor in ancestors.iter() {
+                if ancestor.game.board == PcBoard::default() {
+                    return Some(ancestor);
                 }
             }
-            Res {
-                score: total_score,
-                ..best_res
+            let mut counts = ancestors
+                .iter()
+                .enumerate()
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>();
+            struct Frame {
+                game: PcGame,
+                depth: usize,
+                parent: usize,
+            }
+            let mut queue = ancestors
+                .iter()
+                .enumerate()
+                .map(|(i, child)| Frame {
+                    game: child.game,
+                    depth: 1,
+                    parent: i,
+                })
+                .collect::<VecDeque<_>>();
+            // BFS through children
+            while let Some(frame) = queue.pop_front() {
+                for child in frame.game.children(table) {
+                    counts[frame.parent] += 1;
+                    if child.game.board == PcBoard::default() {
+                        return Some(ancestors[frame.parent]);
+                    }
+                    queue.push_back(Frame {
+                        game: child.game,
+                        depth: frame.depth + 1,
+                        parent: frame.parent,
+                    })
+                }
+            }
+            match counts.iter().enumerate().max_by_key(|(_, &x)| x) {
+                Some((i, _)) => Some(ancestors[i]),
+                None => None,
             }
         }
         let pc_game = match PcGame::from_game(*game) {
@@ -122,21 +136,22 @@ impl Ai for PcFinderAi {
                 }
             }
         };
-        let res = rec(pc_game, 0, &self.table);
-        if res.score == i32::MIN {
-            AiRes::Fail {
+        let res = rec(pc_game, &self.table);
+        match res {
+            Some(child) => {
+                let mut moves = Vec::new();
+                if child.hold {
+                    moves.push(GameMove::Hold);
+                }
+                moves.extend(child.pc_moves);
+                AiRes::Success {
+                    moves,
+                    score: Some(0.0),
+                }
+            }
+            None => AiRes::Fail {
                 reason: "unable to find pc solution".to_string(),
-            }
-        } else {
-            let mut moves = Vec::new();
-            if res.hold {
-                moves.push(GameMove::Hold);
-            }
-            moves.extend(res.pc_moves);
-            AiRes::Success {
-                moves,
-                score: Some(0.0),
-            }
+            },
         }
     }
 }
