@@ -479,11 +479,12 @@ impl PcTable {
     pub fn len(&self) -> usize {
         self.map.len()
     }
-    pub fn leaves(
-        &self,
+    #[inline]
+    pub fn leaves<'a>(
+        &'a self,
         board: PcBoard,
         piece: PieceType,
-    ) -> impl Iterator<Item = &PcTableLeaf> + '_ {
+    ) -> impl Iterator<Item = &'a PcTableLeaf> + 'a {
         self.map
             .get(&PcTableKey { board, piece })
             .map(|x| &*x.leaves)

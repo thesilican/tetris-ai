@@ -1,7 +1,7 @@
 use crate::{PcBoard, PcTable};
 use common::*;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PcGame {
     board: PcBoard,
     current: PieceType,
@@ -18,27 +18,53 @@ impl PcGame {
             queue: game.queue_pieces,
         })
     }
-    pub fn swap_hold(&mut self) -> Result<(), ()> {
-        let hold = match self.hold {
-            Some(piece) => piece,
-            None => match self.queue.pop_front() {
-                Some(piece) => piece,
-                None => return Err(()),
-            },
-        };
-        self.hold = Some(self.current);
-        self.current = hold;
-        Ok(())
+    pub fn children<'a, 'b>(
+        &'a self,
+        table: &'b PcTable,
+    ) -> impl Iterator<Item = PcChild<'b>> + 'b {
+        let game = self.clone();
+        [false, true]
+            .into_iter()
+            .filter_map(move |should_hold| {
+                let mut game = game.clone();
+                if should_hold {
+                    let hold = match game.hold {
+                        Some(piece) => piece,
+                        None => match game.queue.pop_front() {
+                            Some(piece) => piece,
+                            None => return None,
+                        },
+                    };
+                    game.hold = Some(game.current);
+                    game.current = hold;
+                }
+                let dropped = game.current;
+                let current = match game.queue.pop_front() {
+                    Some(piece) => piece,
+                    None => return None,
+                };
+                let hold = game.hold;
+                let queue = game.queue;
+                let iter = table.leaves(game.board, dropped).map(move |leaf| PcChild {
+                    game: PcGame {
+                        board: leaf.board(),
+                        current,
+                        hold,
+                        queue,
+                    },
+                    hold: should_hold,
+                    pc_moves: leaf.moves(),
+                });
+                Some(iter)
+            })
+            .flatten()
     }
-    pub fn hard_drop(&mut self) -> Result<(), ()> {
-        match self.queue.pop_front() {
-            Some(piece) => {
-                self.current = piece;
-                Ok(())
-            }
-            None => Err(()),
-        }
-    }
+}
+
+struct PcChild<'a> {
+    game: PcGame,
+    hold: bool,
+    pc_moves: &'a [GameMove],
 }
 
 #[derive(Debug)]
@@ -59,7 +85,7 @@ impl Ai for PcFinderAi {
             hold: bool,
             pc_moves: &'a [GameMove],
         }
-        fn rec(game: PcGame, depth: i32, table: &PcTable) -> Res {
+        fn rec<'a>(game: PcGame, depth: i32, table: &'a PcTable) -> Res<'a> {
             let mut total_score: i32 = 0;
             let mut best_res = Res {
                 score: i32::MIN,
@@ -67,46 +93,20 @@ impl Ai for PcFinderAi {
                 pc_moves: &[],
             };
             // Iterate through children
-            for should_hold in [true, false] {
-                let mut game = game.clone();
-                if should_hold {
-                    if let Err(_) = game.swap_hold() {
-                        continue;
-                    }
-                }
-                let current = game.current;
-                if let Err(_) = game.hard_drop() {
-                    continue;
-                }
-                let leaves = table.leaves(game.board, current);
-                for leaf in leaves {
-                    if leaf.board() == PcBoard::default() {
-                        return Res {
-                            score: i32::MAX,
-                            hold: should_hold,
-                            pc_moves: leaf.moves(),
-                        };
-                    }
-                    let game = PcGame {
-                        board: leaf.board(),
-                        current: game.current,
-                        hold: game.hold,
-                        queue: game.queue,
+            for child in game.children(table) {
+                if child.game.board == PcBoard::default() {
+                    return Res {
+                        score: i32::MAX,
+                        hold: child.hold,
+                        pc_moves: child.pc_moves,
                     };
-                    let res = rec(game, depth + 1, table);
-                    if res.score == i32::MAX {
-                        return Res {
-                            score: i32::MAX,
-                            hold: should_hold,
-                            pc_moves: leaf.moves(),
-                        };
-                    }
-                    total_score = total_score.saturating_add(res.score).saturating_add(1);
-                    if res.score > best_res.score {
-                        best_res.score = res.score;
-                        best_res.hold = should_hold;
-                        best_res.pc_moves = leaf.moves();
-                    }
+                }
+                let res = rec(child.game, depth + 1, table);
+                total_score = total_score.saturating_add(res.score).saturating_add(1);
+                if res.score > best_res.score {
+                    best_res.score = res.score;
+                    best_res.hold = child.hold;
+                    best_res.pc_moves = child.pc_moves;
                 }
             }
             Res {
