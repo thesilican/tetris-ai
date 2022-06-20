@@ -146,9 +146,7 @@ impl Ai for PcFinderAi {
                     score: Some(0.0),
                 }
             }
-            None => AiRes::Fail {
-                reason: "unable to find pc solution".to_string(),
-            },
+            None => return self.simple_ai.evaluate(game),
         }
     }
 }
