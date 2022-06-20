@@ -203,6 +203,7 @@ pub trait Ai {
 
 /// A very simple ai, useful for testing.
 /// Should never top out...
+#[derive(Debug)]
 pub struct SimpleAi;
 impl SimpleAi {
     pub fn new() -> Self {

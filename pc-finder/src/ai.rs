@@ -1,7 +1,6 @@
-use std::collections::VecDeque;
-
 use crate::{PcBoard, PcTable};
 use common::*;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PcGame {
@@ -73,11 +72,13 @@ struct PcChild<'a> {
 #[derive(Debug)]
 pub struct PcFinderAi {
     table: PcTable,
+    simple_ai: SimpleAi,
 }
 impl PcFinderAi {
     pub fn new() -> Self {
         PcFinderAi {
             table: PcTable::load_static(),
+            simple_ai: SimpleAi::new(),
         }
     }
 }
@@ -130,11 +131,7 @@ impl Ai for PcFinderAi {
         }
         let pc_game = match PcGame::from_game(*game) {
             Ok(pc_game) => pc_game,
-            Err(_) => {
-                return AiRes::Fail {
-                    reason: "Not a pc game board".to_string(),
-                }
-            }
+            Err(_) => return self.simple_ai.evaluate(game),
         };
         let res = rec(pc_game, &self.table);
         match res {
