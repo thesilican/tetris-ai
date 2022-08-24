@@ -1,9 +1,9 @@
 #![feature(once_cell)]
 use common::*;
 use pc_finder::*;
-use std::{collections::HashSet, lazy::SyncLazy};
+use std::{collections::HashSet, lazy::Lazy};
 
-static ALL_PIECES: SyncLazy<Vec<CanPiece>> = SyncLazy::new(|| {
+static ALL_PIECES: Lazy<Vec<CanPiece>> = Lazy::new(|| {
     let mut pieces = Vec::new();
     for piece_type in PieceType::all() {
         let max_rot = match piece_type {

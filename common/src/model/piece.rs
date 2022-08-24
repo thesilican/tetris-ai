@@ -4,11 +4,11 @@ use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
 use crate::{generic_err, GenericResult, KickSeq};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
-use std::lazy::SyncLazy;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "char")]
@@ -23,7 +23,7 @@ pub enum PieceType {
     Z,
 }
 
-static ALL_PIECE_TYPES: SyncLazy<Vec<PieceType>> = SyncLazy::new(|| {
+static ALL_PIECE_TYPES: Lazy<Vec<PieceType>> = Lazy::new(|| {
     vec![
         PieceType::O,
         PieceType::I,

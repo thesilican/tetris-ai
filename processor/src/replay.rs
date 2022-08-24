@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::fmt::Write;
 use std::fmt::{self, Display, Formatter};
 use std::iter::FromIterator;
-use std::lazy::{OnceCell, SyncLazy};
+use std::lazy::{Lazy, OnceCell};
 
 // Keyframes are basically the first and last frame in between hard-drops
 // start is the frame directly after a hard drop and subsiquent garbage
@@ -116,7 +116,7 @@ fn frames_to_stream(frames: &FrameCollection) -> Stream {
     Stream::from_iter(pieces)
 }
 
-static ACTIONS_LIST: SyncLazy<Vec<Vec<GameAction>>> = SyncLazy::new(|| {
+static ACTIONS_LIST: Lazy<Vec<Vec<GameAction>>> = Lazy::new(|| {
     let pool = vec![
         // No-op
         vec![],

@@ -7,12 +7,12 @@ use std::{
     fs::File,
     hash::{Hash, Hasher},
     io::{Read, Write},
-    lazy::SyncLazy,
+    lazy::Lazy,
 };
 use tinyvec::{ArrayVec, TinyVec};
 
 // Fragments used for generating child PcBoards
-pub static FRAGMENTS: &SyncLazy<Fragments> = &MOVES_2F;
+pub static FRAGMENTS: &Lazy<Fragments> = &MOVES_2F;
 
 /// Represents the bottom 4 rows of a tetris board
 /// Invariant: must be valid (see PcBoard::is_valid())

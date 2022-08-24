@@ -1,5 +1,5 @@
 use common::*;
-use std::lazy::SyncLazy;
+use once_cell::sync::Lazy;
 use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

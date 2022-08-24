@@ -2,7 +2,7 @@
 use common::*;
 use pc_finder::*;
 use std::{
-    lazy::SyncLazy,
+    lazy::Lazy,
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -33,7 +33,7 @@ fn board_fits_tess(board: PcBoard, tess: Tess) -> bool {
     // Number of empty rows
     let clear_rows = board.rows.iter().filter(|&&x| x == 0).count();
     const FULL_ROW: u16 = (1 << BOARD_WIDTH) - 1;
-    static PERMS: SyncLazy<Vec<Vec<[usize; 4]>>> = SyncLazy::new(|| {
+    static PERMS: Lazy<Vec<Vec<[usize; 4]>>> = Lazy::new(|| {
         vec![
             // 0
             vec![[0, 1, 2, 3]],

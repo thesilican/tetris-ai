@@ -1,8 +1,7 @@
-use fnv::{FnvBuildHasher, FnvHashMap};
-
 use super::game::{Game, GameMove, GameMoveRes};
+use fnv::{FnvBuildHasher, FnvHashMap};
+use once_cell::sync::Lazy;
 use std::collections::hash_map::Entry;
-use std::lazy::SyncLazy;
 
 /// Represents a child state of a game
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,9 +123,9 @@ impl Game {
     }
 }
 
-pub static FRAGMENT_HOLD: SyncLazy<Fragment> =
-    SyncLazy::new(|| Fragment::new(vec![vec![], vec![GameMove::Hold]]));
-pub static FRAGMENT_ROT: SyncLazy<Fragment> = SyncLazy::new(|| {
+pub static FRAGMENT_HOLD: Lazy<Fragment> =
+    Lazy::new(|| Fragment::new(vec![vec![], vec![GameMove::Hold]]));
+pub static FRAGMENT_ROT: Lazy<Fragment> = Lazy::new(|| {
     Fragment::new(vec![
         vec![],
         vec![GameMove::RotateCW],
@@ -134,7 +133,7 @@ pub static FRAGMENT_ROT: SyncLazy<Fragment> = SyncLazy::new(|| {
         vec![GameMove::RotateCCW],
     ])
 });
-pub static FRAGMENT_SHIFT: SyncLazy<Fragment> = SyncLazy::new(|| {
+pub static FRAGMENT_SHIFT: Lazy<Fragment> = Lazy::new(|| {
     Fragment::new(vec![
         vec![GameMove::ShiftLeft; 5],
         vec![GameMove::ShiftLeft; 4],
@@ -149,7 +148,7 @@ pub static FRAGMENT_SHIFT: SyncLazy<Fragment> = SyncLazy::new(|| {
         vec![GameMove::ShiftRight; 5],
     ])
 });
-pub static FRAGMENT_FINAL: SyncLazy<Fragment> = SyncLazy::new(|| {
+pub static FRAGMENT_FINAL: Lazy<Fragment> = Lazy::new(|| {
     Fragment::new(vec![
         vec![],
         vec![GameMove::SoftDrop, GameMove::ShiftLeft],
@@ -159,10 +158,10 @@ pub static FRAGMENT_FINAL: SyncLazy<Fragment> = SyncLazy::new(|| {
         vec![GameMove::SoftDrop, GameMove::RotateCW],
     ])
 });
-pub static FRAGMENT_DROP: SyncLazy<Fragment> =
-    SyncLazy::new(|| Fragment::new(vec![vec![GameMove::HardDrop]]));
+pub static FRAGMENT_DROP: Lazy<Fragment> =
+    Lazy::new(|| Fragment::new(vec![vec![GameMove::HardDrop]]));
 
-pub static MOVES_0F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_0F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -170,7 +169,7 @@ pub static MOVES_0F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_0F: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_0F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -179,7 +178,7 @@ pub static MOVES_0F: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_1F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_1F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -188,7 +187,7 @@ pub static MOVES_1F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_1F: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_1F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -198,7 +197,7 @@ pub static MOVES_1F: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_2F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_2F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -208,7 +207,7 @@ pub static MOVES_2F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_2F: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_2F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -219,7 +218,7 @@ pub static MOVES_2F: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_3F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_3F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -230,7 +229,7 @@ pub static MOVES_3F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_3F: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_3F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -242,7 +241,7 @@ pub static MOVES_3F: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_4F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_4F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),
@@ -254,7 +253,7 @@ pub static MOVES_4F_NH: SyncLazy<Fragments> = SyncLazy::new(|| {
     ])
 });
 
-pub static MOVES_4F: SyncLazy<Fragments> = SyncLazy::new(|| {
+pub static MOVES_4F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
         FRAGMENT_HOLD.clone(),
         FRAGMENT_ROT.clone(),

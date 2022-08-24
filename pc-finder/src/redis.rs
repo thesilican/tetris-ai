@@ -3,11 +3,11 @@ use ::redis::{cmd, Client, Connection};
 use common::*;
 use std::{
     collections::{HashMap, HashSet},
-    lazy::SyncLazy,
+    lazy::Lazy,
     sync::Mutex,
 };
 
-static REDIS_CONNECTION: SyncLazy<Mutex<Connection>> = SyncLazy::new(|| {
+static REDIS_CONNECTION: Lazy<Mutex<Connection>> = Lazy::new(|| {
     let client = Client::open("redis://127.0.0.1/").unwrap();
     Mutex::new(client.get_connection().unwrap())
 });

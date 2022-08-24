@@ -53,6 +53,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "fnv",
+ "once_cell",
  "rand",
  "redis",
  "serde",
@@ -219,6 +220,12 @@ dependencies = [
  "hermit-abi",
  "libc",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "074864da206b4973b84eb91683020dbefd6a8c3f0f38e054d93954e891935e4e"
 
 [[package]]
 name = "percent-encoding"

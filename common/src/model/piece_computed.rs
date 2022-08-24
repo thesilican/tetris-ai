@@ -4,9 +4,9 @@ use crate::model::consts::PIECE_NUM_TYPES;
 use crate::model::consts::PIECE_SHAPE_SIZE;
 use crate::model::consts::PIECE_SPAWN_COLUMN;
 use crate::model::consts::{BOARD_WIDTH, PIECE_MAX_X_SHIFT};
-// use std::lazy::SyncLazy;
+// use once_cell::sync::Lazy;
 
-// pub static PIECE_INFO: SyncLazy<PieceInfo> = SyncLazy::new(|| PieceInfo::new());
+// pub static PIECE_INFO: Lazy<PieceInfo> = Lazy::new(|| PieceInfo::new());
 
 // Manually generated using PieceInfo::new()
 pub const PIECE_INFO: PieceInfo = PieceInfo {
