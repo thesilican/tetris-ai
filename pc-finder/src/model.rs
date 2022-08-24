@@ -1,4 +1,5 @@
 use common::*;
+use once_cell::sync::Lazy;
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -7,7 +8,6 @@ use std::{
     fs::File,
     hash::{Hash, Hasher},
     io::{Read, Write},
-    lazy::Lazy,
 };
 use tinyvec::{ArrayVec, TinyVec};
 

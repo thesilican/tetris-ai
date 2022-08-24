@@ -261,6 +261,7 @@ dependencies = [
  "common",
  "ctrlc",
  "fnv",
+ "once_cell",
  "rand",
  "rayon",
  "redis",

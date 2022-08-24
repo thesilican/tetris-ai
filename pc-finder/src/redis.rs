@@ -1,9 +1,9 @@
 use crate::*;
 use ::redis::{cmd, Client, Connection};
 use common::*;
+use once_cell::sync::Lazy;
 use std::{
     collections::{HashMap, HashSet},
-    lazy::Lazy,
     sync::Mutex,
 };
 
