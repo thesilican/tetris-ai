@@ -1,4 +1,4 @@
-use crate::model::{Bag, ChildState, Game, GameMove, GameMoveRes, MOVES_1F};
+use crate::model::{Bag, ChildState, Game, GameActionRes, GameMove, MOVES_1F};
 use serde::Serialize;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
@@ -113,8 +113,8 @@ pub trait Ai {
                     for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(game_move);
-                            if let GameMoveRes::SuccessDrop(drop_res) = res {
-                                if drop_res.top_out {
+                            if let GameActionRes::SuccessDrop { top_out, .. } = res {
+                                if top_out {
                                     println!("TOP OUT");
                                     break 'l;
                                 }
@@ -156,8 +156,8 @@ pub trait Ai {
                     for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(game_move);
-                            if let GameMoveRes::SuccessDrop(drop_res) = res {
-                                if drop_res.top_out {
+                            if let GameActionRes::SuccessDrop { top_out, .. } = res {
+                                if top_out {
                                     println!("TOP OUT");
                                     break 'l;
                                 }

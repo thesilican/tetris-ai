@@ -25,14 +25,14 @@ pub enum PieceType {
 impl PieceType {
     pub fn all() -> impl Iterator<Item = PieceType> {
         [
-        PieceType::O,
-        PieceType::I,
-        PieceType::T,
-        PieceType::L,
-        PieceType::J,
-        PieceType::S,
-        PieceType::Z,
-    ]
+            PieceType::O,
+            PieceType::I,
+            PieceType::T,
+            PieceType::L,
+            PieceType::J,
+            PieceType::S,
+            PieceType::Z,
+        ]
         .iter()
         .map(|x| *x)
     }
@@ -116,29 +116,21 @@ pub enum PieceAction {
     RotateCCW,
     SoftDrop,
 }
-impl TryFrom<GameAction> for PieceAction {
-    type Error = ();
-
-    fn try_from(value: GameAction) -> Result<Self, Self::Error> {
-        match value {
-            GameAction::ShiftLeft => Ok(PieceAction::ShiftLeft),
-            GameAction::ShiftDown => Ok(PieceAction::ShiftDown),
-            GameAction::ShiftRight => Ok(PieceAction::ShiftRight),
-            GameAction::RotateCW => Ok(PieceAction::RotateCW),
-            GameAction::RotateCCW => Ok(PieceAction::RotateCCW),
-            GameAction::Rotate180 => Ok(PieceAction::Rotate180),
-            GameAction::SoftDrop => Ok(PieceAction::SoftDrop),
-            GameAction::Hold => Err(()),
-            GameAction::Lock => Err(()),
-            GameAction::AddGarbage { .. } => Err(()),
+impl PieceAction {
+    pub fn from_game_action(game_action: GameAction) -> Option<Self> {
+        match game_action {
+            GameAction::ShiftLeft => Some(PieceAction::ShiftLeft),
+            GameAction::ShiftDown => Some(PieceAction::ShiftDown),
+            GameAction::ShiftRight => Some(PieceAction::ShiftRight),
+            GameAction::RotateCW => Some(PieceAction::RotateCW),
+            GameAction::RotateCCW => Some(PieceAction::RotateCCW),
+            GameAction::Rotate180 => Some(PieceAction::Rotate180),
+            GameAction::SoftDrop => Some(PieceAction::SoftDrop),
+            GameAction::Hold => None,
+            GameAction::Lock => None,
+            GameAction::AddGarbage { .. } => None,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PieceActionRes {
-    Success,
-    Failed,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -243,13 +235,20 @@ impl Piece {
             location,
         }
     }
+    pub fn from_piece_type(piece_type: PieceType) -> Self {
+        Piece {
+            piece_type,
+            location: Piece::info_spawn_location(piece_type),
+            rotation: 0,
+        }
+    }
     #[inline]
     pub fn reset(&mut self) {
         self.rotation = 0;
         self.location = self.get_spawn_location();
     }
     #[inline]
-    pub fn rotate(&mut self, amount: i8, board: &Board) -> PieceActionRes {
+    pub fn rotate(&mut self, amount: i8, board: &Board) -> bool {
         let (old_x, old_y) = self.location;
         let old_rot = self.rotation;
         let new_rot = (self.rotation + amount) % 4;
@@ -265,24 +264,24 @@ impl Piece {
             if !(new_x < b_left || new_x > b_right || new_y < b_bottom || new_y > b_top)
                 && !board.intersects_with(&self)
             {
-                return PieceActionRes::Success;
+                return false;
             }
         }
         self.rotation = old_rot;
         self.location = (old_x, old_y);
-        PieceActionRes::Failed
+        true
     }
-    pub fn rotate_cw(&mut self, board: &Board) -> PieceActionRes {
+    pub fn rotate_cw(&mut self, board: &Board) -> bool {
         self.rotate(1, &board)
     }
-    pub fn rotate_180(&mut self, board: &Board) -> PieceActionRes {
+    pub fn rotate_180(&mut self, board: &Board) -> bool {
         self.rotate(2, &board)
     }
-    pub fn rotate_ccw(&mut self, board: &Board) -> PieceActionRes {
+    pub fn rotate_ccw(&mut self, board: &Board) -> bool {
         self.rotate(3, &board)
     }
     #[inline]
-    pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> PieceActionRes {
+    pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> bool {
         let (old_x, old_y) = self.location;
         let new_x = old_x + d_x;
         let new_y = old_y + d_y;
@@ -296,21 +295,21 @@ impl Piece {
             || board.intersects_with(&self)
         {
             self.location = (old_x, old_y);
-            return PieceActionRes::Failed;
+            return false;
         }
 
-        PieceActionRes::Success
+        true
     }
-    pub fn shift_left(&mut self, board: &Board) -> PieceActionRes {
+    pub fn shift_left(&mut self, board: &Board) -> bool {
         self.shift((-1, 0), board)
     }
-    pub fn shift_right(&mut self, board: &Board) -> PieceActionRes {
+    pub fn shift_right(&mut self, board: &Board) -> bool {
         self.shift((1, 0), board)
     }
-    pub fn shift_down(&mut self, board: &Board) -> PieceActionRes {
+    pub fn shift_down(&mut self, board: &Board) -> bool {
         self.shift((0, -1), board)
     }
-    pub fn soft_drop(&mut self, board: &Board) -> PieceActionRes {
+    pub fn soft_drop(&mut self, board: &Board) -> bool {
         let (_, old_y) = self.location;
 
         // Optimization with board height
@@ -319,15 +318,15 @@ impl Piece {
             self.location.1 -= min_drop_amount;
         } else {
             // Try to shift down once
-            if let PieceActionRes::Failed = self.shift_down(&board) {
-                return PieceActionRes::Failed;
+            if !self.shift_down(&board) {
+                return false;
             }
         }
         // Keep shifting down while possible
-        while let PieceActionRes::Success = self.shift_down(&board) {}
-        PieceActionRes::Success
+        while self.shift_down(&board) {}
+        true
     }
-    pub fn apply_action(&mut self, piece_action: PieceAction, board: &Board) -> PieceActionRes {
+    pub fn apply_action(&mut self, piece_action: PieceAction, board: &Board) -> bool {
         match piece_action {
             PieceAction::ShiftLeft => self.shift_left(board),
             PieceAction::ShiftRight => self.shift_right(board),
@@ -346,15 +345,6 @@ impl Display for Piece {
             "{{{}}} {} ({},{})",
             self.piece_type, self.rotation, self.location.0, self.location.1
         )
-    }
-}
-impl From<PieceType> for Piece {
-    fn from(piece_type: PieceType) -> Self {
-        Piece {
-            piece_type,
-            location: Piece::info_spawn_location(piece_type),
-            rotation: 0,
-        }
     }
 }
 impl Default for Piece {

@@ -27,10 +27,15 @@ fn main() -> Result<(), GenericErr> {
                 game.make_move(GameMove::SoftDrop);
             }
             Key::Down => {
-                if let GameMoveRes::SuccessDrop(drop_info) = game.make_move(GameMove::HardDrop) {
+                let res = game.make_move(GameMove::HardDrop);
+                if let GameActionRes::SuccessDrop {
+                    lines_cleared,
+                    top_out,
+                } = res
+                {
                     println!(
                         "Drop: Lines cleared: {} Top out: {}",
-                        drop_info.lines_cleared, drop_info.top_out
+                        lines_cleared, top_out
                     );
                 }
             }

@@ -1,4 +1,4 @@
-use super::game::{Game, GameMove, GameMoveRes};
+use super::game::{Game, GameActionRes, GameMove};
 use fnv::{FnvBuildHasher, FnvHashMap};
 use once_cell::sync::Lazy;
 use std::collections::hash_map::Entry;
@@ -83,7 +83,7 @@ impl Game {
                     for &game_move in moves {
                         let res = game.make_move(game_move);
                         // Skip if move ever fails
-                        if let GameMoveRes::Fail = res {
+                        if let GameActionRes::Fail = res {
                             continue 'l;
                         }
                     }

@@ -8,51 +8,15 @@ use crate::model::BAG_LEN;
 use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
 use crate::GenericResult;
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum SwapHoldRes {
-    Success,
-    Fail,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct GameLockInfo {
-    pub lines_cleared: i8,
-    pub top_out: bool,
-}
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameActionRes {
     Success,
-    SuccessDrop(GameLockInfo),
+    SuccessDrop { lines_cleared: i8, top_out: bool },
     Fail,
-}
-impl From<GameActionRes> for GameMoveRes {
-    fn from(val: GameActionRes) -> Self {
-        match val {
-            GameActionRes::Success => GameMoveRes::Success,
-            GameActionRes::SuccessDrop(x) => GameMoveRes::SuccessDrop(x),
-            GameActionRes::Fail => GameMoveRes::Fail,
-        }
-    }
-}
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum GameMoveRes {
-    Success,
-    SuccessDrop(GameLockInfo),
-    Fail,
-}
-impl From<GameMoveRes> for GameActionRes {
-    fn from(val: GameMoveRes) -> Self {
-        match val {
-            GameMoveRes::Success => GameActionRes::Success,
-            GameMoveRes::SuccessDrop(x) => GameActionRes::SuccessDrop(x),
-            GameMoveRes::Fail => GameActionRes::Fail,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
@@ -93,6 +57,20 @@ impl GameMove {
             GameMove::HardDrop => 7,
         }
     }
+    pub fn from_game_action(game_action: GameAction) -> Option<Self> {
+        match game_action {
+            GameAction::ShiftLeft => Some(GameMove::ShiftLeft),
+            GameAction::ShiftRight => Some(GameMove::ShiftRight),
+            GameAction::ShiftDown => None,
+            GameAction::RotateCW => Some(GameMove::RotateCW),
+            GameAction::Rotate180 => Some(GameMove::Rotate180),
+            GameAction::RotateCCW => Some(GameMove::RotateCCW),
+            GameAction::SoftDrop => Some(GameMove::SoftDrop),
+            GameAction::Hold => Some(GameMove::Hold),
+            GameAction::Lock => None,
+            GameAction::AddGarbage { .. } => None,
+        }
+    }
 }
 impl Display for GameMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -108,27 +86,9 @@ impl Display for GameMove {
         }
     }
 }
-impl TryFrom<GameAction> for GameMove {
-    type Error = ();
-
-    fn try_from(value: GameAction) -> Result<Self, Self::Error> {
-        match value {
-            GameAction::ShiftLeft => Ok(GameMove::ShiftLeft),
-            GameAction::ShiftRight => Ok(GameMove::ShiftRight),
-            GameAction::ShiftDown => Err(()),
-            GameAction::RotateCW => Ok(GameMove::RotateCW),
-            GameAction::Rotate180 => Ok(GameMove::Rotate180),
-            GameAction::RotateCCW => Ok(GameMove::RotateCCW),
-            GameAction::SoftDrop => Ok(GameMove::SoftDrop),
-            GameAction::Hold => Ok(GameMove::Hold),
-            GameAction::Lock => Err(()),
-            GameAction::AddGarbage { .. } => Err(()),
-        }
-    }
-}
 impl Default for GameMove {
     fn default() -> Self {
-        Self::from_u8(0).unwrap()
+        GameMove::ShiftLeft
     }
 }
 
@@ -146,25 +106,9 @@ pub enum GameAction {
     Lock,
     AddGarbage { col: usize, height: i8 },
 }
-impl TryFrom<GameMove> for GameAction {
-    type Error = ();
-
-    fn try_from(value: GameMove) -> Result<Self, Self::Error> {
-        match value {
-            GameMove::ShiftLeft => Ok(GameAction::ShiftLeft),
-            GameMove::ShiftRight => Ok(GameAction::ShiftRight),
-            GameMove::RotateCW => Ok(GameAction::RotateCW),
-            GameMove::Rotate180 => Ok(GameAction::Rotate180),
-            GameMove::RotateCCW => Ok(GameAction::RotateCCW),
-            GameMove::SoftDrop => Ok(GameAction::SoftDrop),
-            GameMove::Hold => Ok(GameAction::Hold),
-            GameMove::HardDrop => Err(()),
-        }
-    }
-}
-impl From<PieceAction> for GameAction {
-    fn from(value: PieceAction) -> Self {
-        match value {
+impl GameAction {
+    pub fn from_piece_action(piece_action: PieceAction) -> Self {
+        match piece_action {
             PieceAction::ShiftLeft => GameAction::ShiftLeft,
             PieceAction::ShiftRight => GameAction::ShiftRight,
             PieceAction::ShiftDown => GameAction::ShiftDown,
@@ -172,6 +116,18 @@ impl From<PieceAction> for GameAction {
             PieceAction::Rotate180 => GameAction::Rotate180,
             PieceAction::RotateCCW => GameAction::RotateCCW,
             PieceAction::SoftDrop => GameAction::SoftDrop,
+        }
+    }
+    pub fn from_game_move(game_move: GameMove) -> Option<Self> {
+        match game_move {
+            GameMove::ShiftLeft => Some(GameAction::ShiftLeft),
+            GameMove::ShiftRight => Some(GameAction::ShiftRight),
+            GameMove::RotateCW => Some(GameAction::RotateCW),
+            GameMove::Rotate180 => Some(GameAction::Rotate180),
+            GameMove::RotateCCW => Some(GameAction::RotateCCW),
+            GameMove::SoftDrop => Some(GameAction::SoftDrop),
+            GameMove::Hold => Some(GameAction::Hold),
+            GameMove::HardDrop => None,
         }
     }
 }
@@ -208,7 +164,7 @@ impl Game {
         let mut iter = bag.pieces().iter();
         Game {
             board: Board::new(),
-            current_piece: Piece::from(*iter.next().unwrap()),
+            current_piece: Piece::from_piece_type(*iter.next().unwrap()),
             hold_piece: None,
             queue_pieces: iter.copied().collect(),
             can_hold: true,
@@ -227,7 +183,7 @@ impl Game {
     ) -> Self {
         Game {
             board: Board::new(),
-            current_piece: Piece::from(current_piece),
+            current_piece: Piece::from_piece_type(current_piece),
             hold_piece,
             queue_pieces: queue_pieces.into_iter().collect(),
             can_hold: true,
@@ -236,7 +192,7 @@ impl Game {
     pub fn from_stream(queue: &mut Stream) -> Self {
         Game {
             board: Board::new(),
-            current_piece: Piece::from(queue.dequeue().unwrap()),
+            current_piece: Piece::from_piece_type(queue.dequeue().unwrap()),
             hold_piece: None,
             queue_pieces: {
                 let mut arr = ArrDeque::new();
@@ -292,18 +248,18 @@ impl Game {
     pub fn set_can_hold(&mut self, can_hold: bool) {
         self.can_hold = can_hold;
     }
-    pub fn swap_hold(&mut self) -> SwapHoldRes {
+    pub fn swap_hold(&mut self) -> bool {
         let hold = match self.hold_piece {
             Some(hold) => hold,
             None => match self.queue_pieces.pop_front() {
                 Some(piece) => piece,
-                None => return SwapHoldRes::Fail,
+                None => return false,
             },
         };
         self.hold_piece = Some(self.current_piece.piece_type);
         self.current_piece.piece_type = hold;
         self.current_piece.reset();
-        SwapHoldRes::Success
+        true
     }
 
     pub fn apply_action(&mut self, game_action: GameAction) -> GameActionRes {
@@ -315,7 +271,7 @@ impl Game {
             | GameAction::Rotate180
             | GameAction::RotateCCW
             | GameAction::SoftDrop => {
-                let piece_move = PieceAction::try_from(game_action).unwrap();
+                let piece_move = PieceAction::from_game_action(game_action).unwrap();
                 self.current_piece.apply_action(piece_move, &self.board);
                 GameActionRes::Success
             }
@@ -323,12 +279,11 @@ impl Game {
                 if !self.can_hold {
                     return GameActionRes::Fail;
                 }
-                match self.swap_hold() {
-                    SwapHoldRes::Success => {
-                        self.can_hold = false;
-                        GameActionRes::Success
-                    }
-                    SwapHoldRes::Fail => GameActionRes::Fail,
+                if self.swap_hold() {
+                    self.can_hold = false;
+                    GameActionRes::Success
+                } else {
+                    GameActionRes::Fail
                 }
             }
             GameAction::Lock => {
@@ -342,10 +297,10 @@ impl Game {
                 self.current_piece.reset();
                 self.can_hold = true;
 
-                GameActionRes::SuccessDrop(GameLockInfo {
+                GameActionRes::SuccessDrop {
                     lines_cleared: res.lines_cleared,
                     top_out: res.top_out,
-                })
+                }
             }
             GameAction::AddGarbage { col, height } => {
                 self.board.add_garbage(col, height);
@@ -353,7 +308,7 @@ impl Game {
             }
         }
     }
-    pub fn make_move(&mut self, game_move: GameMove) -> GameMoveRes {
+    pub fn make_move(&mut self, game_move: GameMove) -> GameActionRes {
         match game_move {
             GameMove::ShiftLeft
             | GameMove::ShiftRight
@@ -362,20 +317,20 @@ impl Game {
             | GameMove::RotateCCW
             | GameMove::SoftDrop
             | GameMove::Hold => {
-                let action = GameAction::try_from(game_move).unwrap();
-                self.apply_action(action).into()
+                let action = GameAction::from_game_move(game_move).unwrap();
+                self.apply_action(action)
             }
             GameMove::HardDrop => {
                 if self.queue_pieces.len() == 0 {
-                    return GameMoveRes::Fail;
+                    return GameActionRes::Fail;
                 }
 
                 self.apply_action(GameAction::SoftDrop);
                 let res = self.apply_action(GameAction::Lock);
                 self.apply_action(GameAction::ShiftDown);
 
-                if let GameActionRes::SuccessDrop(_) = res {
-                    res.into()
+                if let GameActionRes::SuccessDrop { .. } = res {
+                    res
                 } else {
                     panic!("Expected GameActionRes::SuccessDrop(_)")
                 }
