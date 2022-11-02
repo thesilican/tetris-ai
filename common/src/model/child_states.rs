@@ -1,7 +1,5 @@
 use super::game::{Game, GameActionRes, GameMove};
-use fnv::{FnvBuildHasher, FnvHashMap};
 use once_cell::sync::Lazy;
-use std::collections::hash_map::Entry;
 
 /// Represents a child state of a game
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,8 +48,7 @@ impl Fragments {
 impl Game {
     pub fn child_states<'a>(&self, fragments: &'a Fragments) -> Vec<ChildState<'a>> {
         let mut child_states = Vec::<ChildState<'a>>::with_capacity(100);
-        let mut map =
-            FnvHashMap::<Game, usize>::with_capacity_and_hasher(100, FnvBuildHasher::default());
+        let mut map = Vec::<(Game, usize)>::with_capacity(100);
         self.child_states_noalloc(fragments, &mut child_states, &mut map);
         child_states
     }
@@ -59,7 +56,7 @@ impl Game {
         &self,
         fragments: &'a Fragments,
         child_states: &mut Vec<ChildState<'a>>,
-        map: &mut FnvHashMap<Game, usize>,
+        map: &mut Vec<(Game, usize)>,
     ) {
         // Given a game, an array of fragments, and an array of permutations:
         // Take the first fragment of fragments, iterate over moves list of the fragment,
@@ -69,7 +66,7 @@ impl Game {
         // perms will contain exactly 1 array of moves, and game will have had all the moves applied to it
         fn gen<'a>(
             child_states: &mut Vec<ChildState<'a>>,
-            map: &mut FnvHashMap<Game, usize>,
+            map: &mut Vec<(Game, usize)>,
             game: Game,
             fragments: &'a [Fragment],
             perms: &'a [Vec<GameMove>],
@@ -94,23 +91,21 @@ impl Game {
             } else {
                 // Finished permutating fragments, only one element in perms should remain
                 let moves = &*perms[0];
-                match map.entry(game) {
-                    Entry::Occupied(entry) => {
-                        let &index = entry.get();
-                        let other_moves = child_states[index].moves;
-                        if moves.len() < other_moves.len()
-                            || (moves.len() == other_moves.len()
-                                && moves.iter().all(|&x| x != GameMove::SoftDrop))
-                        {
-                            // Replace with faster moves
-                            child_states[index].moves = moves;
-                        }
+                for &(other_game, idx) in map.iter() {
+                    if game != other_game {
+                        continue;
                     }
-                    Entry::Vacant(entry) => {
-                        child_states.push(ChildState { game, moves });
-                        entry.insert(child_states.len() - 1);
+                    let other_moves = child_states[idx].moves;
+                    if moves.len() < other_moves.len()
+                        || (moves.len() == other_moves.len()
+                            && moves.iter().all(|&x| x != GameMove::SoftDrop))
+                    {
+                        child_states[idx].moves = moves;
                     }
+                    return;
                 }
+                child_states.push(ChildState { game, moves });
+                map.push((game, child_states.len() - 1));
             }
         }
         gen(
