@@ -4,7 +4,6 @@ use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
 use crate::{generic_err, GenericResult, KickSeq};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
@@ -23,8 +22,9 @@ pub enum PieceType {
     Z,
 }
 
-static ALL_PIECE_TYPES: Lazy<Vec<PieceType>> = Lazy::new(|| {
-    vec![
+impl PieceType {
+    pub fn all() -> impl Iterator<Item = PieceType> {
+        [
         PieceType::O,
         PieceType::I,
         PieceType::T,
@@ -33,11 +33,8 @@ static ALL_PIECE_TYPES: Lazy<Vec<PieceType>> = Lazy::new(|| {
         PieceType::S,
         PieceType::Z,
     ]
-});
-
-impl PieceType {
-    pub fn all() -> impl Iterator<Item = PieceType> {
-        ALL_PIECE_TYPES.iter().map(|x| *x)
+        .iter()
+        .map(|x| *x)
     }
     pub fn from_char(val: char) -> GenericResult<Self> {
         match val {
