@@ -1,4 +1,4 @@
-use crate::model::{Bag, ChildState, Game, GameActionRes, GameMove, MOVES_1F};
+use crate::model::{Bag, Game, GameActionRes, GameMove, MOVES_1F};
 use serde::Serialize;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
@@ -221,12 +221,12 @@ impl SimpleAi {
 impl Ai for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
         let child_states = game.child_states(&MOVES_1F);
-        let mut best_moves = None;
+        let mut best_child = None;
         let mut best_height = i32::MAX;
         let mut best_holes = i32::MAX;
-        for child_state in child_states.iter().rev() {
-            let ChildState { game, moves } = child_state;
-            let height = game
+        for child in child_states.iter().rev() {
+            let height = child
+                .game
                 .board
                 .height_map()
                 .iter()
@@ -236,16 +236,16 @@ impl Ai for SimpleAi {
                     x * x
                 })
                 .sum();
-            let holes = game.board.holes().iter().sum();
+            let holes = child.game.board.holes().iter().sum();
             if height < best_height || (height == best_height && holes < best_holes) {
                 best_height = height;
                 best_holes = holes;
-                best_moves = Some(*moves);
+                best_child = Some(child);
             }
         }
-        match best_moves {
-            Some(moves) => AiRes::Success {
-                moves: Vec::from(moves),
+        match best_child {
+            Some(child) => AiRes::Success {
+                moves: child.moves().collect(),
                 score: Some(child_states.len() as f64),
             },
             None => AiRes::Fail {

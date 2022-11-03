@@ -59,7 +59,7 @@ impl PcBoard {
         for piece_type in PieceType::all() {
             let game = Game::from_parts(
                 Board::from(*self),
-                Piece::from(piece_type),
+                Piece::from_piece_type(piece_type),
                 None,
                 &[PieceType::O],
                 true,

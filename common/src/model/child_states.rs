@@ -3,41 +3,69 @@ use once_cell::sync::Lazy;
 
 /// Represents a child state of a game
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ChildState<'a> {
+pub struct ChildState {
     pub game: Game,
-    pub moves: &'a [GameMove],
+    moves: &'static [&'static [GameMove]],
+}
+impl ChildState {
+    pub fn moves(&self) -> impl Iterator<Item = GameMove> {
+        self.moves.iter().flat_map(|x| x.iter().map(|x| *x))
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Fragment(pub Vec<Vec<GameMove>>);
+#[derive(Debug, Clone, Copy)]
+struct Fragment(&'static [&'static [GameMove]]);
 impl Fragment {
-    pub fn new(fragment: Vec<Vec<GameMove>>) -> Self {
+    pub const fn new(fragment: &'static [&'static [GameMove]]) -> Self {
         assert!(fragment.len() > 0);
         Fragment(fragment)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
+struct Perm {
+    moves: Vec<&'static [GameMove]>,
+    len: usize,
+    has_soft_drop: bool,
+}
+impl Perm {
+    fn new(moves: Vec<&'static [GameMove]>) -> Self {
+        let len: usize = moves.iter().map(|x| x.len()).sum();
+        let has_soft_drop = moves
+            .iter()
+            .any(|x| x.iter().any(|&x| x == GameMove::SoftDrop));
+        Perm {
+            moves,
+            len,
+            has_soft_drop,
+        }
+    }
+    fn preferred_over(&self, other: &Self) -> bool {
+        self.len < other.len || (self.len == other.len && !self.has_soft_drop)
+    }
+}
+
+#[derive(Debug)]
 pub struct Fragments {
-    pub fragments: Vec<Fragment>,
-    pub perms: Vec<Vec<GameMove>>,
+    fragments: Vec<Fragment>,
+    perms: Vec<Perm>,
 }
 
 impl Fragments {
-    pub fn new(fragments: &[Fragment]) -> Self {
+    fn new(fragments: &[Fragment]) -> Self {
         let mut perms = Vec::new();
-        fn gen(perms: &mut Vec<Vec<GameMove>>, fragments: &[Fragment], accum: &[GameMove]) {
+        fn gen(perms: &mut Vec<Perm>, fragments: &[Fragment], accum: &[&'static [GameMove]]) {
             if fragments.len() == 0 {
-                perms.push(accum.to_vec());
+                perms.push(Perm::new(accum.to_vec()));
             } else {
-                for fragment in &fragments[0].0 {
+                for &fragment in fragments[0].0 {
                     let mut accum = accum.to_vec();
-                    accum.extend(fragment);
+                    accum.push(fragment);
                     gen(perms, &fragments[1..], &accum)
                 }
             }
         }
-        gen(&mut perms, fragments, &[]);
+        gen(&mut perms, &fragments, &[]);
         Fragments {
             fragments: fragments.to_vec(),
             perms,
@@ -46,17 +74,21 @@ impl Fragments {
 }
 
 impl Game {
-    pub fn child_states<'a>(&self, fragments: &'a Fragments) -> Vec<ChildState<'a>> {
-        let mut child_states = Vec::<ChildState<'a>>::with_capacity(100);
-        let mut map = Vec::<(Game, usize)>::with_capacity(100);
-        self.child_states_noalloc(fragments, &mut child_states, &mut map);
-        child_states
+    pub fn child_states(&self, fragments: &'static Fragments) -> Vec<ChildState> {
+        let mut output = Vec::with_capacity(100);
+        self.child_states_noalloc(fragments, &mut output);
+        output
+            .into_iter()
+            .map(|x| ChildState {
+                game: x.0,
+                moves: &x.1.moves,
+            })
+            .collect()
     }
-    pub fn child_states_noalloc<'a>(
+    fn child_states_noalloc(
         &self,
-        fragments: &'a Fragments,
-        child_states: &mut Vec<ChildState<'a>>,
-        map: &mut Vec<(Game, usize)>,
+        fragments: &'static Fragments,
+        output: &mut Vec<(Game, &'static Perm)>,
     ) {
         // Given a game, an array of fragments, and an array of permutations:
         // Take the first fragment of fragments, iterate over moves list of the fragment,
@@ -64,18 +96,17 @@ impl Game {
         // running the moves on the game in the process.
         // If the fragments array is empty, then we are at a leaf node of the tree of permutations.
         // perms will contain exactly 1 array of moves, and game will have had all the moves applied to it
-        fn gen<'a>(
-            child_states: &mut Vec<ChildState<'a>>,
-            map: &mut Vec<(Game, usize)>,
+        fn gen(
+            output: &mut Vec<(Game, &'static Perm)>,
             game: Game,
-            fragments: &'a [Fragment],
-            perms: &'a [Vec<GameMove>],
+            fragments: &'static [Fragment],
+            perms: &'static [Perm],
         ) {
             if fragments.len() > 0 {
                 // Permutate over fragments
                 let fragment = &fragments[0];
                 let rest = &fragments[1..];
-                'l: for (i, moves) in fragment.0.iter().enumerate() {
+                'l: for (i, &moves) in fragment.0.iter().enumerate() {
                     let mut game = game;
                     for &game_move in moves {
                         let res = game.make_move(game_move);
@@ -86,177 +117,142 @@ impl Game {
                     }
                     let size = perms.len() / fragment.0.len();
                     let perms = &perms[size * i..size * (i + 1)];
-                    gen(child_states, map, game, rest, perms);
+                    gen(output, game, rest, perms);
                 }
             } else {
                 // Finished permutating fragments, only one element in perms should remain
-                let moves = &*perms[0];
-                for &(other_game, idx) in map.iter() {
-                    if game != other_game {
+                let perm = &perms[0];
+                for (other_game, other_perm) in output.iter_mut() {
+                    if game != *other_game {
                         continue;
                     }
-                    let other_moves = child_states[idx].moves;
-                    if moves.len() < other_moves.len()
-                        || (moves.len() == other_moves.len()
-                            && moves.iter().all(|&x| x != GameMove::SoftDrop))
-                    {
-                        child_states[idx].moves = moves;
+                    if perm.preferred_over(other_perm) {
+                        *other_game = game;
+                        *other_perm = perm;
                     }
                     return;
                 }
-                child_states.push(ChildState { game, moves });
-                map.push((game, child_states.len() - 1));
+                output.push((game, perm));
             }
         }
-        gen(
-            child_states,
-            map,
-            *self,
-            &fragments.fragments,
-            &fragments.perms,
-        );
+        gen(output, *self, &fragments.fragments, &fragments.perms);
     }
 }
 
-pub static FRAGMENT_HOLD: Lazy<Fragment> =
-    Lazy::new(|| Fragment::new(vec![vec![], vec![GameMove::Hold]]));
-pub static FRAGMENT_ROT: Lazy<Fragment> = Lazy::new(|| {
-    Fragment::new(vec![
-        vec![],
-        vec![GameMove::RotateCW],
-        vec![GameMove::Rotate180],
-        vec![GameMove::RotateCCW],
-    ])
-});
-pub static FRAGMENT_SHIFT: Lazy<Fragment> = Lazy::new(|| {
-    Fragment::new(vec![
-        vec![GameMove::ShiftLeft; 5],
-        vec![GameMove::ShiftLeft; 4],
-        vec![GameMove::ShiftLeft; 3],
-        vec![GameMove::ShiftLeft; 2],
-        vec![GameMove::ShiftLeft; 1],
-        vec![],
-        vec![GameMove::ShiftRight; 1],
-        vec![GameMove::ShiftRight; 2],
-        vec![GameMove::ShiftRight; 3],
-        vec![GameMove::ShiftRight; 4],
-        vec![GameMove::ShiftRight; 5],
-    ])
-});
-pub static FRAGMENT_FINAL: Lazy<Fragment> = Lazy::new(|| {
-    Fragment::new(vec![
-        vec![],
-        vec![GameMove::SoftDrop, GameMove::ShiftLeft],
-        vec![GameMove::SoftDrop, GameMove::ShiftRight],
-        vec![GameMove::SoftDrop, GameMove::RotateCCW],
-        vec![GameMove::SoftDrop, GameMove::Rotate180],
-        vec![GameMove::SoftDrop, GameMove::RotateCW],
-    ])
-});
-pub static FRAGMENT_DROP: Lazy<Fragment> =
-    Lazy::new(|| Fragment::new(vec![vec![GameMove::HardDrop]]));
+static FRAGMENT_HOLD: Fragment = Fragment::new(&[&[], &[GameMove::Hold]]);
+static FRAGMENT_ROT: Fragment = Fragment::new(&[
+    &[],
+    &[GameMove::RotateCW],
+    &[GameMove::Rotate180],
+    &[GameMove::RotateCCW],
+]);
+static FRAGMENT_SHIFT: Fragment = Fragment::new(&[
+    &[GameMove::ShiftLeft; 5],
+    &[GameMove::ShiftLeft; 4],
+    &[GameMove::ShiftLeft; 3],
+    &[GameMove::ShiftLeft; 2],
+    &[GameMove::ShiftLeft; 1],
+    &[],
+    &[GameMove::ShiftRight; 1],
+    &[GameMove::ShiftRight; 2],
+    &[GameMove::ShiftRight; 3],
+    &[GameMove::ShiftRight; 4],
+    &[GameMove::ShiftRight; 5],
+]);
+static FRAGMENT_FINAL: Fragment = Fragment::new(&[
+    &[],
+    &[GameMove::SoftDrop, GameMove::ShiftLeft],
+    &[GameMove::SoftDrop, GameMove::ShiftRight],
+    &[GameMove::SoftDrop, GameMove::RotateCCW],
+    &[GameMove::SoftDrop, GameMove::Rotate180],
+    &[GameMove::SoftDrop, GameMove::RotateCW],
+]);
+static FRAGMENT_DROP: Fragment = Fragment::new(&[&[GameMove::HardDrop]]);
 
-pub static MOVES_0F_NH: Lazy<Fragments> = Lazy::new(|| {
-    Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-    ])
-});
+pub static MOVES_0F_NH: Lazy<Fragments> =
+    Lazy::new(|| Fragments::new(&[FRAGMENT_HOLD, FRAGMENT_ROT, FRAGMENT_SHIFT]));
 
-pub static MOVES_0F: Lazy<Fragments> = Lazy::new(|| {
-    Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_DROP.clone(),
-    ])
-});
+pub static MOVES_0F: Lazy<Fragments> =
+    Lazy::new(|| Fragments::new(&[FRAGMENT_HOLD, FRAGMENT_ROT, FRAGMENT_SHIFT, FRAGMENT_DROP]));
 
-pub static MOVES_1F_NH: Lazy<Fragments> = Lazy::new(|| {
-    Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-    ])
-});
+pub static MOVES_1F_NH: Lazy<Fragments> =
+    Lazy::new(|| Fragments::new(&[FRAGMENT_HOLD, FRAGMENT_ROT, FRAGMENT_SHIFT, FRAGMENT_FINAL]));
 
 pub static MOVES_1F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_DROP.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_DROP,
     ])
 });
 
 pub static MOVES_2F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
     ])
 });
 
 pub static MOVES_2F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_DROP.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_DROP,
     ])
 });
 
 pub static MOVES_3F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
     ])
 });
 
 pub static MOVES_3F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_DROP.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_DROP,
     ])
 });
 
 pub static MOVES_4F_NH: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
     ])
 });
 
 pub static MOVES_4F: Lazy<Fragments> = Lazy::new(|| {
     Fragments::new(&[
-        FRAGMENT_HOLD.clone(),
-        FRAGMENT_ROT.clone(),
-        FRAGMENT_SHIFT.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_FINAL.clone(),
-        FRAGMENT_DROP.clone(),
+        FRAGMENT_HOLD,
+        FRAGMENT_ROT,
+        FRAGMENT_SHIFT,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_FINAL,
+        FRAGMENT_DROP,
     ])
 });

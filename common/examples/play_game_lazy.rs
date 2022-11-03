@@ -16,7 +16,7 @@ fn main() -> Result<(), GenericErr> {
     println!(
         "{}\n{:?}\n{} of {}",
         child_states[index].game,
-        child_states[index].moves,
+        child_states[index].moves().collect::<Vec<_>>(),
         index + 1,
         child_states.len()
     );
@@ -32,7 +32,7 @@ fn main() -> Result<(), GenericErr> {
                 index = (index + 1) % child_states.len();
             }
             Key::Char(' ') => {
-                for &game_move in child_states[index].moves {
+                for game_move in child_states[index].moves() {
                     game.make_move(game_move);
                 }
                 game.refill_queue_shuffled(&mut bag);
@@ -48,7 +48,7 @@ fn main() -> Result<(), GenericErr> {
         println!(
             "{}\n{:?}\n{} of {}",
             child_states[index].game,
-            child_states[index].moves,
+            child_states[index].moves().collect::<Vec<_>>(),
             index + 1,
             child_states.len()
         );

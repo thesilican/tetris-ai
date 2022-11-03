@@ -242,9 +242,9 @@ macro_rules! bench_function {
 pub fn criterion_benchmark(c: &mut Criterion) {
     bench_function!(c, dt_cannon_loop);
     bench_function!(c, copy_game);
-    bench_function!(c, gen_child_states_f4);
-    bench_function!(c, gen_child_states_f2);
     bench_function!(c, gen_child_states_f0);
+    bench_function!(c, gen_child_states_f2);
+    bench_function!(c, gen_child_states_f4);
 }
 
 criterion_group!(benches, criterion_benchmark);

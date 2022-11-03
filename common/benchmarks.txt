@@ -1,6 +1,12 @@
-2022-11-02
+2022-11-01
 - dt_cannon_loop: 867us
 - copy_game: 22us
 - gen_child_states_f4: 31ms
 - gen_child_states_f2: 879us
 - gen_child_states_f0: 16us
+2022-11-02
+- dt_cannon_loop: 510us
+- copy_game: 21us
+- gen_child_states_f4: 18ms
+- gen_child_states_f2: 504us
+- gen_child_states_f0: 11us
