@@ -17,11 +17,11 @@ impl Ai for DeepAi {
     fn evaluate(&mut self, game: &Game) -> AiRes {
         let result = self.dfs(game, self.depth);
         match result {
-            Some((score, moves)) => AiRes::Success {
+            Some((score, Some(child))) => AiRes::Success {
                 score: Some(score.into()),
-                moves: moves.to_vec(),
+                moves: child.moves().collect(),
             },
-            None => AiRes::Fail {
+            _ => AiRes::Fail {
                 reason: "No valid moves".to_string(),
             },
         }
@@ -71,9 +71,9 @@ impl DeepAi {
         (-1. * board_height) + (-1.0 * bumpiness) + (-10.0 * holes) + (10.0 * right_col)
     }
 
-    fn dfs(&self, game: &Game, depth: usize) -> Option<(f32, &'static [GameMove])> {
+    fn dfs(&self, game: &Game, depth: usize) -> Option<(f32, Option<ChildState>)> {
         if depth == 0 {
-            return Some((self.score(game), &[]));
+            return Some((self.score(game), None));
         }
         let child_states = game.child_states(&MOVES_1F);
         let mut child_states = child_states
@@ -88,10 +88,10 @@ impl DeepAi {
             .filter_map(|&(score, child_state)| {
                 // Special case for perfect clears
                 if child_state.game.board.matrix[0] == 0 {
-                    return Some((f32::INFINITY, child_state.moves));
+                    return Some((f32::INFINITY, Some(child_state)));
                 }
                 match self.dfs(&child_state.game, depth - 1) {
-                    Some((dfs_score, _)) => Some((score + dfs_score, child_state.moves)),
+                    Some((dfs_score, _)) => Some((score + dfs_score, Some(child_state))),
                     None => None,
                 }
             })
