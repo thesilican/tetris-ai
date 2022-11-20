@@ -25,4 +25,7 @@ required-features = ["ctrlc"]
 
 [profile.release]
 debug = true
+
+[dev-dependencies]
+sdl-gui = { path = "../sdl-gui" }
 # lto = true

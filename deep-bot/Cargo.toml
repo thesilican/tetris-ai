@@ -9,3 +9,6 @@ rayon = "1.5"
 
 [profile.release]
 debug = true
+
+[dev-dependencies]
+sdl-gui = { path = "../sdl-gui" }

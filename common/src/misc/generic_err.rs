@@ -74,6 +74,8 @@ impl_generic_err!(std::string::FromUtf8Error);
 impl_generic_err!(std::array::TryFromSliceError);
 impl_generic_err!(redis::RedisError);
 impl_generic_err!(base64::DecodeError);
+impl_generic_err!(sdl2::video::WindowBuildError);
+impl_generic_err!(sdl2::IntegerOrSdlError);
 
 #[macro_export]
 macro_rules! generic_err {

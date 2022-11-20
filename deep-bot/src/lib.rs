@@ -36,7 +36,7 @@ impl DeepAi {
             .iter()
             .map(|&x| {
                 let x = x as f32;
-                x.powi(2)
+                (x - 4.0).powi(2)
             })
             .sum::<f32>();
 
@@ -68,7 +68,7 @@ impl DeepAi {
         } else {
             0.0
         };
-        (-1. * board_height) + (-1.0 * bumpiness) + (-10.0 * holes) + (10.0 * right_col)
+        (-0.1 * board_height) + (-1.0 * bumpiness) + (-100.0 * holes) + (10.0 * right_col)
     }
 
     fn dfs(&self, game: &Game, depth: usize) -> Option<(f32, Option<ChildState>)> {
