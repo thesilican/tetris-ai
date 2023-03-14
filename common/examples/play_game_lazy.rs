@@ -1,9 +1,10 @@
+use anyhow::Result;
 use common::*;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
-fn main() -> Result<(), GenericErr> {
+fn main() -> Result<()> {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;

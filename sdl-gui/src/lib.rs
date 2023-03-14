@@ -1,11 +1,7 @@
-use common::{Ai, Bag, Game, GameAction, GameMove, GenericErr, GenericResult};
+use anyhow::{anyhow, Result};
+use common::{Ai, Bag, Game, GameMove};
 use sdl2::{
-    event::{Event, EventPollIterator},
-    keyboard::Keycode,
-    pixels::Color,
-    rect::Rect,
-    render::WindowCanvas,
-    EventPump, Sdl,
+    event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::WindowCanvas, EventPump,
 };
 use std::{collections::VecDeque, thread::sleep, time::Duration};
 
@@ -25,7 +21,7 @@ impl Gui {
         Gui { bag, game, window }
     }
     pub fn play(&mut self) {
-        'main: for tick in 0.. {
+        'main: for _tick in 0.. {
             self.game.refill_queue_shuffled(&mut self.bag);
             for event in self.window.poll_events() {
                 match event {
@@ -57,11 +53,11 @@ impl Gui {
                         // timer = 1;
                     }
                     None => match ai.evaluate(&self.game) {
-                        common::AiRes::Success { moves, score } => {
+                        common::AiRes::Success { moves, score: _ } => {
                             queue.extend(moves);
                             // timer = 1;
                         }
-                        common::AiRes::Fail { reason } => {}
+                        common::AiRes::Fail { reason: _ } => {}
                     },
                 }
             } else {
@@ -84,20 +80,24 @@ struct Window {
     event_pump: EventPump,
 }
 impl Window {
-    fn new() -> GenericResult<Self> {
-        let sdl_ctx = sdl2::init()?;
-        let video = sdl_ctx.video()?;
+    fn new() -> Result<Self> {
+        let sdl_ctx = sdl2::init().map_err(|_e| anyhow!("couldn't initialize sdl context"))?;
+        let video = sdl_ctx
+            .video()
+            .map_err(|_e| anyhow!("couldn't initialize sdl video"))?;
         let window = video
             .window("SDL", WIDTH as u32, HEIGHT as u32)
             .position_centered()
             .build()?;
         let canvas = window.into_canvas().build()?;
-        let event_pump = sdl_ctx.event_pump()?;
+        let event_pump = sdl_ctx
+            .event_pump()
+            .map_err(|_e| anyhow!("couldn't get sdl event pump"))?;
 
         let window = Window { canvas, event_pump };
         Ok(window)
     }
-    fn render(&mut self, game: &Game) -> GenericResult<()> {
+    fn render(&mut self, game: &Game) -> Result<()> {
         self.canvas.set_draw_color(Color::RGB(255, 255, 255));
         self.canvas.clear();
 
@@ -105,17 +105,21 @@ impl Window {
         self.canvas.set_draw_color(Color::RGB(223, 223, 223));
         for i in 0..20 {
             for j in 0..25 {
-                self.canvas.draw_rect(Rect::new(i * 30, j * 30, 30, 30))?;
+                self.canvas
+                    .draw_rect(Rect::new(i * 30, j * 30, 30, 30))
+                    .map_err(|e| anyhow!("{e}"))?;
             }
         }
 
         // Draw Well
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
-        self.canvas.fill_rects(&[
-            Rect::new(120, 120, 30, 630),
-            Rect::new(150, 720, 300, 30),
-            Rect::new(450, 120, 30, 630),
-        ])?;
+        self.canvas
+            .fill_rects(&[
+                Rect::new(120, 120, 30, 630),
+                Rect::new(150, 720, 300, 30),
+                Rect::new(450, 120, 30, 630),
+            ])
+            .map_err(|e| anyhow!(e))?;
 
         // Draw board
         self.canvas.set_draw_color(Color::RGB(63, 63, 63));
@@ -124,7 +128,9 @@ impl Window {
                 if game.board.get(i as usize, j as usize) {
                     let x = 150 + i * 30;
                     let y = 690 - j * 30;
-                    self.canvas.fill_rect(Rect::new(x, y, 30, 30))?;
+                    self.canvas
+                        .fill_rect(Rect::new(x, y, 30, 30))
+                        .map_err(|e| anyhow!("{e}"))?;
                 }
             }
         }
@@ -144,7 +150,9 @@ impl Window {
                 if grid[i as usize][j as usize] {
                     let x = 150 + (i + px) * 30;
                     let y = 690 - (j + py) * 30;
-                    self.canvas.fill_rect(Rect::new(x, y, 30, 30))?;
+                    self.canvas
+                        .fill_rect(Rect::new(x, y, 30, 30))
+                        .map_err(|e| anyhow!("{e}"))?;
                 }
             }
         }
@@ -159,7 +167,9 @@ impl Window {
                 if grid[i as usize][j as usize] {
                     let x = 150 + (i + px) * 30;
                     let y = 690 - (j + py) * 30;
-                    self.canvas.fill_rect(Rect::new(x, y, 30, 30))?;
+                    self.canvas
+                        .fill_rect(Rect::new(x, y, 30, 30))
+                        .map_err(|e| anyhow!("{e}"));
                 }
             }
         }

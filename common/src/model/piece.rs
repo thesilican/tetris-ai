@@ -1,9 +1,9 @@
 use super::board::Board;
 use super::game::GameAction;
-use crate::misc::GenericErr;
 use crate::model::consts::*;
 use crate::model::piece_computed::PIECE_INFO;
-use crate::{generic_err, GenericResult, KickSeq};
+use crate::KickSeq;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
@@ -36,7 +36,7 @@ impl PieceType {
         .iter()
         .map(|x| *x)
     }
-    pub fn from_char(val: char) -> GenericResult<Self> {
+    pub fn from_char(val: char) -> Result<Self> {
         match val {
             'O' => Ok(PieceType::O),
             'I' => Ok(PieceType::I),
@@ -45,7 +45,7 @@ impl PieceType {
             'J' => Ok(PieceType::J),
             'S' => Ok(PieceType::S),
             'Z' => Ok(PieceType::Z),
-            _ => generic_err!("unknown char value for PieceType: {}", val),
+            _ => bail!("unknown char value for PieceType: {val}"),
         }
     }
     pub fn to_char(self) -> char {
@@ -59,7 +59,7 @@ impl PieceType {
             PieceType::Z => 'Z',
         }
     }
-    pub fn from_u8(val: u8) -> GenericResult<Self> {
+    pub fn from_u8(val: u8) -> Result<Self> {
         match val {
             0 => Ok(PieceType::O),
             1 => Ok(PieceType::I),
@@ -68,7 +68,7 @@ impl PieceType {
             4 => Ok(PieceType::J),
             5 => Ok(PieceType::S),
             6 => Ok(PieceType::Z),
-            _ => generic_err!("unknown u8 value for PieceType: {}", val),
+            _ => bail!("unknown u8 value for PieceType: {val}"),
         }
     }
     pub const fn to_u8(self) -> u8 {
@@ -84,7 +84,7 @@ impl PieceType {
     }
 }
 impl TryFrom<char> for PieceType {
-    type Error = GenericErr;
+    type Error = anyhow::Error;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
         Self::from_char(value)

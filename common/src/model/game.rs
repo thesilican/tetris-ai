@@ -1,4 +1,3 @@
-use crate::generic_err;
 use crate::misc::ArrDeque;
 use crate::model::board::Board;
 use crate::model::piece::Piece;
@@ -6,7 +5,8 @@ use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
 use crate::model::BAG_LEN;
 use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
-use crate::GenericResult;
+use anyhow::bail;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -32,7 +32,7 @@ pub enum GameMove {
     HardDrop,
 }
 impl GameMove {
-    pub fn from_u8(val: u8) -> GenericResult<Self> {
+    pub fn from_u8(val: u8) -> Result<Self> {
         match val {
             0 => Ok(GameMove::ShiftLeft),
             1 => Ok(GameMove::ShiftRight),
@@ -42,7 +42,7 @@ impl GameMove {
             5 => Ok(GameMove::Hold),
             6 => Ok(GameMove::SoftDrop),
             7 => Ok(GameMove::HardDrop),
-            _ => generic_err!("unknown u8 value for GameMove"),
+            _ => bail!("unknown u8 value for GameMove: {val}"),
         }
     }
     pub fn to_u8(self) -> u8 {
