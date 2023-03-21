@@ -1,5 +1,6 @@
-use sdl_gui::Gui;
+use anyhow::Result;
+use sdl_gui::*;
 
-fn main() {
-    Gui::new().play();
+fn main() -> Result<()> {
+    PlayGui::new()?.run()
 }

@@ -234,8 +234,12 @@ impl Game {
             | GameAction::RotateCCW
             | GameAction::SoftDrop => {
                 let piece_move = PieceAction::from_game_action(game_action).unwrap();
-                self.active.apply_action(piece_move, &self.board);
-                GameActionRes::Success
+                let res = self.active.apply_action(piece_move, &self.board);
+                if res {
+                    GameActionRes::Success
+                } else {
+                    GameActionRes::Fail
+                }
             }
             GameAction::Hold => {
                 if !self.can_hold {
