@@ -23,19 +23,15 @@ pub enum PieceType {
 }
 
 impl PieceType {
-    pub fn all() -> impl Iterator<Item = PieceType> {
-        [
-            PieceType::O,
-            PieceType::I,
-            PieceType::T,
-            PieceType::L,
-            PieceType::J,
-            PieceType::S,
-            PieceType::Z,
-        ]
-        .iter()
-        .map(|x| *x)
-    }
+    pub const ALL: [PieceType; 7] = [
+        PieceType::O,
+        PieceType::I,
+        PieceType::T,
+        PieceType::L,
+        PieceType::J,
+        PieceType::S,
+        PieceType::Z,
+    ];
     pub fn from_char(val: char) -> Result<Self> {
         match val {
             'O' => Ok(PieceType::O),

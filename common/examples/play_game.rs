@@ -9,8 +9,8 @@ fn main() -> Result<()> {
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
 
-    let mut bag = Bag::new(123456);
-    let mut game = Game::from_bag_shuffled(&mut bag);
+    let mut bag = Bag::new_rng7(123456);
+    let mut game = Game::from_bag(&mut bag);
     println!("{}", game);
 
     stdout.activate_raw_mode()?;
@@ -56,7 +56,7 @@ fn main() -> Result<()> {
             _ => {}
         }
 
-        game.refill_queue_shuffled(&mut bag);
+        game.refill_queue(&mut bag);
         println!("{}", game);
         stdout.activate_raw_mode()?;
     }

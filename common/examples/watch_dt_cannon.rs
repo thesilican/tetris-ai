@@ -179,13 +179,13 @@ fn main() {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let bag = Bag::new(0);
-    let mut game = Game::from_bag(&bag);
+    let mut bag = Bag::new_fixed(&PieceType::ALL);
+    let mut game = Game::from_bag(&mut bag);
     game.swap_hold();
     for _ in 0..10_000 {
         for &game_move in moves.iter() {
             game.make_move(game_move);
-            game.refill_queue(&bag);
+            game.refill_queue(&mut bag);
             println!("{}", game);
             std::thread::sleep(std::time::Duration::from_millis(50));
         }

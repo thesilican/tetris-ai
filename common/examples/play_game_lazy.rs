@@ -9,8 +9,8 @@ fn main() -> Result<()> {
     let stdout = std::io::stdout().into_raw_mode()?;
     stdout.suspend_raw_mode()?;
 
-    let mut bag = Bag::new(0);
-    let mut game = Game::from_bag_shuffled(&mut bag);
+    let mut bag = Bag::new_rng7(0);
+    let mut game = Game::from_bag(&mut bag);
     let mut index = 0;
     let mut child_states = game.child_states(&MOVES_3F);
 
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
                 for game_move in child_states[index].moves() {
                     game.make_move(game_move);
                 }
-                game.refill_queue_shuffled(&mut bag);
+                game.refill_queue(&mut bag);
                 child_states = game.child_states(&MOVES_3F);
                 index = 0;
                 if child_states.len() == 0 {

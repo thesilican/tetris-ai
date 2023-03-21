@@ -181,14 +181,14 @@ fn dt_cannon_loop(b: &mut Bencher) {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let bag = Bag::new(0);
+    let mut bag = Bag::new_fixed(&PieceType::ALL);
     b.iter(|| {
-        let mut game = Game::from_bag(&bag);
+        let mut game = Game::from_bag(&mut bag);
         game.swap_hold();
         for _ in 0..100 {
             for &game_move in moves.iter() {
                 game.make_move(game_move);
-                game.refill_queue(&bag);
+                game.refill_queue(&mut bag);
             }
         }
         black_box(game);
@@ -196,8 +196,8 @@ fn dt_cannon_loop(b: &mut Bencher) {
 }
 
 fn copy_game(b: &mut Bencher) {
-    let mut bag = Bag::new(0);
-    let game = Game::from_bag_shuffled(&mut bag);
+    let mut bag = Bag::new_rng7(0);
+    let game = Game::from_bag(&mut bag);
     b.iter(|| {
         for _ in 0..1000 {
             let copy = game;
@@ -207,8 +207,8 @@ fn copy_game(b: &mut Bencher) {
 }
 
 fn gen_child_states_f4(b: &mut Bencher) {
-    let mut bag = Bag::new(0);
-    let game = Game::from_bag_shuffled(&mut bag);
+    let mut bag = Bag::new_rng7(0);
+    let game = Game::from_bag(&mut bag);
     b.iter(|| {
         let children = game.child_states(&MOVES_4F);
         black_box(children);
@@ -216,8 +216,8 @@ fn gen_child_states_f4(b: &mut Bencher) {
 }
 
 fn gen_child_states_f2(b: &mut Bencher) {
-    let mut bag = Bag::new(0);
-    let game = Game::from_bag_shuffled(&mut bag);
+    let mut bag = Bag::new_rng7(0);
+    let game = Game::from_bag(&mut bag);
     b.iter(|| {
         let children = game.child_states(&MOVES_2F);
         black_box(children);
@@ -225,8 +225,8 @@ fn gen_child_states_f2(b: &mut Bencher) {
 }
 
 fn gen_child_states_f0(b: &mut Bencher) {
-    let mut bag = Bag::new(0);
-    let game = Game::from_bag_shuffled(&mut bag);
+    let mut bag = Bag::new_rng7(0);
+    let game = Game::from_bag(&mut bag);
     b.iter(|| {
         let children = game.child_states(&MOVES_0F_NH);
         black_box(children);

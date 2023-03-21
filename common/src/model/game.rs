@@ -3,8 +3,7 @@ use crate::model::board::Board;
 use crate::model::piece::Piece;
 use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
-use crate::model::BAG_LEN;
-use crate::model::{Bag, Stream, GAME_MAX_QUEUE_LEN};
+use crate::model::{Bag, GAME_MAX_QUEUE_LEN};
 use anyhow::bail;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -135,83 +134,59 @@ impl GameAction {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Game {
     pub board: Board,
-    #[serde(rename = "current")]
-    pub current_piece: Piece,
-    #[serde(rename = "hold")]
-    pub hold_piece: Option<PieceType>,
-    #[serde(rename = "queue")]
-    pub queue_pieces: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
+    pub active: Piece,
+    pub hold: Option<PieceType>,
+    pub queue: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
     #[serde(rename = "canHold")]
     pub can_hold: bool,
 }
 impl Game {
     pub fn from_parts(
         board: Board,
-        current_piece: Piece,
-        hold_piece: Option<PieceType>,
-        queue_pieces: &[PieceType],
+        active: Piece,
+        hold: Option<PieceType>,
+        queue: &[PieceType],
         can_hold: bool,
     ) -> Self {
         Game {
             board,
-            current_piece,
-            hold_piece,
-            queue_pieces: queue_pieces.iter().collect(),
+            active,
+            hold,
+            queue: queue.iter().collect(),
             can_hold,
         }
     }
-    pub fn from_bag(bag: &Bag) -> Self {
-        let mut iter = bag.pieces().iter();
+    pub fn from_bag(bag: &mut Bag) -> Self {
+        let active = Piece::from_piece_type(bag.next());
+        let mut queue = ArrDeque::<PieceType, GAME_MAX_QUEUE_LEN>::new();
+        while queue.len() < GAME_MAX_QUEUE_LEN {
+            queue.push_back(bag.next());
+        }
         Game {
             board: Board::new(),
-            current_piece: Piece::from_piece_type(*iter.next().unwrap()),
-            hold_piece: None,
-            queue_pieces: iter.copied().collect(),
+            active,
+            hold: None,
+            queue,
             can_hold: true,
         }
     }
-    pub fn from_bag_shuffled(bag: &mut Bag) -> Self {
-        bag.shuffle();
-        let mut game = Game::from_bag(bag);
-        game.refill_queue_shuffled(bag);
-        game
-    }
-    pub fn from_pieces(
-        current_piece: PieceType,
-        hold_piece: Option<PieceType>,
-        queue_pieces: &[PieceType],
-    ) -> Self {
+    pub fn from_pieces(active: PieceType, hold: Option<PieceType>, queue: &[PieceType]) -> Self {
         Game {
             board: Board::new(),
-            current_piece: Piece::from_piece_type(current_piece),
-            hold_piece,
-            queue_pieces: queue_pieces.into_iter().collect(),
-            can_hold: true,
-        }
-    }
-    pub fn from_stream(queue: &mut Stream) -> Self {
-        Game {
-            board: Board::new(),
-            current_piece: Piece::from_piece_type(queue.dequeue().unwrap()),
-            hold_piece: None,
-            queue_pieces: {
-                let mut arr = ArrDeque::new();
-                while arr.len() < GAME_MAX_QUEUE_LEN {
-                    arr.push_back(queue.dequeue().unwrap());
-                }
-                arr
-            },
+            active: Piece::from_piece_type(active),
+            hold,
+            queue: queue.into_iter().collect(),
             can_hold: true,
         }
     }
 
-    pub fn set_current(&mut self, piece: PieceType) {
-        self.current_piece.piece_type = piece;
-        self.current_piece.reset();
+    pub fn set_active(&mut self, piece: PieceType) {
+        self.active.piece_type = piece;
+        self.active.reset();
         self.can_hold = true;
     }
     pub fn set_hold(&mut self, piece: Option<PieceType>) {
-        self.hold_piece = piece;
+        self.hold = piece;
         self.can_hold = true;
     }
     pub fn set_queue(&mut self, pieces: &[PieceType]) {
@@ -219,46 +194,33 @@ impl Game {
         self.extend_queue(pieces);
     }
     pub fn append_queue(&mut self, piece: PieceType) {
-        self.queue_pieces.push_back(piece);
+        self.queue.push_back(piece);
     }
     pub fn extend_queue(&mut self, pieces: &[PieceType]) {
-        self.queue_pieces.extend(pieces);
+        self.queue.extend(pieces);
     }
     pub fn clear_queue(&mut self) {
-        self.queue_pieces.clear();
+        self.queue.clear();
     }
-    pub fn refill_queue(&mut self, bag: &Bag) {
-        const THRESHOLD: usize = GAME_MAX_QUEUE_LEN - BAG_LEN;
-        if self.queue_pieces.len() <= THRESHOLD {
-            self.extend_queue(bag.pieces());
-        }
-    }
-    pub fn refill_queue_shuffled(&mut self, bag: &mut Bag) {
-        const THRESHOLD: usize = GAME_MAX_QUEUE_LEN - BAG_LEN;
-        if self.queue_pieces.len() <= THRESHOLD {
-            bag.shuffle();
-            self.extend_queue(bag.pieces());
-        }
-    }
-    pub fn refill_queue_stream(&mut self, stream: &mut Stream) {
-        while self.queue_pieces.len() < GAME_MAX_QUEUE_LEN && stream.len() > 0 {
-            self.queue_pieces.push_back(stream.dequeue().unwrap());
+    pub fn refill_queue(&mut self, bag: &mut Bag) {
+        while self.queue.len() < GAME_MAX_QUEUE_LEN {
+            self.append_queue(bag.next());
         }
     }
     pub fn set_can_hold(&mut self, can_hold: bool) {
         self.can_hold = can_hold;
     }
     pub fn swap_hold(&mut self) -> bool {
-        let hold = match self.hold_piece {
+        let hold = match self.hold {
             Some(hold) => hold,
-            None => match self.queue_pieces.pop_front() {
+            None => match self.queue.pop_front() {
                 Some(piece) => piece,
                 None => return false,
             },
         };
-        self.hold_piece = Some(self.current_piece.piece_type);
-        self.current_piece.piece_type = hold;
-        self.current_piece.reset();
+        self.hold = Some(self.active.piece_type);
+        self.active.piece_type = hold;
+        self.active.reset();
         true
     }
 
@@ -272,7 +234,7 @@ impl Game {
             | GameAction::RotateCCW
             | GameAction::SoftDrop => {
                 let piece_move = PieceAction::from_game_action(game_action).unwrap();
-                self.current_piece.apply_action(piece_move, &self.board);
+                self.active.apply_action(piece_move, &self.board);
                 GameActionRes::Success
             }
             GameAction::Hold => {
@@ -287,14 +249,14 @@ impl Game {
                 }
             }
             GameAction::Lock => {
-                if self.queue_pieces.len() == 0 {
+                if self.queue.len() == 0 {
                     return GameActionRes::Fail;
                 }
 
-                self.current_piece.soft_drop(&self.board);
-                let res = self.board.lock(&self.current_piece);
-                self.current_piece.piece_type = self.queue_pieces.pop_front().unwrap();
-                self.current_piece.reset();
+                self.active.soft_drop(&self.board);
+                let res = self.board.lock(&self.active);
+                self.active.piece_type = self.queue.pop_front().unwrap();
+                self.active.reset();
                 self.can_hold = true;
 
                 GameActionRes::SuccessDrop {
@@ -321,7 +283,7 @@ impl Game {
                 self.apply_action(action)
             }
             GameMove::HardDrop => {
-                if self.queue_pieces.len() == 0 {
+                if self.queue.len() == 0 {
                     return GameActionRes::Fail;
                 }
 
@@ -340,12 +302,12 @@ impl Game {
 }
 impl Display for Game {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        // Board + Current Piece
-        write!(f, "{}", self.board.to_string(Some(&self.current_piece)))?;
+        // Board + Active Piece
+        write!(f, "{}", self.board.to_string(Some(&self.active)))?;
 
         // Curr, Hold, and Queue pieces
-        let curr = format!("{}", &self.current_piece);
-        let hold = match &self.hold_piece {
+        let curr = format!("{}", &self.active);
+        let hold = match &self.hold {
             Some(piece) => {
                 let can_hold = if self.can_hold { "✓" } else { "✗" };
                 format!("{} {}", piece, can_hold)
@@ -353,7 +315,7 @@ impl Display for Game {
             None => format!(""),
         };
         let queue_text = self
-            .queue_pieces
+            .queue
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<_>>()

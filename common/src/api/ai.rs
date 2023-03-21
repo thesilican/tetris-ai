@@ -101,8 +101,8 @@ pub trait Ai {
     }
     /// A quick and easy way to watch an ai play a game
     fn watch_ai(&mut self, seed: u64) {
-        let mut bag = Bag::new(seed);
-        let mut game = Game::from_bag_shuffled(&mut bag);
+        let mut bag = Bag::new_rng7(seed);
+        let mut game = Game::from_bag(&mut bag);
         println!("{}\n", game);
         'l: loop {
             let start = Instant::now();
@@ -141,13 +141,13 @@ pub trait Ai {
                     break;
                 }
             }
-            game.refill_queue_shuffled(&mut bag);
+            game.refill_queue(&mut bag);
         }
     }
     /// A prettier version of watch_ai(), intended for demoing a bot
     fn watch_ai_demo(&mut self, piece_delay_ms: u64) {
-        let mut bag = Bag::new(0);
-        let mut game = Game::from_bag_shuffled(&mut bag);
+        let mut bag = Bag::new_rng7(0);
+        let mut game = Game::from_bag(&mut bag);
         println!("{}", game);
         'l: loop {
             let res = self.evaluate(&game);
@@ -174,13 +174,13 @@ pub trait Ai {
                     break;
                 }
             }
-            game.refill_queue_shuffled(&mut bag);
+            game.refill_queue(&mut bag);
         }
     }
     /// Easy way to benchmark the performance of an Ai
     fn bench_ai(&mut self, eval_count: u32, seed: u64) {
-        let mut bag = Bag::new(seed);
-        let mut game = Game::from_bag_shuffled(&mut bag);
+        let mut bag = Bag::new_rng7(seed);
+        let mut game = Game::from_bag(&mut bag);
 
         let mut total_time = Duration::new(0, 0);
 
@@ -195,11 +195,11 @@ pub trait Ai {
                     for game_move in moves {
                         game.make_move(game_move);
                     }
-                    game.refill_queue_shuffled(&mut bag);
+                    game.refill_queue(&mut bag);
                 }
                 AiRes::Fail { .. } => {
                     // Reset game
-                    game = Game::from_bag_shuffled(&mut bag);
+                    game = Game::from_bag(&mut bag);
                 }
             }
         }
