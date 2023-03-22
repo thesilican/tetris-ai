@@ -37,7 +37,7 @@ fn main() -> Result<()> {
                     game.make_move(game_move);
                 }
                 game.refill_queue(&mut bag);
-                child_states = game.child_states(&MOVES_3F);
+                child_states = game.child_states(&MOVES_4F);
                 index = 0;
                 if child_states.len() == 0 {
                     println!("No valid child states");

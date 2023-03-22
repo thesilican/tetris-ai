@@ -260,12 +260,12 @@ impl Piece {
             if !(new_x < b_left || new_x > b_right || new_y < b_bottom || new_y > b_top)
                 && !board.intersects_with(&self)
             {
-                return false;
+                return true;
             }
         }
         self.rotation = old_rot;
         self.location = (old_x, old_y);
-        true
+        false
     }
     pub fn rotate_cw(&mut self, board: &Board) -> bool {
         self.rotate(1, &board)
