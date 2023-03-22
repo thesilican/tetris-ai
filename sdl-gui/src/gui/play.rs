@@ -111,7 +111,7 @@ impl PlayGui {
         }
 
         self.game.refill_queue(&mut self.bag);
-        self.window.draw(&self.game)?;
+        self.window.draw_colored_game(&self.game)?;
         Ok(())
     }
     fn read_input(&mut self) {

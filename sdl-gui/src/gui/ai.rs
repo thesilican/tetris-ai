@@ -66,7 +66,7 @@ impl<A: Ai> AiGui<A> {
                 }
             }
             game.refill_queue(bag);
-            window.draw(game)?;
+            window.draw_colored_game(game)?;
             sleep(Duration::from_nanos(1_000_000_000 / 60));
         }
         Ok(())

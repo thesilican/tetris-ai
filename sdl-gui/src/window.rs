@@ -55,21 +55,21 @@ impl Window {
 const WHITE: Color = Color::RGB(255, 255, 255);
 const LIGHT: Color = Color::RGB(191, 191, 191);
 const BLACK: Color = Color::RGB(0, 0, 0);
+const COLOR_O: Color = Color::RGB(227, 159, 4);
+const COLOR_I: Color = Color::RGB(16, 155, 215);
+const COLOR_T: Color = Color::RGB(175, 41, 138);
+const COLOR_J: Color = Color::RGB(33, 65, 198);
+const COLOR_L: Color = Color::RGB(227, 91, 2);
+const COLOR_S: Color = Color::RGB(90, 177, 2);
+const COLOR_Z: Color = Color::RGB(215, 15, 55);
+const COLOR_GRAY: Color = Color::RGB(106, 106, 106);
+const COLOR_GHOST: Color = Color::RGB(191, 191, 191);
 const SIZE: i32 = 60;
 const WIDTH: i32 = 600;
 const HEIGHT: i32 = 750;
 
 impl Window {
     fn get_tile_color(tile: TileColor) -> Option<Color> {
-        const COLOR_O: Color = Color::RGB(227, 159, 4);
-        const COLOR_I: Color = Color::RGB(16, 155, 215);
-        const COLOR_T: Color = Color::RGB(175, 41, 138);
-        const COLOR_J: Color = Color::RGB(33, 65, 198);
-        const COLOR_L: Color = Color::RGB(227, 91, 2);
-        const COLOR_S: Color = Color::RGB(90, 177, 2);
-        const COLOR_Z: Color = Color::RGB(215, 15, 55);
-        const COLOR_GRAY: Color = Color::RGB(106, 106, 106);
-        const COLOR_GHOST: Color = Color::RGB(191, 191, 191);
         match tile {
             TileColor::None => None,
             TileColor::O => Some(COLOR_O),
@@ -112,7 +112,25 @@ impl Window {
         self.fill_rect(SIZE * 15, SIZE * 4, SIZE, SIZE * 21)?;
         Ok(())
     }
-    fn draw_board(&mut self, game: &ColoredGame, tile_color: Option<TileColor>) -> Result<()> {
+    fn draw_board(&mut self, game: &Game) -> Result<()> {
+        // Draw board
+        self.set_draw_color(COLOR_GRAY);
+        for i in 0..10 {
+            for j in 0..24 {
+                if game.board.get(i as usize, j as usize) {
+                    let x = SIZE * 5 + i * SIZE;
+                    let y = SIZE * 23 - j * SIZE;
+                    self.fill_rect(x, y, SIZE, SIZE)?;
+                }
+            }
+        }
+        Ok(())
+    }
+    fn draw_colored_board(
+        &mut self,
+        game: &ColoredGame,
+        tile_color: Option<TileColor>,
+    ) -> Result<()> {
         // Draw board
         for i in 0..10 {
             for j in 0..24 {
@@ -161,12 +179,58 @@ impl Window {
         }
         Ok(())
     }
-    pub fn draw(&mut self, game: &ColoredGame) -> Result<()> {
+    pub fn draw_game(&mut self, game: &Game) -> Result<()> {
         self.canvas.set_draw_color(WHITE);
         self.canvas.clear();
 
         self.draw_game_ui()?;
-        self.draw_board(game, None)?;
+        self.draw_board(game)?;
+
+        // Draw ghost piece
+        let ghost = {
+            let mut game = *game;
+            game.make_move(GameMove::SoftDrop);
+            game.active
+        };
+        let x = SIZE * 5 + ghost.location.0 as i32 * SIZE;
+        let y = SIZE * 23 - ghost.location.1 as i32 * SIZE;
+        self.draw_piece(
+            ghost.piece_type,
+            ghost.rotation,
+            x,
+            y,
+            Some(TileColor::Ghost),
+        )?;
+
+        // Draw current piece
+        let active = game.active;
+        let x = SIZE * 5 + active.location.0 as i32 * SIZE;
+        let y = SIZE * 23 - active.location.1 as i32 * SIZE;
+        self.draw_piece(active.piece_type, active.rotation, x, y, None)?;
+
+        // Draw hold
+        if let Some(hold) = game.hold {
+            let x = 0;
+            let y = SIZE * 4;
+            self.draw_piece(hold, 0, x, y, None)?;
+        }
+
+        // Draw queue
+        for (idx, &piece) in game.queue.iter().take(5).enumerate() {
+            let x = SIZE * 16;
+            let y = SIZE * (8 + idx as i32 * 4);
+            self.draw_piece(piece, 0, x, y, None)?;
+        }
+
+        self.canvas.present();
+        Ok(())
+    }
+    pub fn draw_colored_game(&mut self, game: &ColoredGame) -> Result<()> {
+        self.canvas.set_draw_color(WHITE);
+        self.canvas.clear();
+
+        self.draw_game_ui()?;
+        self.draw_colored_board(game, None)?;
 
         // Draw ghost piece
         let ghost = {
