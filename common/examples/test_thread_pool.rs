@@ -6,7 +6,7 @@ fn main() {
         .map(|x| {
             move || {
                 std::thread::sleep(std::time::Duration::from_millis(x * 1234 % 1000));
-                println!("{}", x);
+                println!("{x}");
                 if x == 100 {
                     panic!()
                 }

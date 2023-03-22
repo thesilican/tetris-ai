@@ -148,7 +148,7 @@ impl Piece {
     pub const fn info_shape(
         piece_type: PieceType,
         rotation: i8,
-    ) -> [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
+    ) -> [[bool; PIECE_SHAPE_SIZE]; PIECE_SHAPE_SIZE] {
         PIECE_INFO.shapes[piece_type.to_u8() as usize][rotation as usize]
     }
     #[inline]
@@ -156,7 +156,7 @@ impl Piece {
         piece_type: PieceType,
         rotation: i8,
         x_pos: i8,
-    ) -> [u16; PIECE_SHAPE_SIZE as usize] {
+    ) -> [u16; PIECE_SHAPE_SIZE] {
         PIECE_INFO.bit_shapes[piece_type.to_u8() as usize][rotation as usize]
             [(x_pos + (PIECE_MAX_X_SHIFT as i8) - (PIECE_SPAWN_COLUMN as i8)) as usize]
     }
@@ -164,7 +164,7 @@ impl Piece {
     pub const fn info_height_map(
         piece_type: PieceType,
         rotation: i8,
-    ) -> [(i8, i8); PIECE_SHAPE_SIZE as usize] {
+    ) -> [(i8, i8); PIECE_SHAPE_SIZE] {
         PIECE_INFO.height_maps[piece_type.to_u8() as usize][rotation as usize]
     }
     #[inline]
@@ -188,7 +188,7 @@ impl Piece {
     pub const fn get_shape(
         &self,
         rotation: Option<i8>,
-    ) -> [[bool; PIECE_SHAPE_SIZE as usize]; PIECE_SHAPE_SIZE as usize] {
+    ) -> [[bool; PIECE_SHAPE_SIZE]; PIECE_SHAPE_SIZE] {
         Piece::info_shape(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
@@ -196,7 +196,7 @@ impl Piece {
         &self,
         rotation: Option<i8>,
         x_pos: Option<i8>,
-    ) -> [u16; PIECE_SHAPE_SIZE as usize] {
+    ) -> [u16; PIECE_SHAPE_SIZE] {
         Piece::info_bit_shape(
             self.piece_type,
             rotation.unwrap_or(self.rotation),
@@ -207,7 +207,7 @@ impl Piece {
     pub const fn get_height_map(
         &self,
         rotation: Option<i8>,
-    ) -> [(i8, i8); PIECE_SHAPE_SIZE as usize] {
+    ) -> [(i8, i8); PIECE_SHAPE_SIZE] {
         Piece::info_height_map(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
@@ -258,7 +258,7 @@ impl Piece {
             self.location = (new_x, new_y);
 
             if !(new_x < b_left || new_x > b_right || new_y < b_bottom || new_y > b_top)
-                && !board.intersects_with(&self)
+                && !board.intersects_with(self)
             {
                 return true;
             }
@@ -268,13 +268,13 @@ impl Piece {
         false
     }
     pub fn rotate_cw(&mut self, board: &Board) -> bool {
-        self.rotate(1, &board)
+        self.rotate(1, board)
     }
     pub fn rotate_180(&mut self, board: &Board) -> bool {
-        self.rotate(2, &board)
+        self.rotate(2, board)
     }
     pub fn rotate_ccw(&mut self, board: &Board) -> bool {
-        self.rotate(3, &board)
+        self.rotate(3, board)
     }
     #[inline]
     pub fn shift(&mut self, (d_x, d_y): (i8, i8), board: &Board) -> bool {
@@ -288,7 +288,7 @@ impl Piece {
             || new_x > b_right
             || new_y < b_bottom
             || new_y > b_top
-            || board.intersects_with(&self)
+            || board.intersects_with(self)
         {
             self.location = (old_x, old_y);
             return false;
@@ -314,12 +314,12 @@ impl Piece {
             self.location.1 -= min_drop_amount;
         } else {
             // Try to shift down once
-            if !self.shift_down(&board) {
+            if !self.shift_down(board) {
                 return false;
             }
         }
         // Keep shifting down while possible
-        while self.shift_down(&board) {}
+        while self.shift_down(board) {}
         true
     }
     pub fn apply_action(&mut self, piece_action: PieceAction, board: &Board) -> bool {

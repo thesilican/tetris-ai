@@ -39,7 +39,7 @@ fn main() -> Result<()> {
                 game.refill_queue(&mut bag);
                 child_states = game.child_states(&PERMS_4F);
                 index = 0;
-                if child_states.len() == 0 {
+                if child_states.is_empty() {
                     println!("No valid child states");
                     break;
                 }

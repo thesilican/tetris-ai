@@ -66,7 +66,7 @@ pub struct ChildState {
 }
 impl ChildState {
     pub fn moves(&self) -> impl Iterator<Item = GameMove> + '_ {
-        self.perm.iter().flat_map(|x| x.iter().map(|x| *x))
+        self.perm.iter().flat_map(|x| x.iter().copied())
     }
 }
 

@@ -35,7 +35,7 @@ impl Bag {
         match self {
             Bag::Fixed { sequence, queue } => {
                 if queue.is_empty() {
-                    queue.extend(sequence.iter().map(|&x| x));
+                    queue.extend(sequence.iter().copied());
                 }
                 queue.pop_front().unwrap()
             }

@@ -175,7 +175,7 @@ impl Game {
             board: Board::new(),
             active: Piece::from_piece_type(active),
             hold,
-            queue: queue.into_iter().collect(),
+            queue: queue.iter().collect(),
             can_hold: true,
         }
     }
@@ -253,7 +253,7 @@ impl Game {
                 }
             }
             GameAction::Lock => {
-                if self.queue.len() == 0 {
+                if self.queue.is_empty() {
                     return GameActionRes::Fail;
                 }
 
@@ -287,7 +287,7 @@ impl Game {
                 self.apply_action(action)
             }
             GameMove::HardDrop => {
-                if self.queue.len() == 0 {
+                if self.queue.is_empty() {
                     return GameActionRes::Fail;
                 }
 
@@ -314,9 +314,9 @@ impl Display for Game {
         let hold = match &self.hold {
             Some(piece) => {
                 let can_hold = if self.can_hold { "✓" } else { "✗" };
-                format!("{} {}", piece, can_hold)
+                format!("{piece} {can_hold}")
             }
-            None => format!(""),
+            None => String::new(),
         };
         let queue_text = self
             .queue
@@ -324,7 +324,7 @@ impl Display for Game {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        write!(f, "[{}] {}\n{}", hold, curr, queue_text)?;
+        write!(f, "[{hold}] {curr}\n{queue_text}")?;
 
         Ok(())
     }

@@ -11,7 +11,7 @@ fn main() -> Result<()> {
 
     let mut bag = Bag::new_rng7(123456);
     let mut game = Game::from_bag(&mut bag);
-    println!("{}", game);
+    println!("{game}");
 
     stdout.activate_raw_mode()?;
     for key in stdin.keys() {
@@ -35,8 +35,7 @@ fn main() -> Result<()> {
                 } = res
                 {
                     println!(
-                        "Drop: Lines cleared: {} Top out: {}",
-                        lines_cleared, top_out
+                        "Drop: Lines cleared: {lines_cleared} Top out: {top_out}"
                     );
                 }
             }
@@ -57,7 +56,7 @@ fn main() -> Result<()> {
         }
 
         game.refill_queue(&mut bag);
-        println!("{}", game);
+        println!("{game}");
         stdout.activate_raw_mode()?;
     }
     Ok(())

@@ -195,7 +195,7 @@ where
     type Value = ArrDeque<T, N>;
 
     fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "ring-vector with max capacity {}", N)
+        write!(f, "ring-vector with max capacity {N}")
     }
     fn visit_seq<S>(self, mut access: S) -> Result<Self::Value, S::Error>
     where
@@ -205,8 +205,7 @@ where
         while let Some(val) = access.next_element::<T>()? {
             if let InsertRes::Full(_) = arr.push_back(val) {
                 return Err(S::Error::custom(format!(
-                    "supplied value longer than max capacity: {}",
-                    N
+                    "supplied value longer than max capacity: {N}"
                 )));
             }
         }

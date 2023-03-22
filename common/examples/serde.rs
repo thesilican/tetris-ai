@@ -25,7 +25,7 @@ fn main() {
     }"#;
     let mut game: Game = serde_json::from_str(req).unwrap();
     println!("{}", std::mem::size_of::<Game>());
-    println!("{}", game);
+    println!("{game}");
     println!("{}", serde_json::to_string(&game).unwrap());
     let res = SimpleAi.evaluate(&game);
     match res {
@@ -37,12 +37,12 @@ fn main() {
             for &game_move in moves.iter() {
                 game.make_move(game_move);
             }
-            println!("{:?}", moves);
-            println!("{}", game);
+            println!("{moves:?}");
+            println!("{game}");
             println!("{}", serde_json::to_string(&game).unwrap());
         }
         AiRes::Fail { reason } => {
-            println!("{}", reason);
+            println!("{reason}");
             println!("{}", serde_json::to_string(&reason).unwrap());
         }
     }

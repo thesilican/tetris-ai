@@ -31,7 +31,7 @@ impl Display for AiRes {
         match self {
             AiRes::Success { moves, score } => {
                 let score = match score {
-                    Some(score) => format!("{:.2}", score),
+                    Some(score) => format!("{score:.2}"),
                     None => String::from("None"),
                 };
                 let moves = moves
@@ -39,10 +39,10 @@ impl Display for AiRes {
                     .map(|x| x.to_string())
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "Eval Score: {} Moves: [{}]", score, moves)
+                write!(f, "Eval Score: {score} Moves: [{moves}]")
             }
             AiRes::Fail { reason } => {
-                write!(f, "Eval Failed: {}", reason)
+                write!(f, "Eval Failed: {reason}")
             }
         }
     }
@@ -85,12 +85,12 @@ pub trait Ai {
     fn evaluate(&mut self, game: &Game) -> AiRes;
     /// Same as ai.evaluate() but using JSON as input/output
     fn api_evaluate(&mut self, req: &str) -> String {
-        let game = match serde_json::from_str(&req) {
+        let game = match serde_json::from_str(req) {
             Ok(game) => game,
             Err(parse_err) => {
                 let res_ser = AiResSer::Fail {
                     success: false,
-                    reason: format!("Invalid request: {}", parse_err),
+                    reason: format!("Invalid request: {parse_err}"),
                 };
                 return serde_json::to_string(&res_ser).unwrap();
             }
@@ -103,7 +103,7 @@ pub trait Ai {
     fn watch_ai(&mut self, seed: u64) {
         let mut bag = Bag::new_rng7(seed);
         let mut game = Game::from_bag(&mut bag);
-        println!("{}\n", game);
+        println!("{game}\n");
         'l: loop {
             let start = Instant::now();
             let res = self.evaluate(&game);
@@ -124,20 +124,19 @@ pub trait Ai {
                         }
                     }
                     let score = score
-                        .map(|x| format!("{:.2}", x))
+                        .map(|x| format!("{x:.2}"))
                         .unwrap_or(String::from("None"));
                     let moves = moves
                         .into_iter()
-                        .map(|x| format!("{}", x))
+                        .map(|x| format!("{x}"))
                         .collect::<Vec<_>>()
                         .join(", ");
                     println!(
-                        "{0}\nEval: {1} in {3:?}\n[{2}]\n",
-                        game, score, moves, elapsed
+                        "{game}\nEval: {score} in {elapsed:?}\n[{moves}]\n"
                     );
                 }
                 AiRes::Fail { reason } => {
-                    println!("Evaluation failed: {}", reason);
+                    println!("Evaluation failed: {reason}");
                     break;
                 }
             }
@@ -148,7 +147,7 @@ pub trait Ai {
     fn watch_ai_demo(&mut self, piece_delay_ms: u64) {
         let mut bag = Bag::new_rng7(0);
         let mut game = Game::from_bag(&mut bag);
-        println!("{}", game);
+        println!("{game}");
         'l: loop {
             let res = self.evaluate(&game);
             match res {
@@ -165,12 +164,12 @@ pub trait Ai {
                         } else {
                             game.make_move(game_move);
                         }
-                        println!("{}", game);
+                        println!("{game}");
                         std::thread::sleep(std::time::Duration::from_millis(piece_delay_ms));
                     }
                 }
                 AiRes::Fail { reason } => {
-                    println!("Evaluation failed: {}", reason);
+                    println!("Evaluation failed: {reason}");
                     break;
                 }
             }
@@ -203,8 +202,8 @@ pub trait Ai {
                 }
             }
         }
-        println!("Total evaluations: {}", eval_count);
-        println!("Total time: {:?}", total_time);
+        println!("Total evaluations: {eval_count}");
+        println!("Total time: {total_time:?}");
         println!("Time per evaluation: {:?}", total_time / eval_count);
     }
 }

@@ -186,7 +186,7 @@ fn main() {
         for &game_move in moves.iter() {
             game.make_move(game_move);
             game.refill_queue(&mut bag);
-            println!("{}", game);
+            println!("{game}");
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
     }

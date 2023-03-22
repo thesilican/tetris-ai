@@ -199,12 +199,10 @@ impl Board {
                     } else {
                         write!(text, "▓▓").unwrap();
                     }
+                } else if j >= BOARD_VISIBLE_HEIGHT {
+                    write!(text, "▓▓").unwrap();
                 } else {
-                    if j >= BOARD_VISIBLE_HEIGHT {
-                        write!(text, "▓▓").unwrap();
-                    } else {
-                        write!(text, "██").unwrap();
-                    }
+                    write!(text, "██").unwrap();
                 }
             }
             writeln!(text).unwrap();

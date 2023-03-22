@@ -1547,12 +1547,10 @@ mod tests {
                         let x = i as i8 - PIECE_SPAWN_COLUMN as i8;
                         if x < 0 || x >= PIECE_SHAPE_SIZE as i8 {
                             assert_eq!(bit, 0);
+                        } else if shape[x as usize][j] {
+                            assert_eq!(bit, 1);
                         } else {
-                            if shape[x as usize][j] {
-                                assert_eq!(bit, 1);
-                            } else {
-                                assert_eq!(bit, 0);
-                            }
+                            assert_eq!(bit, 0);
                         }
                     }
                 }

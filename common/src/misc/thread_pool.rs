@@ -3,7 +3,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::{Builder, JoinHandle};
 
 enum WorkerMsg {
-    RunFn(Box<dyn FnOnce(usize) -> () + Send>),
+    RunFn(Box<dyn FnOnce(usize) + Send>),
     Quit,
 }
 
@@ -43,9 +43,9 @@ impl Worker {
             }
         };
         let handle = Builder::new()
-            .name(format!("worker-{}", id))
+            .name(format!("worker-{id}"))
             .spawn(func)
-            .expect(&format!("error spawning worker {}", id));
+            .unwrap_or_else(|_| panic!("error spawning worker {id}"));
         Worker {
             handle: Some(handle),
         }
@@ -94,7 +94,7 @@ impl ThreadPool {
                 match msg {
                     JobReq::Job { job, job_id } => {
                         // Run job
-                        let result = std::panic::catch_unwind(|| job());
+                        let result = std::panic::catch_unwind(job);
                         match result {
                             Ok(result) => {
                                 recv_tx
@@ -117,7 +117,7 @@ impl ThreadPool {
             // Send job runner to thread
             self.senders[i]
                 .send(WorkerMsg::RunFn(Box::new(job_runner)))
-                .expect(&format!("error sending job runner to worker {}", i));
+                .unwrap_or_else(|_| panic!("error sending job runner to worker {i}"));
         }
         (senders, reciever)
     }
@@ -154,7 +154,7 @@ impl ThreadPool {
         for (i, sender) in senders.iter().enumerate() {
             sender
                 .send(next_job())
-                .expect(&format!("error sending JobMsg to worker {}", i))
+                .unwrap_or_else(|_| panic!("error sending JobMsg to worker {i}"))
         }
         // Recieve job results, and distribute remaining jobs as needed
         while completed < total && panicked.is_none() {
@@ -169,7 +169,7 @@ impl ThreadPool {
                     results[job_id] = Some(result);
                     senders[worker_id]
                         .send(next_job())
-                        .expect(&format!("error sending JobReq to worker {}", worker_id));
+                        .unwrap_or_else(|_| panic!("error sending JobReq to worker {worker_id}"));
                 }
                 JobRes::Panicked { worker_id } => {
                     panicked = Some(worker_id);
@@ -178,7 +178,7 @@ impl ThreadPool {
                         if i != worker_id {
                             sender
                                 .send(JobReq::Quit)
-                                .expect(&format!("error sending JobReq to worker {}", i));
+                                .unwrap_or_else(|_| panic!("error sending JobReq to worker {i}"));
                         }
                     }
                 }
@@ -186,7 +186,7 @@ impl ThreadPool {
         }
 
         if let Some(worker_id) = panicked {
-            panic!("worker {} panicked", worker_id)
+            panic!("worker {worker_id} panicked")
         } else {
             results.into_iter().map(|x| x.unwrap()).collect()
         }
