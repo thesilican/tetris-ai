@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     let mut bag = Bag::new_rng7(0);
     let mut game = Game::from_bag(&mut bag);
     let mut index = 0;
-    let mut child_states = game.child_states(&MOVES_3F);
+    let mut child_states = game.child_states(&PERMS_4F);
 
     println!(
         "{}\n{:?}\n{} of {}",
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
                     game.make_move(game_move);
                 }
                 game.refill_queue(&mut bag);
-                child_states = game.child_states(&MOVES_4F);
+                child_states = game.child_states(&PERMS_4F);
                 index = 0;
                 if child_states.len() == 0 {
                     println!("No valid child states");

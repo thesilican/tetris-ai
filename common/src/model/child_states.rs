@@ -151,16 +151,16 @@ static FRAGMENT_FINAL: Fragment = &[
 ];
 static FRAGMENT_DROP: Fragment = &[&[GameMove::HardDrop]];
 
-pub static MOVES_0F_NH: Lazy<Perms<3>> =
+pub static PERMS_0F_NH: Lazy<Perms<3>> =
     Lazy::new(|| Perms::new([FRAGMENT_HOLD, FRAGMENT_ROT, FRAGMENT_SHIFT]));
 
-pub static MOVES_0F: Lazy<Perms<4>> =
+pub static PERMS_0F: Lazy<Perms<4>> =
     Lazy::new(|| Perms::new([FRAGMENT_HOLD, FRAGMENT_ROT, FRAGMENT_SHIFT, FRAGMENT_DROP]));
 
-pub static MOVES_1F_NH: Lazy<Perms<4>> =
+pub static PERMS_1F_NH: Lazy<Perms<4>> =
     Lazy::new(|| Perms::new([FRAGMENT_HOLD, FRAGMENT_ROT, FRAGMENT_SHIFT, FRAGMENT_FINAL]));
 
-pub static MOVES_1F: Lazy<Perms<5>> = Lazy::new(|| {
+pub static PERMS_1F: Lazy<Perms<5>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,
@@ -170,7 +170,7 @@ pub static MOVES_1F: Lazy<Perms<5>> = Lazy::new(|| {
     ])
 });
 
-pub static MOVES_2F_NH: Lazy<Perms<5>> = Lazy::new(|| {
+pub static PERMS_2F_NH: Lazy<Perms<5>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,
@@ -180,7 +180,7 @@ pub static MOVES_2F_NH: Lazy<Perms<5>> = Lazy::new(|| {
     ])
 });
 
-pub static MOVES_2F: Lazy<Perms<6>> = Lazy::new(|| {
+pub static PERMS_2F: Lazy<Perms<6>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,
@@ -191,7 +191,7 @@ pub static MOVES_2F: Lazy<Perms<6>> = Lazy::new(|| {
     ])
 });
 
-pub static MOVES_3F_NH: Lazy<Perms<6>> = Lazy::new(|| {
+pub static PERMS_3F_NH: Lazy<Perms<6>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,
@@ -202,7 +202,7 @@ pub static MOVES_3F_NH: Lazy<Perms<6>> = Lazy::new(|| {
     ])
 });
 
-pub static MOVES_3F: Lazy<Perms<7>> = Lazy::new(|| {
+pub static PERMS_3F: Lazy<Perms<7>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,
@@ -214,7 +214,7 @@ pub static MOVES_3F: Lazy<Perms<7>> = Lazy::new(|| {
     ])
 });
 
-pub static MOVES_4F_NH: Lazy<Perms<7>> = Lazy::new(|| {
+pub static PERMS_4F_NH: Lazy<Perms<7>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,
@@ -226,7 +226,7 @@ pub static MOVES_4F_NH: Lazy<Perms<7>> = Lazy::new(|| {
     ])
 });
 
-pub static MOVES_4F: Lazy<Perms<8>> = Lazy::new(|| {
+pub static PERMS_4F: Lazy<Perms<8>> = Lazy::new(|| {
     Perms::new([
         FRAGMENT_HOLD,
         FRAGMENT_ROT,

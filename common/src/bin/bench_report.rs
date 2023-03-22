@@ -1,9 +1,22 @@
 use common::*;
-use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
+use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
+use std::{hint::black_box, time::Instant};
 
-fn dt_cannon_loop(b: &mut Bencher) {
-    // moves is 175 GameMoves long
-    // Assumption: Queue starts with [O] I T L ...
+fn bench_fn<F: FnMut(usize)>(name: &str, count: usize, mut f: F) {
+    let start = Instant::now();
+    for i in 0..count {
+        f(i);
+    }
+    let end = Instant::now();
+    let diff = (end - start) / count as u32;
+    println!("- {name}: {diff:?}");
+}
+
+fn main() {
+    println!("Starting bench report");
+    let count = 1000;
+
+    // DT Cannon Loop
     let moves = vec![
         GameMove::Hold,
         GameMove::ShiftLeft,
@@ -181,8 +194,8 @@ fn dt_cannon_loop(b: &mut Bencher) {
         GameMove::ShiftLeft,
         GameMove::HardDrop,
     ];
-    let mut bag = Bag::new_fixed(&PieceType::ALL);
-    b.iter(|| {
+    bench_fn("dt_cannon_loop", count, |_| {
+        let mut bag = Bag::new_fixed(&PieceType::ALL);
         let mut game = Game::from_bag(&mut bag);
         game.swap_hold();
         for _ in 0..100 {
@@ -192,60 +205,35 @@ fn dt_cannon_loop(b: &mut Bencher) {
             }
         }
         black_box(game);
-    })
-}
+    });
 
-fn copy_game(b: &mut Bencher) {
-    let mut bag = Bag::new_rng7(0);
-    let game = Game::from_bag(&mut bag);
-    b.iter(|| {
-        for _ in 0..1000 {
-            let copy = game;
-            black_box(copy);
+    // Child States
+    let mut rng = StdRng::seed_from_u64(0);
+    let mut scenarios = Vec::new();
+    for i in 0..count {
+        let mut bag = Bag::new_rng7(i as u64);
+        let mut game = Game::from_bag(&mut bag);
+        for _ in 0..3 {
+            let mut child_states = game.child_states(&PERMS_4F);
+            child_states.shuffle(&mut rng);
+            game = child_states[0].game;
         }
-    })
-}
+        scenarios.push(game);
+    }
 
-fn gen_child_states_f4(b: &mut Bencher) {
-    let mut bag = Bag::new_rng7(0);
-    let game = Game::from_bag(&mut bag);
-    b.iter(|| {
-        let children = game.child_states(&PERMS_4F);
-        black_box(children);
-    })
+    bench_fn("gen_child_states_f0", count, |i| {
+        let game = scenarios[i];
+        let child_states = game.child_states(&PERMS_0F);
+        black_box(child_states);
+    });
+    bench_fn("gen_child_states_f2", count, |i| {
+        let game = scenarios[i];
+        let child_states = game.child_states(&PERMS_2F);
+        black_box(child_states);
+    });
+    bench_fn("gen_child_states_f4", count, |i| {
+        let game = scenarios[i];
+        let child_states = game.child_states(&PERMS_4F);
+        black_box(child_states);
+    });
 }
-
-fn gen_child_states_f2(b: &mut Bencher) {
-    let mut bag = Bag::new_rng7(0);
-    let game = Game::from_bag(&mut bag);
-    b.iter(|| {
-        let children = game.child_states(&PERMS_2F);
-        black_box(children);
-    })
-}
-
-fn gen_child_states_f0(b: &mut Bencher) {
-    let mut bag = Bag::new_rng7(0);
-    let game = Game::from_bag(&mut bag);
-    b.iter(|| {
-        let children = game.child_states(&PERMS_0F);
-        black_box(children);
-    })
-}
-
-macro_rules! bench_function {
-    ($c:ident, $i:ident) => {
-        $c.bench_function(stringify!($i), $i)
-    };
-}
-
-pub fn criterion_benchmark(c: &mut Criterion) {
-    bench_function!(c, dt_cannon_loop);
-    bench_function!(c, copy_game);
-    bench_function!(c, gen_child_states_f0);
-    bench_function!(c, gen_child_states_f2);
-    bench_function!(c, gen_child_states_f4);
-}
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
