@@ -31,7 +31,8 @@ impl<A: Ai> AiGui<A> {
 
         let mut moves = VecDeque::<GameMove>::new();
         let mut game_over = false;
-        let mut cooldown = 30;
+        const COOLDOWN: i32 = 1;
+        let mut cooldown = COOLDOWN;
 
         'main: for _ in 0.. {
             for event in window.poll_events() {
@@ -42,29 +43,29 @@ impl<A: Ai> AiGui<A> {
             }
 
             if !game_over {
-                if cooldown <= 1 {
-                    if moves.is_empty() {
-                        let res = ai.evaluate(game.game());
-                        match res {
-                            AiRes::Success {
-                                moves: eval_moves,
-                                score: _,
-                            } => {
-                                moves.extend(eval_moves);
-                            }
-                            AiRes::Fail { reason: _ } => {}
-                        }
-                        cooldown = 30;
-                    }
+                if !moves.is_empty() {
                     game.make_move(moves.pop_front().unwrap());
                     if game.game().board.topped_out() {
                         game_over = true;
                     }
-                    game.refill_queue(bag);
-                } else {
+                } else if cooldown <= 1 {
+                    let res = ai.evaluate(game.game());
+                    match res {
+                        AiRes::Success {
+                            moves: eval_moves,
+                            score: _,
+                        } => {
+                            moves.extend(eval_moves);
+                        }
+                        AiRes::Fail { reason: _ } => {}
+                    }
+                    cooldown = COOLDOWN;
+                }
+                if cooldown > 1 {
                     cooldown -= 1;
                 }
             }
+            game.refill_queue(bag);
             window.draw(game)?;
             sleep(Duration::from_nanos(1_000_000_000 / 60));
         }

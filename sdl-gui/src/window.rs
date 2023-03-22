@@ -22,7 +22,7 @@ impl Window {
             .video()
             .map_err(|_e| anyhow!("couldn't initialize sdl video"))?;
         let window = video
-            .window("SDL", WIDTH as u32, HEIGHT as u32)
+            .window("Tetris", WIDTH as u32, HEIGHT as u32)
             .allow_highdpi()
             .position_centered()
             .build()?;
@@ -34,7 +34,7 @@ impl Window {
         let window = Window { canvas, event_pump };
         Ok(window)
     }
-    pub fn poll_events<'a>(&'a mut self) -> impl Iterator<Item = GuiEvent> + 'a {
+    pub fn poll_events(&mut self) -> impl Iterator<Item = GuiEvent> + '_ {
         self.event_pump.poll_iter().filter_map(|e| match e {
             Event::Quit { .. } => Some(GuiEvent::Quit),
             Event::KeyDown {
