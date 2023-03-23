@@ -14,8 +14,8 @@ enum ShiftDirection {
 const SHIFT_DAS: i32 = 10;
 const SHIFT_ARR: i32 = 1;
 const DROP_ARR: i32 = 1;
-const GRAVITY: i32 = 60;
-const LOCK: i32 = 60;
+const GRAVITY: i32 = 1;
+const LOCK: i32 = 20;
 
 pub struct PlayGui {
     bag: Bag,
@@ -50,14 +50,24 @@ impl PlayGui {
         })
     }
     pub fn run(&mut self) -> Result<()> {
-        self.game_over = false;
-        self.gravity = GRAVITY;
-        self.lock = LOCK;
+        self.init();
         while !self.game_over {
             self.tick()?;
             sleep(Duration::from_nanos(1_000_000_000 / 60));
         }
         Ok(())
+    }
+    fn init(&mut self) {
+        self.bag = Bag::new_rng7(123);
+        self.game = ColoredGame::new(Game::from_bag(&mut self.bag));
+        self.game_over = false;
+        self.gravity = GRAVITY;
+        self.lock = LOCK;
+        self.drop = false;
+        self.drop_arr = 0;
+        self.shift = ShiftDirection::None;
+        self.shift_das = 0;
+        self.shift_arr = 0;
     }
     fn tick(&mut self) -> Result<()> {
         self.read_input();
@@ -76,9 +86,15 @@ impl PlayGui {
                 if self.shift_das <= 1 {
                     if self.shift_arr <= 1 {
                         if let ShiftDirection::Left = self.shift {
-                            self.game.make_move(GameMove::ShiftLeft);
+                            let res = self.game.make_move(GameMove::ShiftLeft);
+                            if res != GameActionRes::Fail {
+                                self.lock = LOCK;
+                            }
                         } else {
-                            self.game.make_move(GameMove::ShiftRight);
+                            let res = self.game.make_move(GameMove::ShiftRight);
+                            if res != GameActionRes::Fail {
+                                self.lock = LOCK;
+                            }
                         }
                         self.shift_arr = SHIFT_ARR;
                     } else {
@@ -119,6 +135,9 @@ impl PlayGui {
             match event {
                 GuiEvent::Quit | GuiEvent::KeyDown(Keycode::Q) => {
                     self.game_over = true;
+                }
+                GuiEvent::KeyDown(Keycode::R) => {
+                    self.init();
                 }
                 GuiEvent::KeyDown(Keycode::Left) => {
                     self.game.make_move(GameMove::ShiftLeft);

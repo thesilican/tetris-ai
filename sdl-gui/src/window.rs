@@ -34,21 +34,24 @@ impl Window {
         let window = Window { canvas, event_pump };
         Ok(window)
     }
-    pub fn poll_events(&mut self) -> impl Iterator<Item = GuiEvent> + '_ {
-        self.event_pump.poll_iter().filter_map(|e| match e {
-            Event::Quit { .. } => Some(GuiEvent::Quit),
-            Event::KeyDown {
-                keycode: Some(keycode),
-                repeat: false,
-                ..
-            } => Some(GuiEvent::KeyDown(keycode)),
-            Event::KeyUp {
-                keycode: Some(keycode),
-                repeat: false,
-                ..
-            } => Some(GuiEvent::KeyUp(keycode)),
-            _ => None,
-        })
+    pub fn poll_events(&mut self) -> Vec<GuiEvent> {
+        self.event_pump
+            .poll_iter()
+            .filter_map(|e| match e {
+                Event::Quit { .. } => Some(GuiEvent::Quit),
+                Event::KeyDown {
+                    keycode: Some(keycode),
+                    repeat: false,
+                    ..
+                } => Some(GuiEvent::KeyDown(keycode)),
+                Event::KeyUp {
+                    keycode: Some(keycode),
+                    repeat: false,
+                    ..
+                } => Some(GuiEvent::KeyUp(keycode)),
+                _ => None,
+            })
+            .collect()
     }
 }
 
