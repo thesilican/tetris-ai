@@ -14,7 +14,7 @@ enum ShiftDirection {
 const SHIFT_DAS: i32 = 10;
 const SHIFT_ARR: i32 = 1;
 const DROP_ARR: i32 = 1;
-const GRAVITY: i32 = 1;
+const GRAVITY: i32 = 60;
 const LOCK: i32 = 20;
 
 pub struct PlayGui {
