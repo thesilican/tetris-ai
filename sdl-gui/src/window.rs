@@ -260,7 +260,7 @@ impl Window {
         // Draw hold
         if let Some(hold) = game.game().hold {
             let x = 0;
-            let y = SIZE * 4;
+            let y = SIZE * 8;
             self.draw_piece(hold, 0, x, y, None)?;
         }
 
