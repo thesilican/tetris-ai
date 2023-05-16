@@ -1,26 +1,43 @@
+use anyhow::Result;
 use common::*;
 
-fn main() {
-    let thread_pool = ThreadPool::new(20);
-    let jobs = (0..1000)
-        .map(|x| {
-            move || {
-                std::thread::sleep(std::time::Duration::from_millis(x * 1234 % 1000));
-                println!("{x}");
-                if x == 100 {
-                    panic!()
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-    thread_pool.run(jobs);
-    // let _ = thread_pool.run(jobs);
-    // println!("Finished Jobs 1");
-    // let jobs = (0..1000).map(|_| || true).collect();
-    // let _ = thread_pool.run(jobs);
-    // println!("Finished Jobs 2");
-    // let jobs = (0..1000)
-    //     .map(|x| move || if x == 100 { panic!() } else { x })
-    //     .collect();
-    // let _ = thread_pool.run(jobs);
+enum Req {
+    Task(usize),
+    Quit,
+}
+struct Res {
+    task: usize,
+    result: usize,
+}
+
+fn handler(ctx: &Context<Req, Res>) -> Result<()> {
+    while let Req::Task(num) = ctx.recv()? {
+        let result = if num % 2 == 0 { num / 2 } else { 3 * num + 1 };
+        println!("Thread {} task {num}", ctx.thread_id());
+        ctx.send(Res { task: num, result })?;
+    }
+    Ok(())
+}
+
+fn main() -> Result<()> {
+    let thread_count = 10;
+    let mut thread_pool = ThreadPool::start(thread_count, handler);
+    let mut current = 0;
+    let job_count = 1_000_000;
+    let mut results = vec![None::<usize>; job_count];
+    for i in 0..thread_count {
+        thread_pool.send(i, Req::Task(i))?;
+        current += 1;
+    }
+    while let Some((thread_id, msg)) = thread_pool.recv()? {
+        let Res { task, result } = msg;
+        results[task] = Some(result);
+        if current == job_count {
+            thread_pool.send(thread_id, Req::Quit)?;
+        } else {
+            thread_pool.send(thread_id, Req::Task(current))?;
+            current += 1;
+        }
+    }
+    Ok(())
 }

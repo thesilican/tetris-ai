@@ -1,237 +1,164 @@
-use std::panic::UnwindSafe;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread::{Builder, JoinHandle};
+use anyhow::{anyhow, bail, Result};
+use std::{
+    sync::mpsc::{channel, Receiver, Sender},
+    thread::{spawn, JoinHandle},
+};
 
-enum WorkerMsg {
-    RunFn(Box<dyn FnOnce(usize) + Send>),
-    Quit,
+enum ThreadRes<N> {
+    Msg { thread_id: usize, msg: N },
+    Join { thread_id: usize },
 }
 
-enum JobReq<R> {
-    Job {
-        job: Box<dyn FnOnce() -> R + UnwindSafe + Send>,
-        job_id: usize,
-    },
-    Quit,
+pub struct Context<M, N> {
+    thread_id: usize,
+    sender: Sender<ThreadRes<N>>,
+    receiver: Receiver<M>,
 }
-enum JobRes<R> {
-    Success {
-        job_id: usize,
-        worker_id: usize,
-        result: R,
-    },
-    Panicked {
-        worker_id: usize,
-    },
+impl<M, N> Context<M, N> {
+    pub fn thread_id(&self) -> usize {
+        self.thread_id
+    }
+    pub fn send(&self, msg: N) -> Result<()> {
+        let msg = ThreadRes::Msg {
+            thread_id: self.thread_id,
+            msg,
+        };
+        self.sender
+            .send(msg)
+            .map_err(|_| anyhow!("error sending message"))
+    }
+    pub fn recv(&self) -> Result<M> {
+        self.receiver
+            .recv()
+            .map_err(|_| anyhow!("error receiving message"))
+    }
 }
 
-#[derive(Debug)]
-struct Worker {
-    pub handle: Option<JoinHandle<()>>,
+enum Worker {
+    Running(JoinHandle<Result<()>>),
+    Finished,
 }
 impl Worker {
-    pub fn new(id: usize, rx: Receiver<WorkerMsg>) -> Self {
-        let func = move || loop {
-            let msg = match rx.recv() {
-                Ok(msg) => msg,
-                // Gracefully exit if main thread panicked
-                Err(_) => break,
-            };
-            match msg {
-                WorkerMsg::RunFn(func) => func(id),
-                WorkerMsg::Quit => break,
-            }
+    fn new<F, M, N>(
+        f: F,
+        thread_id: usize,
+        sender: Sender<ThreadRes<N>>,
+        receiver: Receiver<M>,
+    ) -> Self
+    where
+        F: Fn(&Context<M, N>) -> Result<()> + Send + 'static,
+        M: Send + 'static,
+        N: Send + 'static,
+    {
+        let ctx = Context {
+            thread_id,
+            sender,
+            receiver,
         };
-        let handle = Builder::new()
-            .name(format!("worker-{id}"))
-            .spawn(func)
-            .unwrap_or_else(|_| panic!("error spawning worker {id}"));
-        Worker {
-            handle: Some(handle),
+        let handle = spawn(move || {
+            let res = f(&ctx);
+            ctx.sender
+                .send(ThreadRes::Join {
+                    thread_id: ctx.thread_id,
+                })
+                .map_err(|_| anyhow!("error sending message"))?;
+            res
+        });
+        Worker::Running(handle)
+    }
+    fn is_finished(&self) -> bool {
+        match self {
+            Worker::Running(_) => false,
+            Worker::Finished => true,
+        }
+    }
+    fn join(&mut self) -> Result<()> {
+        let val = std::mem::replace(self, Worker::Finished);
+        match val {
+            Worker::Running(handle) => {
+                let res = handle
+                    .join()
+                    .map_err(|_| anyhow!("thread failed to join"))?;
+                res
+            }
+            Worker::Finished => panic!("attempted to join completed worker"),
         }
     }
 }
 
-#[derive(Debug)]
-pub struct ThreadPool {
+pub struct ThreadPool<M, N> {
     workers: Vec<Worker>,
-    senders: Vec<Sender<WorkerMsg>>,
+    senders: Vec<Sender<M>>,
+    receiver: Receiver<ThreadRes<N>>,
 }
-impl ThreadPool {
-    pub fn new(thread_count: usize) -> Self {
+
+impl<M, N> ThreadPool<M, N> {
+    pub fn start<F>(thread_count: usize, f: F) -> Self
+    where
+        F: Fn(&Context<M, N>) -> Result<()> + Send + Copy + 'static,
+        M: Send + 'static,
+        N: Send + 'static,
+    {
         let mut workers = Vec::new();
         let mut senders = Vec::new();
+        let (sender, receiver) = channel();
         for i in 0..thread_count {
-            let (tx, rx) = channel();
-            let worker = Worker::new(i, rx);
+            let (worker_sender, worker_receiver) = channel();
+            let worker = Worker::new(f, i, sender.clone(), worker_receiver);
             workers.push(worker);
-            senders.push(tx);
+            senders.push(worker_sender);
         }
-        ThreadPool { workers, senders }
+        ThreadPool {
+            workers,
+            senders,
+            receiver,
+        }
     }
-    pub fn thread_count(&self) -> usize {
-        self.workers.len()
+    pub fn send(&self, thread_id: usize, msg: M) -> Result<()> {
+        if thread_id >= self.senders.len() {
+            bail!("thread_id {thread_id} is out of bounds");
+        }
+        if self.workers[thread_id].is_finished() {
+            bail!("worker {thread_id} has finished");
+        }
+        self.senders[thread_id]
+            .send(msg)
+            .map_err(|_| anyhow!("error sending message"))
     }
-    fn setup_job_runners<R: Send + 'static>(
-        &self,
-    ) -> (Vec<Sender<JobReq<R>>>, Receiver<JobRes<R>>) {
-        // Channels for recieving messages from worker
-        let (recv_tx, reciever) = channel::<JobRes<R>>();
-        let mut senders = Vec::new();
-        for i in 0..self.thread_count() {
-            let recv_tx = recv_tx.clone();
-            // Channels for sending messages to workers
-            let (send_tx, send_rx) = channel::<JobReq<R>>();
-            senders.push(send_tx);
-
-            // Job runner
-            let job_runner = move |worker_id| loop {
-                let msg = match send_rx.recv() {
-                    Ok(msg) => msg,
-                    // Gracefully exit if main thread panicked
-                    Err(_) => break,
-                };
-                match msg {
-                    JobReq::Job { job, job_id } => {
-                        // Run job
-                        let result = std::panic::catch_unwind(job);
-                        match result {
-                            Ok(result) => {
-                                recv_tx
-                                    .send(JobRes::Success {
-                                        job_id,
-                                        worker_id,
-                                        result,
-                                    })
-                                    .ok();
-                            }
-                            Err(payload) => {
-                                recv_tx.send(JobRes::Panicked { worker_id }).ok();
-                                std::panic::resume_unwind(payload);
-                            }
-                        }
-                    }
-                    JobReq::Quit => break,
-                }
-            };
-            // Send job runner to thread
-            self.senders[i]
-                .send(WorkerMsg::RunFn(Box::new(job_runner)))
-                .unwrap_or_else(|_| panic!("error sending job runner to worker {i}"));
-        }
-        (senders, reciever)
-    }
-    pub fn run<R, F>(&self, jobs: Vec<F>) -> Vec<R>
-    where
-        F: FnOnce() -> R + UnwindSafe + Send + 'static,
-        R: Send + 'static,
-    {
-        let thread_count = self.thread_count();
-        if thread_count == 0 {
-            // Special case: Complete jobs synchronously
-            return jobs.into_iter().map(|f| f()).collect();
-        }
-
-        // Set up Job Runners
-        let (senders, reciever) = self.setup_job_runners();
-
-        // Start collecting results
-        let total = jobs.len();
-        let mut completed = 0;
-        let mut panicked = None::<usize>;
-        let mut jobs = jobs.into_iter().enumerate();
-        let mut results = (0..total).map(|_| None::<R>).collect::<Vec<_>>();
-
-        let mut next_job = || match jobs.next() {
-            Some((i, job)) => JobReq::Job {
-                job: Box::new(job),
-                job_id: i,
-            },
-            None => JobReq::Quit,
-        };
-
-        // Send a job to each thread
-        for (i, sender) in senders.iter().enumerate() {
-            sender
-                .send(next_job())
-                .unwrap_or_else(|_| panic!("error sending JobMsg to worker {i}"))
-        }
-        // Recieve job results, and distribute remaining jobs as needed
-        while completed < total && panicked.is_none() {
-            let res = reciever.recv().expect("error receiving JobReq");
-            match res {
-                JobRes::Success {
-                    job_id,
-                    worker_id,
-                    result,
-                } => {
-                    completed += 1;
-                    results[job_id] = Some(result);
-                    senders[worker_id]
-                        .send(next_job())
-                        .unwrap_or_else(|_| panic!("error sending JobReq to worker {worker_id}"));
-                }
-                JobRes::Panicked { worker_id } => {
-                    panicked = Some(worker_id);
-                    // Tell all other threads to stop
-                    for (i, sender) in senders.iter().enumerate() {
-                        if i != worker_id {
-                            sender
-                                .send(JobReq::Quit)
-                                .unwrap_or_else(|_| panic!("error sending JobReq to worker {i}"));
-                        }
+    pub fn recv(&mut self) -> Result<Option<(usize, N)>> {
+        loop {
+            let msg = self
+                .receiver
+                .recv()
+                .map_err(|_| anyhow!("error receiving message"))?;
+            match msg {
+                ThreadRes::Msg { thread_id, msg } => return Ok(Some((thread_id, msg))),
+                ThreadRes::Join { thread_id } => {
+                    self.workers[thread_id].join()?;
+                    if self.active_workers() == 0 {
+                        return Ok(None);
                     }
                 }
             }
         }
-
-        if let Some(worker_id) = panicked {
-            panic!("worker {worker_id} panicked")
+    }
+    pub fn join(self) -> Result<()> {
+        let mut fail_count = 0;
+        for mut worker in self.workers {
+            if !worker.is_finished() {
+                match worker.join() {
+                    Ok(_) => {}
+                    Err(_) => fail_count += 1,
+                }
+            }
+        }
+        if fail_count > 0 {
+            bail!("{} threads failed to join or errored", fail_count);
         } else {
-            results.into_iter().map(|x| x.unwrap()).collect()
+            Ok(())
         }
     }
-}
-impl Drop for ThreadPool {
-    fn drop(&mut self) {
-        for sender in self.senders.iter_mut() {
-            sender.send(WorkerMsg::Quit).ok();
-        }
-
-        for worker in self.workers.iter_mut() {
-            if worker.handle.is_some() {
-                worker.handle.take().unwrap().join().ok();
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn it_should_run_0_threads() {
-        let thread_pool = ThreadPool::new(0);
-        let jobs = (0..100).map(|x| move || x * x).collect();
-        let result = thread_pool.run(jobs);
-        assert_eq!(result, (0..100).map(|x| x * x).collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn it_should_run_10_threads() {
-        let thread_pool = ThreadPool::new(10);
-        let jobs = (0..100).map(|x| move || x * x).collect();
-        let result = thread_pool.run(jobs);
-        assert_eq!(result, (0..100).map(|x| x * x).collect::<Vec<_>>());
-    }
-
-    #[test]
-    #[should_panic]
-    fn it_should_handle_panics() {
-        let thread_pool = ThreadPool::new(10);
-        let jobs = (0..100)
-            .map(|x| move || if x == 50 { panic!() } else { x })
-            .collect();
-        let _ = thread_pool.run(jobs);
+    pub fn active_workers(&self) -> usize {
+        self.workers.iter().filter(|w| !w.is_finished()).count()
     }
 }
