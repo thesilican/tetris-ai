@@ -3,13 +3,7 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::{iter::FromIterator, ops::Index};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InsertRes<T> {
-    Ok,
-    Full(T),
-}
+use std::ops::Index;
 
 #[derive(Debug, Clone, Copy)]
 /// Basic stack-based circular buffer
@@ -41,14 +35,13 @@ impl<T, const N: usize> ArrDeque<T, N> {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
-    pub fn push_back(&mut self, item: T) -> InsertRes<T> {
+    pub fn push_back(&mut self, item: T) {
         if self.len == N {
-            return InsertRes::Full(item);
+            panic!("pushed to ArrDeque at max capacity {N}");
         }
         let i = (self.head + self.len) % N;
         self.arr[i] = Some(item);
         self.len += 1;
-        InsertRes::Ok
     }
     pub fn pop_front(&mut self) -> Option<T> {
         if self.len == 0 {
@@ -79,20 +72,6 @@ impl<T, const N: usize> ArrDeque<T, N> {
             .iter()
             .chain(self.arr[..wrap_end].iter())
             .map(|x| x.as_ref().unwrap())
-    }
-}
-impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        for item in iter.into_iter() {
-            if let InsertRes::Full(_) = self.push_back(item) {
-                return;
-            }
-        }
-    }
-}
-impl<'a, T: 'a + Copy, const N: usize> Extend<&'a T> for ArrDeque<T, N> {
-    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
-        self.extend(iter.into_iter().copied())
     }
 }
 impl<T, const N: usize> Index<usize> for ArrDeque<T, N> {
@@ -140,27 +119,6 @@ where
         }
     }
 }
-impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut arr = ArrDeque::new();
-        arr.extend(iter);
-        arr
-    }
-}
-impl<'a, T: 'a, const N: usize> FromIterator<&'a T> for ArrDeque<T, N>
-where
-    T: Copy,
-{
-    fn from_iter<I: IntoIterator<Item = &'a T>>(iter: I) -> Self {
-        let mut arr = ArrDeque::new();
-        for &item in iter {
-            if let InsertRes::Full(_) = arr.push_back(item) {
-                return arr;
-            }
-        }
-        arr
-    }
-}
 
 // Manually implement ser/de (because derive doesn't seem to work)
 impl<T, const N: usize> Serialize for ArrDeque<T, N>
@@ -203,11 +161,12 @@ where
     {
         let mut arr = ArrDeque::<T, N>::new();
         while let Some(val) = access.next_element::<T>()? {
-            if let InsertRes::Full(_) = arr.push_back(val) {
+            if arr.len() == N {
                 return Err(S::Error::custom(format!(
                     "supplied value longer than max capacity: {N}"
                 )));
             }
+            arr.push_back(val)
         }
         Ok(arr)
     }

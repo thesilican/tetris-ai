@@ -1,4 +1,4 @@
-use super::game::{Game, GameActionRes, GameMove};
+use super::game::{ActionResult, Game, GameMove};
 use once_cell::sync::Lazy;
 
 type Run = &'static [GameMove];
@@ -102,7 +102,7 @@ impl Game {
                     let mut game = game;
                     for &game_move in run {
                         let res = game.make_move(game_move);
-                        if let GameActionRes::Fail = res {
+                        if let ActionResult::Fail = res {
                             continue 'o;
                         }
                     }

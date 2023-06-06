@@ -29,7 +29,7 @@ fn main() {
     println!("{}", serde_json::to_string(&game).unwrap());
     let res = SimpleAi.evaluate(&game);
     match res {
-        AiRes::Success {
+        AiResult::Success {
             moves,
             score: _score,
         } => {
@@ -41,7 +41,7 @@ fn main() {
             println!("{game}");
             println!("{}", serde_json::to_string(&game).unwrap());
         }
-        AiRes::Fail { reason } => {
+        AiResult::Fail { reason } => {
             println!("{reason}");
             println!("{}", serde_json::to_string(&reason).unwrap());
         }

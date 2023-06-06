@@ -7,7 +7,7 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BoardLockRes {
+pub struct LockResult {
     pub top_out: bool,
     pub lines_cleared: i8,
 }
@@ -98,7 +98,7 @@ impl Board {
         }
         false
     }
-    pub fn lock(&mut self, piece: &Piece) -> BoardLockRes {
+    pub fn lock(&mut self, piece: &Piece) -> LockResult {
         let p_y = piece.location.1;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
@@ -124,7 +124,7 @@ impl Board {
         // Check for top-out
         let top_out = self.topped_out();
 
-        BoardLockRes {
+        LockResult {
             lines_cleared,
             top_out,
         }

@@ -1,5 +1,5 @@
-use common::*;
+use anyhow::Result;
 
-fn main() {
-    println!("{}", std::mem::size_of::<Game>());
+fn main() -> Result<()> {
+    Ok(())
 }

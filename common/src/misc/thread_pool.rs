@@ -1,8 +1,6 @@
 use anyhow::{anyhow, bail, Result};
-use std::{
-    sync::mpsc::{channel, Receiver, Sender},
-    thread::{spawn, JoinHandle},
-};
+use crossbeam::channel::{unbounded, Receiver, Sender};
+use std::thread::{spawn, JoinHandle};
 
 enum ThreadRes<N> {
     Msg { thread_id: usize, msg: N },
@@ -101,9 +99,9 @@ impl<M, N> ThreadPool<M, N> {
     {
         let mut workers = Vec::new();
         let mut senders = Vec::new();
-        let (sender, receiver) = channel();
+        let (sender, receiver) = unbounded();
         for i in 0..thread_count {
-            let (worker_sender, worker_receiver) = channel();
+            let (worker_sender, worker_receiver) = unbounded();
             let worker = Worker::new(f, i, sender.clone(), worker_receiver);
             workers.push(worker);
             senders.push(worker_sender);
@@ -142,9 +140,9 @@ impl<M, N> ThreadPool<M, N> {
             }
         }
     }
-    pub fn join(self) -> Result<()> {
+    pub fn join(mut self) -> Result<()> {
         let mut fail_count = 0;
-        for mut worker in self.workers {
+        for worker in self.workers.iter_mut() {
             if !worker.is_finished() {
                 match worker.join() {
                     Ok(_) => {}
@@ -160,5 +158,13 @@ impl<M, N> ThreadPool<M, N> {
     }
     pub fn active_workers(&self) -> usize {
         self.workers.iter().filter(|w| !w.is_finished()).count()
+    }
+}
+
+impl<M, N> Drop for ThreadPool<M, N> {
+    fn drop(&mut self) {
+        if self.active_workers() > 0 {
+            panic!("thread pool dropped with active workers, please call thread_pool.join() to ensure that all threads have joined");
+        }
     }
 }

@@ -1,43 +1,45 @@
-use anyhow::{bail, Result};
-use base64::{CharacterSet, Config};
+mod impls;
 
-pub struct Buffer {
-    buffer: Vec<u8>,
+use anyhow::{bail, Result};
+use base64::{engine::general_purpose::URL_SAFE, Engine};
+
+pub struct PackBuffer {
+    buf: Vec<u8>,
 }
-impl Buffer {
+impl PackBuffer {
     pub fn new() -> Self {
-        Buffer { buffer: Vec::new() }
+        PackBuffer { buf: Vec::new() }
     }
     pub fn read(&self) -> &[u8] {
-        &self.buffer
+        &self.buf
     }
     pub fn write(&mut self, bytes: &[u8]) {
-        self.buffer.extend(bytes);
+        self.buf.extend(bytes);
     }
     pub fn write_u8(&mut self, val: u8) {
-        self.buffer.push(val);
+        self.buf.push(val);
     }
     pub fn write_u16(&mut self, val: u16) {
-        self.buffer.extend(val.to_le_bytes());
+        self.buf.extend(val.to_le_bytes());
     }
     pub fn write_u32(&mut self, val: u32) {
-        self.buffer.extend(val.to_le_bytes());
+        self.buf.extend(val.to_le_bytes());
     }
     pub fn write_u64(&mut self, val: u64) {
-        self.buffer.extend(val.to_le_bytes());
+        self.buf.extend(val.to_le_bytes());
     }
     pub fn write_packed(&mut self, packed: u64, len: usize) {
-        self.buffer.extend(&packed.to_le_bytes()[..len])
+        self.buf.extend(&packed.to_le_bytes()[..len])
     }
 }
 
-pub struct Cursor<'a> {
+pub struct PackCursor<'a> {
     head: usize,
     bytes: &'a [u8],
 }
-impl<'a> Cursor<'a> {
+impl<'a> PackCursor<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
-        Cursor { head: 0, bytes }
+        PackCursor { head: 0, bytes }
     }
     pub fn read(&mut self, amount: usize) -> Result<&[u8]> {
         if self.head + amount > self.bytes.len() {
@@ -87,21 +89,32 @@ impl<'a> Cursor<'a> {
     }
 }
 
-const BASE64_CONFIG: Config = Config::new(CharacterSet::UrlSafe, true);
-
 /// A faster and more compact format for serialization
-pub trait SerdeBytes: Sized {
-    fn serialize(&self, buf: &mut Buffer);
-    fn deserialize(cur: &mut Cursor) -> Result<Self>;
-    fn base64_serialize(&self) -> String {
-        let mut buf = Buffer::new();
-        self.serialize(&mut buf);
-        base64::encode_config(buf.read(), BASE64_CONFIG)
+pub trait Pack: Sized {
+    fn pack(&self, buf: &mut PackBuffer);
+    fn unpack(cur: &mut PackCursor) -> Result<Self>;
+    fn pack_bytes(&self) -> Vec<u8> {
+        let mut buf = PackBuffer::new();
+        self.pack(&mut buf);
+        buf.buf
     }
-    fn base64_deserialize(b64: &str) -> Result<Self> {
-        let bytes = base64::decode_config(b64, BASE64_CONFIG)?;
-        let mut cursor = Cursor::new(&bytes);
-        let val = Self::deserialize(&mut cursor);
+    fn pack_base64(&self) -> String {
+        let mut buf = PackBuffer::new();
+        self.pack(&mut buf);
+        URL_SAFE.encode(buf.read())
+    }
+    fn unpack_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut cursor = PackCursor::new(&bytes);
+        let val = Self::unpack(&mut cursor);
+        if !cursor.finished() {
+            bail!("expected end of cursor");
+        }
+        val
+    }
+    fn unpack_base64(text: &str) -> Result<Self> {
+        let bytes = URL_SAFE.decode(text)?;
+        let mut cursor = PackCursor::new(&bytes);
+        let val = Self::unpack(&mut cursor);
         if !cursor.finished() {
             bail!("expected end of cursor");
         }

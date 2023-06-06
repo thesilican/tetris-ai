@@ -1,10 +1,10 @@
-use crate::model::{Bag, Game, GameActionRes, GameMove, PERMS_1F};
+use crate::model::{ActionResult, Bag, Game, GameMove, PERMS_1F};
 use serde::Serialize;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
-pub enum AiRes {
+pub enum AiResult {
     Success {
         moves: Vec<GameMove>,
         score: Option<f64>,
@@ -13,23 +13,23 @@ pub enum AiRes {
         reason: String,
     },
 }
-impl AiRes {
+impl AiResult {
     fn expected(&self, mut game: Game) -> Option<Game> {
         match self {
-            AiRes::Success { moves, .. } => {
+            AiResult::Success { moves, .. } => {
                 for &game_move in moves {
                     game.make_move(game_move);
                 }
                 Some(game)
             }
-            AiRes::Fail { .. } => None,
+            AiResult::Fail { .. } => None,
         }
     }
 }
-impl Display for AiRes {
+impl Display for AiResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            AiRes::Success { moves, score } => {
+            AiResult::Success { moves, score } => {
                 let score = match score {
                     Some(score) => format!("{score:.2}"),
                     None => String::from("None"),
@@ -41,7 +41,7 @@ impl Display for AiRes {
                     .join(", ");
                 write!(f, "Eval Score: {score} Moves: [{moves}]")
             }
-            AiRes::Fail { reason } => {
+            AiResult::Fail { reason } => {
                 write!(f, "Eval Failed: {reason}")
             }
         }
@@ -50,8 +50,8 @@ impl Display for AiRes {
 
 #[derive(Serialize)]
 #[serde(untagged)]
-// Tagged version of AiResSer
-enum AiResSer {
+// Tagged version of AiResult
+enum AiResultSer {
     Success {
         success: bool,
         moves: Vec<GameMove>,
@@ -63,17 +63,17 @@ enum AiResSer {
         reason: String,
     },
 }
-impl AiResSer {
-    fn from(ai_res: AiRes, game: Game) -> Self {
+impl AiResultSer {
+    fn from(ai_res: AiResult, game: Game) -> Self {
         let expected = ai_res.expected(game);
         match ai_res {
-            AiRes::Success { moves, score } => AiResSer::Success {
+            AiResult::Success { moves, score } => AiResultSer::Success {
                 success: true,
                 moves,
                 score,
                 expected: expected.unwrap(),
             },
-            AiRes::Fail { reason } => AiResSer::Fail {
+            AiResult::Fail { reason } => AiResultSer::Fail {
                 success: false,
                 reason,
             },
@@ -82,13 +82,13 @@ impl AiResSer {
 }
 
 pub trait Ai {
-    fn evaluate(&mut self, game: &Game) -> AiRes;
+    fn evaluate(&mut self, game: &Game) -> AiResult;
     /// Same as ai.evaluate() but using JSON as input/output
     fn api_evaluate(&mut self, req: &str) -> String {
         let game = match serde_json::from_str(req) {
             Ok(game) => game,
             Err(parse_err) => {
-                let res_ser = AiResSer::Fail {
+                let res_ser = AiResultSer::Fail {
                     success: false,
                     reason: format!("Invalid request: {parse_err}"),
                 };
@@ -96,7 +96,7 @@ pub trait Ai {
             }
         };
         let res = self.evaluate(&game);
-        let res_ser = AiResSer::from(res, game);
+        let res_ser = AiResultSer::from(res, game);
         serde_json::to_string(&res_ser).unwrap()
     }
     /// A quick and easy way to watch an ai play a game
@@ -109,11 +109,11 @@ pub trait Ai {
             let res = self.evaluate(&game);
             let elapsed = start.elapsed();
             match res {
-                AiRes::Success { moves, score } => {
+                AiResult::Success { moves, score } => {
                     for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(game_move);
-                            if let GameActionRes::SuccessDrop { top_out, .. } = res {
+                            if let ActionResult::SuccessDrop { top_out, .. } = res {
                                 if top_out {
                                     println!("TOP OUT");
                                     break 'l;
@@ -131,11 +131,9 @@ pub trait Ai {
                         .map(|x| format!("{x}"))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    println!(
-                        "{game}\nEval: {score} in {elapsed:?}\n[{moves}]\n"
-                    );
+                    println!("{game}\nEval: {score} in {elapsed:?}\n[{moves}]\n");
                 }
-                AiRes::Fail { reason } => {
+                AiResult::Fail { reason } => {
                     println!("Evaluation failed: {reason}");
                     break;
                 }
@@ -151,11 +149,11 @@ pub trait Ai {
         'l: loop {
             let res = self.evaluate(&game);
             match res {
-                AiRes::Success { moves, .. } => {
+                AiResult::Success { moves, .. } => {
                     for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(game_move);
-                            if let GameActionRes::SuccessDrop { top_out, .. } = res {
+                            if let ActionResult::SuccessDrop { top_out, .. } = res {
                                 if top_out {
                                     println!("TOP OUT");
                                     break 'l;
@@ -168,7 +166,7 @@ pub trait Ai {
                         std::thread::sleep(std::time::Duration::from_millis(piece_delay_ms));
                     }
                 }
-                AiRes::Fail { reason } => {
+                AiResult::Fail { reason } => {
                     println!("Evaluation failed: {reason}");
                     break;
                 }
@@ -190,13 +188,13 @@ pub trait Ai {
             total_time += elapsed;
 
             match res {
-                AiRes::Success { moves, .. } => {
+                AiResult::Success { moves, .. } => {
                     for game_move in moves {
                         game.make_move(game_move);
                     }
                     game.refill_queue(&mut bag);
                 }
-                AiRes::Fail { .. } => {
+                AiResult::Fail { .. } => {
                     // Reset game
                     game = Game::from_bag(&mut bag);
                 }
@@ -218,7 +216,7 @@ impl SimpleAi {
     }
 }
 impl Ai for SimpleAi {
-    fn evaluate(&mut self, game: &Game) -> AiRes {
+    fn evaluate(&mut self, game: &Game) -> AiResult {
         let child_states = game.child_states(&PERMS_1F);
         let mut best_child = None;
         let mut best_height = i32::MAX;
@@ -243,11 +241,11 @@ impl Ai for SimpleAi {
             }
         }
         match best_child {
-            Some(child) => AiRes::Success {
+            Some(child) => AiResult::Success {
                 moves: child.moves().collect(),
                 score: Some(child_states.len() as f64),
             },
-            None => AiRes::Fail {
+            None => AiResult::Fail {
                 reason: "No valid moves".into(),
             },
         }

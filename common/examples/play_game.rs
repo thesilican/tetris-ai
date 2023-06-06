@@ -29,14 +29,12 @@ fn main() -> Result<()> {
             }
             Key::Down => {
                 let res = game.make_move(GameMove::HardDrop);
-                if let GameActionRes::SuccessDrop {
+                if let ActionResult::SuccessDrop {
                     lines_cleared,
                     top_out,
                 } = res
                 {
-                    println!(
-                        "Drop: Lines cleared: {lines_cleared} Top out: {top_out}"
-                    );
+                    println!("Drop: Lines cleared: {lines_cleared} Top out: {top_out}");
                 }
             }
             Key::Char('a') => {

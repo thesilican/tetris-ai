@@ -12,7 +12,7 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum GameActionRes {
+pub enum ActionResult {
     Success,
     SuccessDrop { lines_cleared: i8, top_out: bool },
     Fail,
@@ -148,11 +148,19 @@ impl Game {
         queue: &[PieceType],
         can_hold: bool,
     ) -> Self {
+        let queue_iter = queue.into_iter();
+        let mut queue = ArrDeque::new();
+        for &item in queue_iter {
+            while queue.len() < GAME_MAX_QUEUE_LEN {
+                queue.push_back(item)
+            }
+        }
+
         Game {
             board,
             active,
             hold,
-            queue: queue.iter().collect(),
+            queue,
             can_hold,
         }
     }
@@ -171,11 +179,18 @@ impl Game {
         }
     }
     pub fn from_pieces(active: PieceType, hold: Option<PieceType>, queue: &[PieceType]) -> Self {
+        let queue_iter = queue.into_iter();
+        let mut queue = ArrDeque::new();
+        for &item in queue_iter {
+            while queue.len() < GAME_MAX_QUEUE_LEN {
+                queue.push_back(item)
+            }
+        }
         Game {
             board: Board::new(),
             active: Piece::from_piece_type(active),
             hold,
-            queue: queue.iter().collect(),
+            queue,
             can_hold: true,
         }
     }
@@ -194,10 +209,14 @@ impl Game {
         self.extend_queue(pieces);
     }
     pub fn append_queue(&mut self, piece: PieceType) {
-        self.queue.push_back(piece);
+        if self.queue.len() == GAME_MAX_QUEUE_LEN {
+            self.queue.push_back(piece);
+        }
     }
     pub fn extend_queue(&mut self, pieces: &[PieceType]) {
-        self.queue.extend(pieces);
+        for &item in pieces {
+            self.append_queue(item)
+        }
     }
     pub fn clear_queue(&mut self) {
         self.queue.clear();
@@ -224,7 +243,7 @@ impl Game {
         true
     }
 
-    pub fn apply_action(&mut self, game_action: GameAction) -> GameActionRes {
+    pub fn apply_action(&mut self, game_action: GameAction) -> ActionResult {
         match game_action {
             GameAction::ShiftLeft
             | GameAction::ShiftRight
@@ -236,25 +255,25 @@ impl Game {
                 let piece_move = PieceAction::from_game_action(game_action).unwrap();
                 let res = self.active.apply_action(piece_move, &self.board);
                 if res {
-                    GameActionRes::Success
+                    ActionResult::Success
                 } else {
-                    GameActionRes::Fail
+                    ActionResult::Fail
                 }
             }
             GameAction::Hold => {
                 if !self.can_hold {
-                    return GameActionRes::Fail;
+                    return ActionResult::Fail;
                 }
                 if self.swap_hold() {
                     self.can_hold = false;
-                    GameActionRes::Success
+                    ActionResult::Success
                 } else {
-                    GameActionRes::Fail
+                    ActionResult::Fail
                 }
             }
             GameAction::Lock => {
                 if self.queue.is_empty() {
-                    return GameActionRes::Fail;
+                    return ActionResult::Fail;
                 }
 
                 self.active.soft_drop(&self.board);
@@ -263,18 +282,18 @@ impl Game {
                 self.active.reset();
                 self.can_hold = true;
 
-                GameActionRes::SuccessDrop {
+                ActionResult::SuccessDrop {
                     lines_cleared: res.lines_cleared,
                     top_out: res.top_out,
                 }
             }
             GameAction::AddGarbage { col, height } => {
                 self.board.add_garbage(col, height);
-                GameActionRes::Success
+                ActionResult::Success
             }
         }
     }
-    pub fn make_move(&mut self, game_move: GameMove) -> GameActionRes {
+    pub fn make_move(&mut self, game_move: GameMove) -> ActionResult {
         match game_move {
             GameMove::ShiftLeft
             | GameMove::ShiftRight
@@ -288,14 +307,14 @@ impl Game {
             }
             GameMove::HardDrop => {
                 if self.queue.is_empty() {
-                    return GameActionRes::Fail;
+                    return ActionResult::Fail;
                 }
 
                 self.apply_action(GameAction::SoftDrop);
                 let res = self.apply_action(GameAction::Lock);
                 self.apply_action(GameAction::ShiftDown);
 
-                if let GameActionRes::SuccessDrop { .. } = res {
+                if let ActionResult::SuccessDrop { .. } = res {
                     res
                 } else {
                     panic!("Expected GameActionRes::SuccessDrop(_)")
