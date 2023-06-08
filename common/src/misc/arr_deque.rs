@@ -1,11 +1,13 @@
+use anyhow::{bail, Result};
 use serde::de::{Error, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::Index;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 /// Basic stack-based circular buffer
 pub struct ArrDeque<T, const N: usize> {
     head: usize,
@@ -17,8 +19,6 @@ pub struct ArrDeque<T, const N: usize> {
 impl<T, const N: usize> ArrDeque<T, N> {
     pub fn new() -> Self {
         // Work around so that T does not need to be Copy
-        // Initializes the array with None
-        // Slow but at least doesn't require unsafe
         let arr = [(); N].map(|_| None);
         ArrDeque {
             head: 0,
@@ -35,22 +35,23 @@ impl<T, const N: usize> ArrDeque<T, N> {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
-    pub fn push_back(&mut self, item: T) {
+    pub fn push_back(&mut self, item: T) -> Result<()> {
         if self.len == N {
-            panic!("pushed to ArrDeque at max capacity {N}");
+            bail!("insufficient capacity for ArrDeque");
         }
         let i = (self.head + self.len) % N;
         self.arr[i] = Some(item);
         self.len += 1;
+        Ok(())
     }
     pub fn pop_front(&mut self) -> Option<T> {
         if self.len == 0 {
             return None;
         }
-        let res = self.arr[self.head].take();
+        let i = self.head;
         self.head = (self.head + 1) % N;
         self.len -= 1;
-        res
+        self.arr[i].take()
     }
     pub fn clear(&mut self) {
         for i in 0..self.len {
@@ -60,18 +61,12 @@ impl<T, const N: usize> ArrDeque<T, N> {
         self.head = 0;
         self.len = 0;
     }
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        let start = self.head;
-        let (end, wrap_end) = if self.head + self.len > N {
-            (N, self.head + self.len - N)
-        } else {
-            (self.head + self.len, 0)
-        };
-
-        self.arr[start..end]
-            .iter()
-            .chain(self.arr[..wrap_end].iter())
-            .map(|x| x.as_ref().unwrap())
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            idx: self.head,
+            count: self.len,
+            arr: &self.arr,
+        }
     }
 }
 impl<T, const N: usize> Index<usize> for ArrDeque<T, N> {
@@ -119,8 +114,54 @@ where
         }
     }
 }
+impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for item in iter {
+            if let Err(_) = self.push_back(item) {
+                break;
+            }
+        }
+    }
+}
+impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut arr = ArrDeque::<T, N>::new();
+        arr.extend(iter);
+        arr
+    }
+}
+impl<T, const N: usize> Debug for ArrDeque<T, N>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
 
-// Manually implement ser/de (because derive doesn't seem to work)
+pub struct Iter<'a, T> {
+    idx: usize,
+    count: usize,
+    arr: &'a [Option<T>],
+}
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count == 0 {
+            None
+        } else {
+            let i = self.idx;
+            self.idx += 1;
+            if self.idx == self.arr.len() {
+                self.idx = 0;
+            }
+            self.count -= 1;
+            Some(self.arr[i].as_ref().unwrap())
+        }
+    }
+}
+
 impl<T, const N: usize> Serialize for ArrDeque<T, N>
 where
     T: Serialize,
@@ -161,12 +202,14 @@ where
     {
         let mut arr = ArrDeque::<T, N>::new();
         while let Some(val) = access.next_element::<T>()? {
-            if arr.len() == N {
-                return Err(S::Error::custom(format!(
-                    "supplied value longer than max capacity: {N}"
-                )));
+            match arr.push_back(val) {
+                Ok(_) => {}
+                Err(_) => {
+                    return Err(S::Error::custom(format!(
+                        "supplied value longer than max capacity: {N}"
+                    )))
+                }
             }
-            arr.push_back(val)
         }
         Ok(arr)
     }
@@ -181,5 +224,24 @@ where
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_seq(ArrDequeVisitor::new())
+    }
+}
+
+mod test {
+    #[test]
+    fn test_arr_deque() {
+        use crate::ArrDeque;
+        let mut arr = ArrDeque::<i32, 6>::new();
+        for i in 0..6 {
+            arr.push_back(i).unwrap();
+        }
+        for _ in 0..4 {
+            arr.pop_front();
+        }
+        for i in 0..4 {
+            arr.push_back(i).unwrap();
+        }
+        let expected = "[4, 5, 0, 1, 2, 3]";
+        assert_eq!(expected, &format!("{arr:?}"))
     }
 }

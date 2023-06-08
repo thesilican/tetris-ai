@@ -84,7 +84,7 @@ impl ColoredGame {
             }
         }
     }
-    pub fn apply_action(&mut self, game_action: GameAction) -> GameActionRes {
+    pub fn apply_action(&mut self, game_action: GameAction) -> ActionResult {
         match game_action {
             GameAction::Lock => {
                 ColoredGame::simulate_lock(self.game, &mut self.colors);
@@ -108,7 +108,7 @@ impl ColoredGame {
         }
         self.game.apply_action(game_action)
     }
-    pub fn make_move(&mut self, game_move: GameMove) -> GameActionRes {
+    pub fn make_move(&mut self, game_move: GameMove) -> ActionResult {
         if let GameMove::HardDrop = game_move {
             let mut game = self.game;
             game.apply_action(GameAction::SoftDrop);

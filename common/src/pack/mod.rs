@@ -104,7 +104,7 @@ pub trait Pack: Sized {
         URL_SAFE.encode(buf.read())
     }
     fn unpack_bytes(bytes: &[u8]) -> Result<Self> {
-        let mut cursor = PackCursor::new(&bytes);
+        let mut cursor = PackCursor::new(bytes);
         let val = Self::unpack(&mut cursor);
         if !cursor.finished() {
             bail!("expected end of cursor");

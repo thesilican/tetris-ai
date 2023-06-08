@@ -1,6 +1,8 @@
+use anyhow::Result;
 use deep_bot::DeepAi;
-use sdl_gui::Gui;
+use sdl_gui::AiGui;
 
-fn main() {
-    Gui::new().watch(DeepAi::new(5, 6));
+fn main() -> Result<()> {
+    AiGui::new(DeepAi::new(5, 6))?.run()?;
+    Ok(())
 }

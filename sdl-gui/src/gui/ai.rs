@@ -51,13 +51,13 @@ impl<A: Ai> AiGui<A> {
                 } else if cooldown <= 1 {
                     let res = ai.evaluate(game.game());
                     match res {
-                        AiRes::Success {
+                        AiResult::Success {
                             moves: eval_moves,
                             score: _,
                         } => {
                             moves.extend(eval_moves);
                         }
-                        AiRes::Fail { reason: _ } => {}
+                        AiResult::Fail { reason: _ } => {}
                     }
                     cooldown = COOLDOWN;
                 }

@@ -62,7 +62,7 @@ impl<const N: usize> Perms<N> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChildState {
     pub game: Game,
-    perm: &'static [Run],
+    pub perm: &'static [Run],
 }
 impl ChildState {
     pub fn moves(&self) -> impl Iterator<Item = GameMove> + '_ {

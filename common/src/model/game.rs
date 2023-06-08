@@ -148,13 +148,7 @@ impl Game {
         queue: &[PieceType],
         can_hold: bool,
     ) -> Self {
-        let queue_iter = queue.into_iter();
-        let mut queue = ArrDeque::new();
-        for &item in queue_iter {
-            while queue.len() < GAME_MAX_QUEUE_LEN {
-                queue.push_back(item)
-            }
-        }
+        let queue = queue.iter().copied().collect();
 
         Game {
             board,
@@ -168,7 +162,7 @@ impl Game {
         let active = Piece::from_piece_type(bag.next());
         let mut queue = ArrDeque::<PieceType, GAME_MAX_QUEUE_LEN>::new();
         while queue.len() < GAME_MAX_QUEUE_LEN {
-            queue.push_back(bag.next());
+            queue.push_back(bag.next()).unwrap();
         }
         Game {
             board: Board::new(),
@@ -179,18 +173,11 @@ impl Game {
         }
     }
     pub fn from_pieces(active: PieceType, hold: Option<PieceType>, queue: &[PieceType]) -> Self {
-        let queue_iter = queue.into_iter();
-        let mut queue = ArrDeque::new();
-        for &item in queue_iter {
-            while queue.len() < GAME_MAX_QUEUE_LEN {
-                queue.push_back(item)
-            }
-        }
         Game {
             board: Board::new(),
             active: Piece::from_piece_type(active),
             hold,
-            queue,
+            queue: queue.iter().copied().collect(),
             can_hold: true,
         }
     }
@@ -209,13 +196,13 @@ impl Game {
         self.extend_queue(pieces);
     }
     pub fn append_queue(&mut self, piece: PieceType) {
-        if self.queue.len() == GAME_MAX_QUEUE_LEN {
-            self.queue.push_back(piece);
-        }
+        self.queue.push_back(piece).unwrap();
     }
     pub fn extend_queue(&mut self, pieces: &[PieceType]) {
-        for &item in pieces {
-            self.append_queue(item)
+        for &piece in pieces {
+            if self.queue.len() < GAME_MAX_QUEUE_LEN {
+                self.queue.push_back(piece).unwrap();
+            }
         }
     }
     pub fn clear_queue(&mut self) {

@@ -1,5 +1,5 @@
 use crate::{ArrDeque, Board, Game, Pack, PackBuffer, PackCursor, Piece, PieceType};
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 
 impl<T, const N: usize> Pack for ArrDeque<T, N>
 where
@@ -25,7 +25,7 @@ where
         let mut arr = ArrDeque::new();
         for _ in 0..len {
             let x = T::unpack(cur)?;
-            arr.push_back(x);
+            arr.push_back(x).context("unpacked too many items")?;
         }
         Ok(arr)
     }
