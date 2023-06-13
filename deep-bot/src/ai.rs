@@ -1,12 +1,33 @@
+use anyhow::{anyhow, Result};
 use common::*;
+use std::collections::BinaryHeap;
+use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
-use crate::{Node, NodeTree};
+use crate::{Node, Tree};
+
+pub struct ScoredNode(Node);
+impl PartialEq for ScoredNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.score == other.0.score
+    }
+}
+impl Eq for ScoredNode {}
+impl PartialOrd for ScoredNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.score.partial_cmp(&other.0.score)
+    }
+}
+impl Ord for ScoredNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.score.total_cmp(&other.0.score)
+    }
+}
 
 pub struct DeepAi {
-    depth: usize,
-    take: usize,
-    step: usize,
-    cache: NodeTree,
+    pub depth: usize,
+    pub take: usize,
+    pub step: usize,
+    tree: Tree,
 }
 impl DeepAi {
     pub fn new(depth: usize, take: usize) -> Self {
@@ -15,58 +36,68 @@ impl DeepAi {
             depth,
             take,
             step: 0,
-            cache: NodeTree::new(),
+            tree: Tree::new(),
         }
-    }
-    pub fn depth(&self) -> usize {
-        self.depth
     }
 }
 impl Ai for DeepAi {
     fn evaluate(&mut self, game: &Game) -> AiResult {
-        self.cache.probe_queue(self.step, &game.queue);
-        let children = game.children().unwrap();
+        if game.hold.is_none() {
+            return Ok(AiEval {
+                moves: vec![GameMove::Hold],
+                score: None,
+            });
+        }
+        self.tree
+            .probe_queue(self.step, game.queue.iter().copied())
+            .map_err(|e| format!("error probing queue: {e}"))?;
+        let children = match game.children() {
+            Ok(children) => children,
+            Err(_) => {
+                return Ok(AiEval {
+                    moves: vec![GameMove::HardDrop],
+                    score: None,
+                })
+            }
+        };
         let mut best_score = f32::NEG_INFINITY;
-        let mut best_child = None;
-        self.step += 1;
+        let mut best_node = None;
         for child in children {
-            let key = Node::new(child.game);
-            let score = self.dfs(&key, 0);
-            if best_child.is_none() || score > best_score {
-                best_child = Some(child);
+            let node = Node::new(child.game, self.step + 1);
+            let score = match self.dfs(&node, 0) {
+                Some(score) => score,
+                None => continue,
+            };
+            if best_node.is_none() || score > best_score {
+                best_node = Some(child);
                 best_score = score;
             }
         }
-        match best_child {
-            Some(child) => AiResult::Success {
+        self.step += 1;
+        match best_node {
+            Some(child) => Ok(AiEval {
                 moves: child.moves().collect(),
                 score: Some(best_score as f64),
-            },
-            None => AiResult::Fail {
-                reason: "No valid moves".to_string(),
-            },
+            }),
+            None => Err("No valid moves".to_string()),
         }
     }
 }
 impl DeepAi {
-    fn dfs(&mut self, node: &Node, depth: usize) -> f32 {
+    fn dfs(&mut self, node: &Node, depth: usize) -> Option<f32> {
         if depth == self.depth {
-            return node.score;
+            return Some(node.score);
         }
-        let mut children = self.cache.get(node, self.step + depth).unwrap().to_vec();
-        if children.len() == 0 {
-            return f32::NEG_INFINITY;
-        }
-        children.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
-        children
+        self.tree
+            .get(node)
+            .ok()?
             .into_iter()
-            .rev()
+            .copied()
+            .map(ScoredNode)
+            .collect::<BinaryHeap<ScoredNode>>()
+            .into_iter_sorted()
             .take(self.take)
-            .map(|node| {
-                let score = self.dfs(&node, depth + 1);
-                score
-            })
+            .filter_map(|node| self.dfs(&node.0, depth + 1))
             .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
     }
 }

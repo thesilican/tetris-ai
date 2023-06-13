@@ -1,3 +1,4 @@
+#![feature(binary_heap_into_iter_sorted)]
 mod ai;
 mod tree;
 

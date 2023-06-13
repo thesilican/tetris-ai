@@ -3,49 +3,11 @@ use serde::Serialize;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone)]
-pub enum AiResult {
-    Success {
-        moves: Vec<GameMove>,
-        score: Option<f64>,
-    },
-    Fail {
-        reason: String,
-    },
-}
-impl AiResult {
-    fn expected(&self, mut game: Game) -> Option<Game> {
-        match self {
-            AiResult::Success { moves, .. } => {
-                for &game_move in moves {
-                    game.make_move(game_move);
-                }
-                Some(game)
-            }
-            AiResult::Fail { .. } => None,
-        }
-    }
-}
-impl Display for AiResult {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            AiResult::Success { moves, score } => {
-                let score = match score {
-                    Some(score) => format!("{score:.2}"),
-                    None => String::from("None"),
-                };
-                let moves = moves
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                write!(f, "Eval Score: {score} Moves: [{moves}]")
-            }
-            AiResult::Fail { reason } => {
-                write!(f, "Eval Failed: {reason}")
-            }
-        }
-    }
+pub type AiResult = Result<AiEval, String>;
+
+pub struct AiEval {
+    pub moves: Vec<GameMove>,
+    pub score: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -56,24 +18,21 @@ enum AiResultSer {
         success: bool,
         moves: Vec<GameMove>,
         score: Option<f64>,
-        expected: Game,
     },
     Fail {
         success: bool,
         reason: String,
     },
 }
-impl AiResultSer {
-    fn from(ai_res: AiResult, game: Game) -> Self {
-        let expected = ai_res.expected(game);
+impl From<AiResult> for AiResultSer {
+    fn from(ai_res: AiResult) -> Self {
         match ai_res {
-            AiResult::Success { moves, score } => AiResultSer::Success {
+            Ok(AiEval { moves, score }) => AiResultSer::Success {
                 success: true,
                 moves,
                 score,
-                expected: expected.unwrap(),
             },
-            AiResult::Fail { reason } => AiResultSer::Fail {
+            Err(reason) => AiResultSer::Fail {
                 success: false,
                 reason,
             },
@@ -96,7 +55,7 @@ pub trait Ai {
             }
         };
         let res = self.evaluate(&game);
-        let res_ser = AiResultSer::from(res, game);
+        let res_ser = AiResultSer::from(res);
         serde_json::to_string(&res_ser).unwrap()
     }
     /// A quick and easy way to watch an ai play a game
@@ -109,7 +68,7 @@ pub trait Ai {
             let res = self.evaluate(&game);
             let elapsed = start.elapsed();
             match res {
-                AiResult::Success { moves, score } => {
+                Ok(AiEval { moves, score }) => {
                     for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(game_move);
@@ -133,7 +92,7 @@ pub trait Ai {
                         .join(", ");
                     println!("{game}\nEval: {score} in {elapsed:?}\n[{moves}]\n");
                 }
-                AiResult::Fail { reason } => {
+                Err(reason) => {
                     println!("Evaluation failed: {reason}");
                     break;
                 }
@@ -149,7 +108,7 @@ pub trait Ai {
         'l: loop {
             let res = self.evaluate(&game);
             match res {
-                AiResult::Success { moves, .. } => {
+                Ok(AiEval { moves, .. }) => {
                     for &game_move in &moves {
                         if let GameMove::HardDrop = game_move {
                             let res = game.make_move(game_move);
@@ -166,7 +125,7 @@ pub trait Ai {
                         std::thread::sleep(std::time::Duration::from_millis(piece_delay_ms));
                     }
                 }
-                AiResult::Fail { reason } => {
+                Err(reason) => {
                     println!("Evaluation failed: {reason}");
                     break;
                 }
@@ -188,13 +147,13 @@ pub trait Ai {
             total_time += elapsed;
 
             match res {
-                AiResult::Success { moves, .. } => {
+                Ok(AiEval { moves, .. }) => {
                     for game_move in moves {
                         game.make_move(game_move);
                     }
                     game.refill_queue(&mut bag);
                 }
-                AiResult::Fail { .. } => {
+                Err(_) => {
                     // Reset game
                     game = Game::from_bag(&mut bag);
                 }
@@ -220,10 +179,10 @@ impl Ai for SimpleAi {
         let children = match game.children() {
             Ok(children) => children,
             Err(_) => {
-                return AiResult::Success {
+                return Ok(AiEval {
                     moves: [GameMove::HardDrop].into_iter().collect(),
                     score: None,
-                };
+                });
             }
         };
         let mut best_child = None;
@@ -239,13 +198,11 @@ impl Ai for SimpleAi {
             }
         }
         match best_child {
-            Some(child) => AiResult::Success {
+            Some(child) => Ok(AiEval {
                 moves: child.moves().collect(),
                 score: Some(children.len() as f64),
-            },
-            None => AiResult::Fail {
-                reason: "No valid moves".into(),
-            },
+            }),
+            None => Err("No valid moves".to_string()),
         }
     }
 }

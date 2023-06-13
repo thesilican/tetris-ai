@@ -1,54 +1,46 @@
-use anyhow::Result;
-use common::{ArrDeque, Board, Game, Piece, PieceType};
-use std::collections::HashMap;
-use std::hash::Hash;
+use anyhow::{bail, Result};
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
+
+use common::{Board, Game, Piece, PieceType};
+use smallvec::SmallVec;
 
 #[derive(Clone, Copy)]
 pub struct Node {
-    pub board: Board,
-    pub active: Piece,
-    pub hold: Option<PieceType>,
-    pub can_hold: bool,
-    // Below is cached, do not use for comparison/hashing
+    board: Board,
+    active: Piece,
+    hold: Option<PieceType>,
+    can_hold: bool,
+    step: usize,
     pub score: f32,
 }
 impl Node {
-    pub fn new(game: Game) -> Self {
+    pub fn new(game: Game, step: usize) -> Self {
         Node {
             board: game.board,
             active: game.active,
             hold: game.hold,
             can_hold: game.can_hold,
-            score: Node::calculate_score(game),
+            step,
+            score: Node::calculate_score(&game),
         }
     }
-    pub fn calculate_score(game: Game) -> f32 {
+    fn calculate_score(game: &Game) -> f32 {
         let height_map = game.board.height_map();
 
         // Board height
-        let board_height = height_map.iter().map(|&x| x as f32).sum::<f32>();
+        let board_height = height_map.iter().map(|&x| (x * x) as f32).sum::<f32>();
 
         // Board Bumpiness
         let bumpiness = height_map
             .windows(2)
-            .map(|x| (x[0] as i32 - x[1] as i32).abs() as f32)
+            .map(|x| (x[0] as f32 - x[1] as f32).abs())
             .sum::<f32>();
 
         // Board holes
-        let mut holes = 0.0;
-        for i in 0..10 {
-            let height = height_map[i] as usize;
-            let mut block = false;
-            for j in (0..height).rev() {
-                if game.board.get(i, j) {
-                    block = true;
-                } else {
-                    if block {
-                        holes += 1.0;
-                    }
-                }
-            }
-        }
+        let holes = game.board.holes().iter().sum::<u32>() as f32;
 
         // Free right column
         let right_col = if (0..10).all(|i| !game.board.get(9, i)) {
@@ -56,14 +48,23 @@ impl Node {
         } else {
             0.0
         };
-        (-0.1 * board_height) + (-1.0 * bumpiness) + (-1.0 * holes) + (0.0 * right_col)
+        (-0.2 * board_height) + (-0.1 * bumpiness) + (-10.0 * holes) + (0.0 * right_col)
     }
-    pub fn create_game(&self, queue: &[PieceType], step: usize) -> Game {
-        if step >= queue.len() {
-            panic!("step greater than queue length");
+    fn to_game(&self, queue: &[PieceType]) -> Result<Game> {
+        if self.step >= queue.len() {
+            bail!(
+                "step {} greater than queue length {}",
+                self.step,
+                queue.len()
+            );
         }
-        let queue = &queue[step..];
-        Game::from_parts(self.board, self.active, self.hold, queue, self.can_hold)
+        Ok(Game::from_parts(
+            self.board,
+            self.active,
+            self.hold,
+            &queue[self.step..],
+            self.can_hold,
+        ))
     }
 }
 impl PartialEq for Node {
@@ -72,59 +73,69 @@ impl PartialEq for Node {
             && self.active == other.active
             && self.hold == other.hold
             && self.can_hold == other.can_hold
+            && self.step == other.step
     }
 }
 impl Eq for Node {}
 impl Hash for Node {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.board.hash(state);
         self.active.hash(state);
         self.hold.hash(state);
         self.can_hold.hash(state);
+        self.step.hash(state);
     }
 }
 
-pub struct NodeTree {
+pub struct Tree {
+    nodes: HashMap<Node, SmallVec<[Node; 100]>>,
     queue: Vec<PieceType>,
-    map: HashMap<Node, Vec<Node>>,
 }
-impl NodeTree {
+impl Tree {
     pub fn new() -> Self {
-        NodeTree {
-            map: HashMap::new(),
+        Tree {
+            nodes: HashMap::new(),
             queue: Vec::new(),
         }
     }
-    pub fn get(&mut self, node: &Node, step: usize) -> Result<&[Node]> {
-        if !self.map.contains_key(node) {
-            self.generate(node, step);
-        }
-        Ok(self.map.get(node).unwrap())
-    }
-    fn generate(&mut self, node: &Node, step: usize) {
-        let game = node.create_game(&self.queue, step);
-        let children = game.children().unwrap();
-        let values = children.into_iter().map(|x| Node::new(x.game)).collect();
-        self.map.insert(*node, values);
-    }
-    // Pushes new value to the queue at a certain step,
-    // ensuring that the queue is consistent
-    pub fn probe_queue<const N: usize>(
+    pub fn probe_queue(
         &mut self,
         step: usize,
-        queue: &ArrDeque<PieceType, N>,
-    ) -> bool {
-        if step > self.queue.len() {
-            false
-        } else {
-            for (a, b) in self.queue[step..].iter().zip(queue.iter()) {
-                if a != b {
-                    return false;
+        pieces: impl IntoIterator<Item = PieceType>,
+    ) -> Result<()> {
+        let mut i = step;
+        for piece in pieces {
+            if i < self.queue.len() {
+                if piece != self.queue[i] {
+                    bail!("queue inconsistency at step {i}");
                 }
+            } else if i == self.queue.len() {
+                self.queue.push(piece);
+            } else {
+                bail!(
+                    "queue jumped to step {i}, currently length {}",
+                    self.queue.len()
+                )
             }
-            let start = self.queue.len() - step;
-            self.queue.extend(queue.iter().skip(start));
-            true
+            i += 1;
         }
+        Ok(())
+    }
+    pub fn get(&mut self, node: &Node) -> Result<&[Node]> {
+        if !self.nodes.contains_key(node) {
+            self.insert(node)?;
+        }
+        Ok(self.nodes.get(node).unwrap())
+    }
+    pub fn insert(&mut self, node: &Node) -> Result<()> {
+        let game = node.to_game(&self.queue)?;
+        let children = game.children()?;
+        let mut nodes = SmallVec::new();
+        for child in children {
+            let node = Node::new(child.game, node.step + 1);
+            nodes.push(node);
+        }
+        self.nodes.insert(*node, nodes);
+        Ok(())
     }
 }
