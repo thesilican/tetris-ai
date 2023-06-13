@@ -20,6 +20,7 @@ impl Display for ChildError {
 }
 impl Error for ChildError {}
 
+#[derive(Clone, Copy)]
 pub struct Child {
     pub game: Game,
     hold: bool,
