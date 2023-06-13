@@ -25,14 +25,14 @@ impl DeepAi {
 impl Ai for DeepAi {
     fn evaluate(&mut self, game: &Game) -> AiResult {
         self.cache.probe_queue(self.step, &game.queue);
-        let children = game.child_states(&PERMS_1F);
+        let children = game.children().unwrap();
         let mut best_score = f32::NEG_INFINITY;
         let mut best_child = None;
         self.step += 1;
         for child in children {
             let key = Node::new(child.game);
             let score = self.dfs(&key, 0);
-            if best_child == None || score > best_score {
+            if best_child.is_none() || score > best_score {
                 best_child = Some(child);
                 best_score = score;
             }

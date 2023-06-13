@@ -1,4 +1,4 @@
-use crate::model::{ActionResult, Bag, Game, GameMove, PERMS_1F};
+use crate::model::{ActionResult, Bag, Game, GameMove};
 use serde::Serialize;
 use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
@@ -217,22 +217,20 @@ impl SimpleAi {
 }
 impl Ai for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> AiResult {
-        let child_states = game.child_states(&PERMS_1F);
+        let children = match game.children() {
+            Ok(children) => children,
+            Err(_) => {
+                return AiResult::Success {
+                    moves: [GameMove::HardDrop].into_iter().collect(),
+                    score: None,
+                };
+            }
+        };
         let mut best_child = None;
-        let mut best_height = i32::MAX;
-        let mut best_holes = i32::MAX;
-        for child in child_states.iter().rev() {
-            let height = child
-                .game
-                .board
-                .height_map()
-                .iter()
-                .map(|&x| {
-                    // Square so that higher heights are punished more
-                    let x = x as i32;
-                    x * x
-                })
-                .sum();
+        let mut best_height = u32::MAX;
+        let mut best_holes = u32::MAX;
+        for child in children.iter().rev() {
+            let height = child.game.board.height_map().iter().map(|&x| x * x).sum();
             let holes = child.game.board.holes().iter().sum();
             if height < best_height || (height == best_height && holes < best_holes) {
                 best_height = height;
@@ -243,7 +241,7 @@ impl Ai for SimpleAi {
         match best_child {
             Some(child) => AiResult::Success {
                 moves: child.moves().collect(),
-                score: Some(child_states.len() as f64),
+                score: Some(children.len() as f64),
             },
             None => AiResult::Fail {
                 reason: "No valid moves".into(),

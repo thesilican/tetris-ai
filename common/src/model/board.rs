@@ -9,7 +9,7 @@ use std::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LockResult {
     pub top_out: bool,
-    pub lines_cleared: i8,
+    pub lines_cleared: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -44,17 +44,16 @@ impl Board {
             self.matrix[y] &= !(1 << x);
         }
     }
-    pub fn set_col(&mut self, x: usize, height: i8) {
-        assert!(height >= 0);
+    pub fn set_col(&mut self, x: usize, height: u32) {
         for i in 0..BOARD_HEIGHT {
-            if i < height as usize {
+            if (i as u32) < height {
                 self.matrix[i] |= 1 << x;
             } else {
                 self.matrix[i] &= !(1 << x);
             }
         }
     }
-    pub fn set_cols(&mut self, heights: [i8; BOARD_WIDTH]) {
+    pub fn set_cols(&mut self, heights: [u32; BOARD_WIDTH]) {
         for i in 0..BOARD_WIDTH {
             self.set_col(i, heights[i]);
         }
@@ -69,7 +68,7 @@ impl Board {
         }
         self.matrix = matrix;
     }
-    pub fn add_garbage(&mut self, col: usize, height: i8) {
+    pub fn add_garbage(&mut self, col: usize, height: u32) {
         let height = height as usize;
         assert!(col < BOARD_WIDTH);
         assert!(height < BOARD_HEIGHT);
@@ -83,12 +82,13 @@ impl Board {
             self.matrix[j] = garbage_row;
         }
     }
+    #[inline]
     pub fn intersects_with(&self, piece: &Piece) -> bool {
-        let p_y = piece.location.1;
+        let p_y = piece.location.1 as i32;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
-            let y = p_y + j as i8;
-            if y < 0 || y >= BOARD_HEIGHT as i8 {
+            let y = p_y + j as i32;
+            if y < 0 || y >= BOARD_HEIGHT as i32 {
                 continue;
             }
             let row = self.matrix[y as usize];
@@ -98,18 +98,19 @@ impl Board {
         }
         false
     }
+    #[inline]
     pub fn lock(&mut self, piece: &Piece) -> LockResult {
-        let p_y = piece.location.1;
+        let p_y = piece.location.1 as i32;
         let shape = piece.get_bit_shape(None, None);
         for j in 0..PIECE_SHAPE_SIZE {
-            let y = p_y + j as i8;
-            if y < 0 || y >= BOARD_HEIGHT as i8 {
+            let y = p_y + j as i32;
+            if y < 0 || y >= BOARD_HEIGHT as i32 {
                 continue;
             }
             self.matrix[y as usize] |= shape[j];
         }
 
-        let mut lines_cleared = 0i8;
+        let mut lines_cleared = 0;
         for j in 0..BOARD_HEIGHT {
             if self.matrix[j] == (1 << BOARD_WIDTH) - 1 {
                 lines_cleared += 1;
@@ -134,15 +135,15 @@ impl Board {
         self.matrix[BOARD_VISIBLE_HEIGHT] != 0
     }
     #[inline]
-    pub fn max_height(&self) -> i8 {
+    pub fn max_height(&self) -> u32 {
         for i in 0..BOARD_HEIGHT {
             if self.matrix[i] == 0 {
-                return i as i8;
+                return i as u32;
             }
         }
-        BOARD_HEIGHT as i8
+        BOARD_HEIGHT as u32
     }
-    pub fn holes(&self) -> [i32; BOARD_WIDTH] {
+    pub fn holes(&self) -> [u32; BOARD_WIDTH] {
         let mut holes = [0; BOARD_WIDTH];
         let max_height = self.max_height() as usize;
         for i in 0..BOARD_WIDTH {
@@ -154,13 +155,13 @@ impl Board {
         }
         holes
     }
-    pub fn height_map(&self) -> [i8; BOARD_WIDTH] {
+    pub fn height_map(&self) -> [u32; BOARD_WIDTH] {
         let mut height_map = [0; BOARD_WIDTH];
         let max_height = self.max_height() as usize;
         for i in 0..BOARD_WIDTH {
             for j in (0..max_height).rev() {
                 if self.get(i, j) {
-                    height_map[i] = j as i8;
+                    height_map[i] = (j as u32) + 1;
                     break;
                 }
             }

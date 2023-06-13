@@ -214,26 +214,16 @@ fn main() {
         let mut bag = Bag::new_rng7(i as u64);
         let mut game = Game::from_bag(&mut bag);
         for _ in 0..3 {
-            let mut child_states = game.child_states(&PERMS_4F);
+            let mut child_states = game.children().unwrap();
             child_states.shuffle(&mut rng);
             game = child_states[0].game;
         }
         scenarios.push(game);
     }
 
-    bench_fn("gen_child_states_f0", count, |i| {
+    bench_fn("gen_children", count, |i| {
         let game = scenarios[i];
-        let child_states = game.child_states(&PERMS_0F);
-        black_box(child_states);
-    });
-    bench_fn("gen_child_states_f2", count, |i| {
-        let game = scenarios[i];
-        let child_states = game.child_states(&PERMS_2F);
-        black_box(child_states);
-    });
-    bench_fn("gen_child_states_f4", count, |i| {
-        let game = scenarios[i];
-        let child_states = game.child_states(&PERMS_4F);
+        let child_states = game.children().unwrap();
         black_box(child_states);
     });
 }

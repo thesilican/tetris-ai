@@ -14,8 +14,17 @@ use std::hash::Hash;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActionResult {
     Success,
-    SuccessDrop { lines_cleared: i8, top_out: bool },
+    SuccessDrop { lines_cleared: u32, top_out: bool },
     Fail,
+}
+impl ActionResult {
+    pub fn is_success(&self) -> bool {
+        match self {
+            ActionResult::Success => true,
+            ActionResult::SuccessDrop { .. } => true,
+            ActionResult::Fail => false,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
@@ -103,7 +112,7 @@ pub enum GameAction {
     SoftDrop,
     Hold,
     Lock,
-    AddGarbage { col: usize, height: i8 },
+    AddGarbage { col: usize, height: u32 },
 }
 impl GameAction {
     pub fn from_piece_action(piece_action: PieceAction) -> Self {
@@ -299,7 +308,6 @@ impl Game {
 
                 self.apply_action(GameAction::SoftDrop);
                 let res = self.apply_action(GameAction::Lock);
-                self.apply_action(GameAction::ShiftDown);
 
                 if let ActionResult::SuccessDrop { .. } = res {
                     res

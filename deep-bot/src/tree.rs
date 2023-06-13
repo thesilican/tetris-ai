@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common::{ArrDeque, Board, Game, Piece, PieceType, PERMS_1F};
+use common::{ArrDeque, Board, Game, Piece, PieceType};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -31,7 +31,7 @@ impl Node {
         // Board Bumpiness
         let bumpiness = height_map
             .windows(2)
-            .map(|x| (x[0] - x[1]).abs() as f32)
+            .map(|x| (x[0] as i32 - x[1] as i32).abs() as f32)
             .sum::<f32>();
 
         // Board holes
@@ -103,7 +103,7 @@ impl NodeTree {
     }
     fn generate(&mut self, node: &Node, step: usize) {
         let game = node.create_game(&self.queue, step);
-        let children = game.child_states(&PERMS_1F);
+        let children = game.children().unwrap();
         let values = children.into_iter().map(|x| Node::new(x.game)).collect();
         self.map.insert(*node, values);
     }

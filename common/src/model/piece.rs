@@ -204,10 +204,7 @@ impl Piece {
         )
     }
     #[inline]
-    pub const fn get_height_map(
-        &self,
-        rotation: Option<i8>,
-    ) -> [(i8, i8); PIECE_SHAPE_SIZE] {
+    pub const fn get_height_map(&self, rotation: Option<i8>) -> [(i8, i8); PIECE_SHAPE_SIZE] {
         Piece::info_height_map(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
@@ -267,12 +264,15 @@ impl Piece {
         self.location = (old_x, old_y);
         false
     }
+    #[inline]
     pub fn rotate_cw(&mut self, board: &Board) -> bool {
         self.rotate(1, board)
     }
+    #[inline]
     pub fn rotate_180(&mut self, board: &Board) -> bool {
         self.rotate(2, board)
     }
+    #[inline]
     pub fn rotate_ccw(&mut self, board: &Board) -> bool {
         self.rotate(3, board)
     }
@@ -309,7 +309,7 @@ impl Piece {
         let (_, old_y) = self.location;
 
         // Optimization with board height
-        let min_drop_amount = old_y - board.max_height();
+        let min_drop_amount = old_y - board.max_height() as i8;
         if min_drop_amount > 0 {
             self.location.1 -= min_drop_amount;
         } else {
