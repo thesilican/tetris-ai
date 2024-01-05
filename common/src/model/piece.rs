@@ -185,14 +185,11 @@ impl Piece {
         Piece::info_spawn_location(self.piece_type)
     }
     #[inline]
-    pub const fn get_shape(
-        &self,
-        rotation: Option<i8>,
-    ) -> [[bool; PIECE_SHAPE_SIZE]; PIECE_SHAPE_SIZE] {
+    pub fn get_shape(&self, rotation: Option<i8>) -> [[bool; PIECE_SHAPE_SIZE]; PIECE_SHAPE_SIZE] {
         Piece::info_shape(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
-    pub const fn get_bit_shape(
+    pub fn get_bit_shape(
         &self,
         rotation: Option<i8>,
         x_pos: Option<i8>,
@@ -204,19 +201,19 @@ impl Piece {
         )
     }
     #[inline]
-    pub const fn get_height_map(&self, rotation: Option<i8>) -> [(i8, i8); PIECE_SHAPE_SIZE] {
+    pub fn get_height_map(&self, rotation: Option<i8>) -> [(i8, i8); PIECE_SHAPE_SIZE] {
         Piece::info_height_map(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
-    pub const fn get_shift_bounds(&self, rotation: Option<i8>) -> (i8, i8) {
+    pub fn get_shift_bounds(&self, rotation: Option<i8>) -> (i8, i8) {
         Piece::info_shift_bounds(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
-    pub const fn get_location_bounds(&self, rotation: Option<i8>) -> (i8, i8, i8, i8) {
+    pub fn get_location_bounds(&self, rotation: Option<i8>) -> (i8, i8, i8, i8) {
         Piece::info_location_bounds(self.piece_type, rotation.unwrap_or(self.rotation))
     }
     #[inline]
-    pub const fn get_kick_table(&self, from: Option<i8>, to: i8) -> KickSeq {
+    pub fn get_kick_table(&self, from: Option<i8>, to: i8) -> KickSeq {
         Piece::info_kick_table(self.piece_type, from.unwrap_or(self.rotation), to)
     }
 }

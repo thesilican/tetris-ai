@@ -1,4 +1,3 @@
-#![feature(const_option_ext)]
 mod api;
 mod misc;
 mod model;

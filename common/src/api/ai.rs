@@ -1,6 +1,5 @@
 use crate::model::{ActionResult, Bag, Game, GameMove};
 use serde::Serialize;
-use std::fmt::{self, Display, Formatter};
 use std::time::{Duration, Instant};
 
 pub type AiResult = Result<AiEval, String>;
