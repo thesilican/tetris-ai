@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 common = { version = "0.1.0", path = "../common" }
-sdl2 = { version = "0.35.2", features = ["bundled"] }
+sdl2 = { version = "0.36", features = ["bundled"] }
 anyhow = "1.0"

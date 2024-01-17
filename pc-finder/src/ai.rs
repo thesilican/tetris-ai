@@ -1,4 +1,5 @@
 use crate::{PcBoard, PcTable};
+use anyhow::Result;
 use common::*;
 use std::collections::VecDeque;
 
@@ -10,13 +11,13 @@ struct PcGame {
     queue: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
 }
 impl PcGame {
-    pub fn from_game(game: Game) -> GenericResult<Self> {
+    pub fn from_game(game: Game) -> Result<Self> {
         let board = PcBoard::try_from(game.board)?;
         Ok(PcGame {
             board,
-            current: game.current_piece.piece_type,
-            hold: game.hold_piece,
-            queue: game.queue_pieces,
+            current: game.active.piece_type,
+            hold: game.hold,
+            queue: game.queue,
         })
     }
     pub fn children<'a, 'b>(
@@ -83,7 +84,7 @@ impl PcFinderAi {
     }
 }
 impl Ai for PcFinderAi {
-    fn evaluate(&mut self, game: &Game) -> AiRes {
+    fn evaluate(&mut self, game: &Game) -> AiResult {
         fn rec<'a>(game: PcGame, table: &'a PcTable) -> Option<PcChild<'a>> {
             let ancestors = game.children(table).collect::<Vec<_>>();
             for &ancestor in ancestors.iter() {
@@ -141,10 +142,10 @@ impl Ai for PcFinderAi {
                     moves.push(GameMove::Hold);
                 }
                 moves.extend(child.pc_moves);
-                AiRes::Success {
+                Ok(AiEval {
                     moves,
                     score: Some(0.0),
-                }
+                })
             }
             None => return self.simple_ai.evaluate(game),
         }

@@ -1,5 +1,5 @@
+use anyhow::{anyhow, Error, Result};
 use common::*;
-use once_cell::sync::Lazy;
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -10,9 +10,6 @@ use std::{
     io::{Read, Write},
 };
 use tinyvec::{ArrayVec, TinyVec};
-
-// Fragments used for generating child PcBoards
-pub static FRAGMENTS: &Lazy<Fragments> = &MOVES_2F;
 
 /// Represents the bottom 4 rows of a tetris board
 /// Invariant: must be valid (see PcBoard::is_valid())
@@ -56,7 +53,7 @@ impl PcBoard {
     pub fn child_boards(&self) -> Vec<PcBoard> {
         let mut visited = HashSet::new();
         let mut result = Vec::new();
-        for piece_type in PieceType::all() {
+        for piece_type in PieceType::ALL {
             let game = Game::from_parts(
                 Board::from(*self),
                 Piece::from_piece_type(piece_type),
@@ -64,7 +61,7 @@ impl PcBoard {
                 &[PieceType::O],
                 true,
             );
-            let child_states = game.child_states(FRAGMENTS);
+            let child_states = game.children().unwrap();
             for child in child_states {
                 if let Ok(board) = PcBoard::try_from(child.game.board) {
                     if visited.insert(board) {
@@ -92,12 +89,12 @@ impl PcBoard {
     }
 }
 impl TryFrom<Board> for PcBoard {
-    type Error = GenericErr;
+    type Error = Error;
 
     /// Fails if the height of the board is greater than 4
-    fn try_from(value: Board) -> Result<Self, Self::Error> {
+    fn try_from(value: Board) -> Result<Self> {
         if value.matrix[4] != 0 {
-            return generic_err!();
+            return Err(anyhow!("Uh oh"));
         }
         let board = PcBoard {
             rows: value.matrix[0..4].try_into().unwrap(),
@@ -129,17 +126,17 @@ impl Display for PcBoard {
         Ok(())
     }
 }
-impl SerdeBytes for PcBoard {
+impl Pack for PcBoard {
     // Serialization format:
     // packed (5 bytes)
-    fn serialize(&self, buf: &mut Buffer) {
+    fn pack(&self, buf: &mut PackBuffer) {
         let num = ((self.rows[0] as u64) << 0)
             + ((self.rows[1] as u64) << 10)
             + ((self.rows[2] as u64) << 20)
             + ((self.rows[3] as u64) << 30);
         buf.write_packed(num, 5);
     }
-    fn deserialize(cur: &mut Cursor) -> Result<Self, GenericErr> {
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let num = cur.read_packed(5)?;
         let bitmask: u64 = (1 << 10) - 1;
         let rows = [
@@ -166,7 +163,7 @@ pub struct CanPiece {
     pub rows: [u16; 4],
 }
 impl CanPiece {
-    pub fn new(piece: Piece) -> GenericResult<Self> {
+    pub fn new(piece: Piece) -> Result<Self> {
         piece.try_into()
     }
     pub fn get(&self, x: i32, y: i32) -> bool {
@@ -174,7 +171,7 @@ impl CanPiece {
     }
 }
 impl TryFrom<Piece> for CanPiece {
-    type Error = GenericErr;
+    type Error = Error;
 
     fn try_from(piece: Piece) -> Result<Self, Self::Error> {
         let bit_shape = piece.get_bit_shape(None, None);
@@ -184,7 +181,7 @@ impl TryFrom<Piece> for CanPiece {
             || piece.location.1 < min_y
             || piece.location.1 > max_y - 20
         {
-            return Err(Default::default());
+            return Err(anyhow!(""));
         }
 
         let mut matrix = [0; 4];
@@ -254,10 +251,10 @@ impl Default for CanPiece {
         Piece::new(PieceType::O, 0, (0, 0)).try_into().unwrap()
     }
 }
-impl SerdeBytes for CanPiece {
+impl Pack for CanPiece {
     // Serialization format:
     // packed (6 bytes)
-    fn serialize(&self, buf: &mut Buffer) {
+    fn pack(&self, buf: &mut PackBuffer) {
         let num = ((self.rows[0] as u64) << 0)
             + ((self.rows[1] as u64) << 10)
             + ((self.rows[2] as u64) << 20)
@@ -267,7 +264,7 @@ impl SerdeBytes for CanPiece {
         buf.write_packed(num, 6);
     }
 
-    fn deserialize(cur: &mut Cursor) -> Result<Self, GenericErr> {
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let num = cur.read_packed(6)?;
         let bitmask: u64 = (1 << 10) - 1;
         let rows = [
@@ -300,18 +297,18 @@ impl Tess {
         self.pieces.contains(&piece)
     }
 }
-impl SerdeBytes for Tess {
+impl Pack for Tess {
     // Serialization format:
     // CanPiece (6 bytes * 10)
-    fn serialize(&self, buf: &mut Buffer) {
+    fn pack(&self, buf: &mut PackBuffer) {
         for piece in self.pieces {
-            piece.serialize(buf);
+            piece.pack(buf);
         }
     }
-    fn deserialize(cur: &mut Cursor) -> Result<Self, GenericErr> {
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let mut pieces = [Default::default(); 10];
         for piece in pieces.iter_mut() {
-            *piece = CanPiece::deserialize(cur)?;
+            *piece = CanPiece::unpack(cur)?;
         }
         Ok(Tess { pieces })
     }
@@ -354,16 +351,16 @@ impl PcTableKey {
         PcTableKey { board, piece }
     }
 }
-impl SerdeBytes for PcTableKey {
+impl Pack for PcTableKey {
     // Serialization format
     // board (5 bytes, packed) + piece (1 byte)
-    fn serialize(&self, buf: &mut Buffer) {
-        self.board.serialize(buf);
+    fn pack(&self, buf: &mut PackBuffer) {
+        self.board.pack(buf);
         buf.write_u8(self.piece.to_u8());
     }
 
-    fn deserialize(cur: &mut Cursor) -> GenericResult<Self> {
-        let board = PcBoard::deserialize(cur)?;
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
+        let board = PcBoard::unpack(cur)?;
         let piece = PieceType::from_u8(cur.read_u8()?)?;
         Ok(PcTableKey { board, piece })
     }
@@ -388,11 +385,11 @@ impl PcTableLeaf {
         &self.moves
     }
 }
-impl SerdeBytes for PcTableLeaf {
+impl Pack for PcTableLeaf {
     // Serialization layout
     // board (5 bytes) + moves (5 bytes, packed)
-    fn serialize(&self, buf: &mut Buffer) {
-        self.board.serialize(buf);
+    fn pack(&self, buf: &mut PackBuffer) {
+        self.board.pack(buf);
         let mut num: u64 = 0;
         num |= self.moves.len() as u64;
         for (i, game_move) in self.moves.iter().enumerate() {
@@ -402,8 +399,8 @@ impl SerdeBytes for PcTableLeaf {
         buf.write_packed(num, 5);
     }
 
-    fn deserialize(cur: &mut Cursor) -> GenericResult<Self> {
-        let board = PcBoard::deserialize(cur)?;
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
+        let board = PcBoard::unpack(cur)?;
         let num = cur.read_packed(5)?;
         let len = num & 0b1111;
         let mut moves = ArrayVec::new();
@@ -430,20 +427,20 @@ impl PcTableVal {
         &self.leaves
     }
 }
-impl SerdeBytes for PcTableVal {
+impl Pack for PcTableVal {
     // Serialization layout
     // len (1 byte) + leaves (10 bytes * len)
-    fn serialize(&self, buf: &mut Buffer) {
+    fn pack(&self, buf: &mut PackBuffer) {
         buf.write_u8(self.leaves.len() as u8);
         for leaf in &self.leaves {
-            leaf.serialize(buf);
+            leaf.pack(buf);
         }
     }
-    fn deserialize(cur: &mut Cursor) -> GenericResult<Self> {
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let len = cur.read_u8()?;
         let mut leaves = TinyVec::new();
         for _ in 0..len {
-            let leaf = PcTableLeaf::deserialize(cur)?;
+            let leaf = PcTableLeaf::unpack(cur)?;
             leaves.push(leaf);
         }
         Ok(PcTableVal { leaves })
@@ -500,44 +497,44 @@ impl PcTable {
             .chain(self.leaves(board, PieceType::S))
             .chain(self.leaves(board, PieceType::Z))
     }
-    pub fn save_to_file(&self, filename: &str) -> GenericResult<()> {
+    pub fn save_to_file(&self, filename: &str) -> Result<()> {
         println!("Saving pc-table to {}", filename);
-        let mut buf = Buffer::new();
-        self.serialize(&mut buf);
+        let mut buf = PackBuffer::new();
+        self.pack(&mut buf);
         let mut file = File::create(filename)?;
         file.write_all(buf.read())?;
         Ok(())
     }
-    pub fn load_from_file(filename: &str) -> GenericResult<Self> {
+    pub fn load_from_file(filename: &str) -> Result<Self> {
         println!("Loading pc-table from {}", filename);
         let mut file = File::open(filename)?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
-        Self::deserialize(&mut Cursor::new(&buf))
+        Self::unpack(&mut PackCursor::new(&buf))
     }
     pub fn load_static() -> Self {
         let bytes = &*include_bytes!("../data/pc-table.bin");
-        Self::deserialize(&mut Cursor::new(bytes)).unwrap()
+        Self::unpack(&mut PackCursor::new(bytes)).unwrap()
     }
 }
-impl SerdeBytes for PcTable {
+impl Pack for PcTable {
     // Serialization format:
     // PcTable: len (4 bytes) + Entry (* len)
     // Entry: PcTableKey (6 bytes) + PcTableVal (? bytes)
-    fn serialize(&self, buf: &mut Buffer) {
+    fn pack(&self, buf: &mut PackBuffer) {
         buf.write_u32(self.len() as u32);
         for (key, val) in self.map.iter() {
-            key.serialize(buf);
-            val.serialize(buf);
+            key.pack(buf);
+            val.pack(buf);
         }
     }
 
-    fn deserialize(cur: &mut Cursor) -> GenericResult<Self> {
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let len = cur.read_u32()?;
         let mut map = HashMap::new();
         for _ in 0..len {
-            let key = PcTableKey::deserialize(cur)?;
-            let val = PcTableVal::deserialize(cur)?;
+            let key = PcTableKey::unpack(cur)?;
+            let val = PcTableVal::unpack(cur)?;
             map.insert(key, val);
         }
         Ok(PcTable { map })

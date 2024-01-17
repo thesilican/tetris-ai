@@ -1,6 +1,6 @@
-use common::*;
+use anyhow::Result;
 
-fn main() -> GenericResult<()> {
+fn main() -> Result<()> {
     // let tess = "BhgAAAAACCCAAAIJAAAAHCACgAMEAAACAAAAARwTAAAIIMAbAQQwAAAMAABAwAEUYAADAAAFEMAAAgAO";
     // println!("{}", Tess::base64_deserialize(tess)?);
     // let board = "2wcQAAA=";

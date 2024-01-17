@@ -1,11 +1,12 @@
-#![feature(once_cell)]
+#![feature(lazy_cell)]
+use anyhow::Result;
 use common::*;
 use pc_finder::*;
-use std::{collections::HashSet, lazy::Lazy};
+use std::{collections::HashSet, sync::LazyLock};
 
-static ALL_PIECES: Lazy<Vec<CanPiece>> = Lazy::new(|| {
+static ALL_PIECES: LazyLock<Vec<CanPiece>> = LazyLock::new(|| {
     let mut pieces = Vec::new();
-    for piece_type in PieceType::all() {
+    for piece_type in PieceType::ALL {
         let max_rot = match piece_type {
             PieceType::O => 1,
             PieceType::I => 2,
@@ -43,7 +44,7 @@ fn parity_fail(board: &PcBoard) -> bool {
 
             // Mark adjacent cells as visited
             let mut count = 1;
-            queue.push_back((x, y));
+            queue.push_back((x, y)).unwrap();
             visited[x as usize][y as usize] = true;
             while let Some((x, y)) = queue.pop_front() {
                 for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
@@ -58,7 +59,7 @@ fn parity_fail(board: &PcBoard) -> bool {
                         continue;
                     }
                     count += 1;
-                    queue.push_back((nx, ny));
+                    queue.push_back((nx, ny)).unwrap();
                     visited[nx as usize][ny as usize] = true;
                 }
             }
@@ -131,7 +132,7 @@ fn gen_tessellations() -> Vec<Tess> {
     output
 }
 
-fn main() -> GenericResult<()> {
+fn main() -> Result<()> {
     // Generate tessellations to be used by gen
     let tessellations = gen_tessellations();
     save_tessellations(&tessellations)

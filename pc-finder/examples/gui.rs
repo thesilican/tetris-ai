@@ -1,6 +1,8 @@
+use anyhow::Result;
 use pc_finder::PcFinderAi;
-use sdl_gui::Gui;
+use sdl_gui::AiGui;
 
-fn main() {
-    Gui::new().watch(PcFinderAi::new());
+fn main() -> Result<()> {
+    AiGui::new(PcFinderAi::new())?.run()?;
+    Ok(())
 }

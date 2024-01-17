@@ -1,5 +1,6 @@
 use crate::*;
 use ::redis::{cmd, Client, Connection};
+use anyhow::Result;
 use common::*;
 use once_cell::sync::Lazy;
 use std::{
@@ -12,12 +13,12 @@ static REDIS_CONNECTION: Lazy<Mutex<Connection>> = Lazy::new(|| {
     Mutex::new(client.get_connection().unwrap())
 });
 
-pub fn save_tessellations(tessellations: &[Tess]) -> GenericResult<()> {
+pub fn save_tessellations(tessellations: &[Tess]) -> Result<()> {
     println!("Saving tessellations to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let tessellations = tessellations
         .into_iter()
-        .map(SerdeBytes::base64_serialize)
+        .map(Pack::pack_base64)
         .collect::<Vec<_>>();
     cmd("DEL").arg("tessellations").query(con)?;
     if tessellations.len() > 0 {
@@ -29,7 +30,7 @@ pub fn save_tessellations(tessellations: &[Tess]) -> GenericResult<()> {
     Ok(())
 }
 
-pub fn load_tessellations() -> GenericResult<Vec<Tess>> {
+pub fn load_tessellations() -> Result<Vec<Tess>> {
     println!("Loading tessellations from Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let data = cmd("LRANGE")
@@ -39,18 +40,18 @@ pub fn load_tessellations() -> GenericResult<Vec<Tess>> {
         .query::<Vec<String>>(con)?;
     let mut tessellations = Vec::new();
     for b64 in data {
-        let tess = Tess::base64_deserialize(&b64)?;
+        let tess = Tess::unpack_base64(&b64)?;
         tessellations.push(tess);
     }
     Ok(tessellations)
 }
 
-pub fn record_parent_children(board: PcBoard, children: &[PcBoard]) -> GenericResult<()> {
+pub fn record_parent_children(board: PcBoard, children: &[PcBoard]) -> Result<()> {
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
-    let board = board.base64_serialize();
+    let board = board.pack_base64();
     let children = children
         .into_iter()
-        .map(SerdeBytes::base64_serialize)
+        .map(Pack::pack_base64)
         .collect::<Vec<_>>();
     // Record children
     if children.len() > 0 {
@@ -69,38 +70,38 @@ pub fn record_parent_children(board: PcBoard, children: &[PcBoard]) -> GenericRe
     Ok(())
 }
 
-pub fn fetch_children(board: PcBoard) -> GenericResult<Vec<PcBoard>> {
+pub fn fetch_children(board: PcBoard) -> Result<Vec<PcBoard>> {
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
-    let board = board.base64_serialize();
+    let board = board.pack_base64();
     let children = cmd("SMEMBERS")
         .arg(format!("children:{}", board))
         .query::<Vec<String>>(con)?;
     let mut res = Vec::new();
     for parent in children {
-        res.push(PcBoard::base64_deserialize(&parent)?);
+        res.push(PcBoard::unpack_base64(&parent)?);
     }
     Ok(res)
 }
 
-pub fn fetch_parents(board: PcBoard) -> GenericResult<Vec<PcBoard>> {
+pub fn fetch_parents(board: PcBoard) -> Result<Vec<PcBoard>> {
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
-    let board = board.base64_serialize();
+    let board = board.pack_base64();
     let parents = cmd("SMEMBERS")
         .arg(format!("parents:{}", board))
         .query::<Vec<String>>(con)?;
     let mut res = Vec::new();
     for parent in parents {
-        res.push(PcBoard::base64_deserialize(&parent)?);
+        res.push(PcBoard::unpack_base64(&parent)?);
     }
     Ok(res)
 }
 
-pub fn save_visited(visited: &HashSet<PcBoard>) -> GenericResult<()> {
+pub fn save_visited(visited: &HashSet<PcBoard>) -> Result<()> {
     println!("Saving visited to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let visited = visited
         .iter()
-        .map(SerdeBytes::base64_serialize)
+        .map(Pack::pack_base64)
         .collect::<Vec<String>>();
     cmd("DEL").arg("visited").query(con)?;
     if visited.len() > 0 {
@@ -109,7 +110,7 @@ pub fn save_visited(visited: &HashSet<PcBoard>) -> GenericResult<()> {
     Ok(())
 }
 
-pub fn load_visited() -> GenericResult<HashSet<PcBoard>> {
+pub fn load_visited() -> Result<HashSet<PcBoard>> {
     println!("Loading visited to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let visited = cmd("SMEMBERS")
@@ -117,17 +118,17 @@ pub fn load_visited() -> GenericResult<HashSet<PcBoard>> {
         .query::<HashSet<String>>(con)?;
     let mut res = HashSet::new();
     for text in visited {
-        res.insert(PcBoard::base64_deserialize(&text)?);
+        res.insert(PcBoard::unpack_base64(&text)?);
     }
     Ok(res)
 }
 
-pub fn save_pruned(pruned: &HashSet<PcBoard>) -> GenericResult<()> {
+pub fn save_pruned(pruned: &HashSet<PcBoard>) -> Result<()> {
     println!("Saving pruned to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let pruned = pruned
         .iter()
-        .map(SerdeBytes::base64_serialize)
+        .map(Pack::pack_base64)
         .collect::<Vec<String>>();
     cmd("DEL").arg("pruned").query(con)?;
     if pruned.len() > 0 {
@@ -136,7 +137,7 @@ pub fn save_pruned(pruned: &HashSet<PcBoard>) -> GenericResult<()> {
     Ok(())
 }
 
-pub fn load_pruned() -> GenericResult<HashSet<PcBoard>> {
+pub fn load_pruned() -> Result<HashSet<PcBoard>> {
     println!("Loading pruned to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let pruned = cmd("SMEMBERS")
@@ -144,18 +145,15 @@ pub fn load_pruned() -> GenericResult<HashSet<PcBoard>> {
         .query::<HashSet<String>>(con)?;
     let mut res = HashSet::new();
     for text in pruned {
-        res.insert(PcBoard::base64_deserialize(&text)?);
+        res.insert(PcBoard::unpack_base64(&text)?);
     }
     Ok(res)
 }
 
-pub fn save_stack(stack: &Vec<PcBoard>) -> GenericResult<()> {
+pub fn save_stack(stack: &Vec<PcBoard>) -> Result<()> {
     println!("Saving stack to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
-    let stack = stack
-        .iter()
-        .map(SerdeBytes::base64_serialize)
-        .collect::<Vec<_>>();
+    let stack = stack.iter().map(Pack::pack_base64).collect::<Vec<_>>();
     cmd("DEL").arg("stack").query(con)?;
     if stack.len() > 0 {
         cmd("RPUSH").arg("stack").arg(stack).query(con)?;
@@ -163,7 +161,7 @@ pub fn save_stack(stack: &Vec<PcBoard>) -> GenericResult<()> {
     Ok(())
 }
 
-pub fn load_stack() -> GenericResult<Vec<PcBoard>> {
+pub fn load_stack() -> Result<Vec<PcBoard>> {
     println!("Loading stack from Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let stack = cmd("LRANGE")
@@ -173,17 +171,17 @@ pub fn load_stack() -> GenericResult<Vec<PcBoard>> {
         .query::<Vec<String>>(con)?;
     let mut res = Vec::new();
     for text in stack {
-        res.push(PcBoard::base64_deserialize(&text)?);
+        res.push(PcBoard::unpack_base64(&text)?);
     }
     Ok(res)
 }
 
-pub fn save_pc_table(pc_table: &HashMap<PcTableKey, PcTableVal>) -> GenericResult<()> {
+pub fn save_pc_table(pc_table: &HashMap<PcTableKey, PcTableVal>) -> Result<()> {
     println!("Saving pc-table to Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let pc_table = pc_table
         .iter()
-        .map(|(k, v)| [k.base64_serialize(), v.base64_serialize()])
+        .map(|(k, v)| [k.pack_base64(), v.pack_base64()])
         .flatten()
         .collect::<Vec<_>>();
     cmd("DEL").arg("pc-table").query(con)?;
@@ -193,7 +191,7 @@ pub fn save_pc_table(pc_table: &HashMap<PcTableKey, PcTableVal>) -> GenericResul
     Ok(())
 }
 
-pub fn load_pc_table() -> GenericResult<HashMap<PcTableKey, PcTableVal>> {
+pub fn load_pc_table() -> Result<HashMap<PcTableKey, PcTableVal>> {
     println!("Loading pc-table from Redis");
     let con = &mut *REDIS_CONNECTION.lock().unwrap();
     let pc_table = cmd("HGETALL")
@@ -202,8 +200,8 @@ pub fn load_pc_table() -> GenericResult<HashMap<PcTableKey, PcTableVal>> {
     let mut res = HashMap::new();
     for (k, v) in pc_table {
         res.insert(
-            PcTableKey::base64_deserialize(&k)?,
-            PcTableVal::base64_deserialize(&v)?,
+            PcTableKey::unpack_base64(&k)?,
+            PcTableVal::unpack_base64(&v)?,
         );
     }
     Ok(res)
