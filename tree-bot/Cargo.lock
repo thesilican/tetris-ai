@@ -129,17 +129,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deep-bot"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "common",
- "rayon",
- "sdl-gui",
- "smallvec",
-]
-
-[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -378,6 +367,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tree-bot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+ "rayon",
+ "sdl-gui",
+ "smallvec",
 ]
 
 [[package]]

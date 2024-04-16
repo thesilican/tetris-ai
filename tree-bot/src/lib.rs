@@ -1,11 +1,10 @@
-use anyhow::{anyhow, Result};
+mod tree;
+
 use common::*;
 use std::collections::BinaryHeap;
-use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+use tree::{Node, Tree};
 
-use crate::{Node, Tree};
-
-pub struct ScoredNode(Node);
+struct ScoredNode(Node);
 impl PartialEq for ScoredNode {
     fn eq(&self, other: &Self) -> bool {
         self.0.score == other.0.score
@@ -88,16 +87,23 @@ impl DeepAi {
         if depth == self.depth {
             return Some(node.score);
         }
-        self.tree
+        let mut heap = self
+            .tree
             .get(node)
             .ok()?
             .into_iter()
             .copied()
             .map(ScoredNode)
-            .collect::<BinaryHeap<ScoredNode>>()
-            .into_iter_sorted()
-            .take(self.take)
-            .filter_map(|node| self.dfs(&node.0, depth + 1))
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .collect::<BinaryHeap<ScoredNode>>();
+        let mut max = f32::NEG_INFINITY;
+        for _ in 0..self.take {
+            let Some(node) = heap.pop() else {
+                break;
+            };
+            if let Some(score) = self.dfs(&node.0, depth + 1) {
+                max = max.max(score);
+            }
+        }
+        Some(max)
     }
 }

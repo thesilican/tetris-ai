@@ -1566,8 +1566,8 @@ mod tests {
                 let bit_shape_arr = PIECE_INFO.bit_shapes[piece][rotation];
                 let center_shape = bit_shape_arr[PIECE_MAX_X_SHIFT];
                 for shift in 1..PIECE_MAX_X_SHIFT {
-                    let left_shape = bit_shape_arr[(PIECE_MAX_X_SHIFT - shift)];
-                    let right_shape = bit_shape_arr[(PIECE_MAX_X_SHIFT + shift)];
+                    let left_shape = bit_shape_arr[PIECE_MAX_X_SHIFT - shift];
+                    let right_shape = bit_shape_arr[PIECE_MAX_X_SHIFT + shift];
                     for j in 0..PIECE_SHAPE_SIZE {
                         let center = center_shape[j];
                         let left = left_shape[j];
