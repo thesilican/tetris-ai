@@ -25,12 +25,14 @@ impl Bag {
             queue: VecDeque::new(),
         }
     }
+
     pub fn new_rng7(seed: u64) -> Self {
         Bag::Rng7 {
             rng: StdRng::seed_from_u64(seed),
             queue: VecDeque::new(),
         }
     }
+
     pub fn next(&mut self) -> PieceType {
         match self {
             Bag::Fixed { sequence, queue } => {

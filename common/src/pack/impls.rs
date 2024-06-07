@@ -1,9 +1,82 @@
 use crate::{ArrDeque, Board, Game, Pack, PackBuffer, PackCursor, Piece, PieceType};
 use anyhow::{bail, Context, Result};
+use std::{collections::HashMap, hash::Hash};
+
+impl Pack for u64 {
+    fn pack(&self, buf: &mut PackBuffer) {
+        buf.write_u64(*self)
+    }
+
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
+        cur.read_u64()
+    }
+}
+
+impl<T> Pack for Vec<T>
+where
+    T: Pack,
+{
+    fn pack(&self, buf: &mut PackBuffer) {
+        buf.write_u64(self.len() as u64);
+        for x in self.iter() {
+            x.pack(buf);
+        }
+    }
+
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
+        let mut output = Vec::new();
+        let len = cur.read_u64()?;
+        for _ in 0..len {
+            let x = T::unpack(cur)?;
+            output.push(x);
+        }
+        Ok(output)
+    }
+}
+
+impl<K, V> Pack for HashMap<K, V>
+where
+    K: Pack + Eq + Hash,
+    V: Pack,
+{
+    fn pack(&self, buf: &mut PackBuffer) {
+        buf.write_u64(self.len() as u64);
+        for (k, v) in self {
+            k.pack(buf);
+            v.pack(buf);
+        }
+    }
+
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
+        let mut hash_map = HashMap::new();
+        let len = cur.read_u64()?;
+        for _ in 0..len {
+            let k = K::unpack(cur)?;
+            let v = V::unpack(cur)?;
+            hash_map.insert(k, v);
+        }
+        Ok(hash_map)
+    }
+}
+
+impl<T1, T2> Pack for (T1, T2)
+where
+    T1: Pack,
+    T2: Pack,
+{
+    fn pack(&self, buf: &mut PackBuffer) {
+        self.0.pack(buf);
+        self.1.pack(buf);
+    }
+
+    fn unpack(cur: &mut PackCursor) -> Result<Self> {
+        Ok((T1::unpack(cur)?, T2::unpack(cur)?))
+    }
+}
 
 impl<T, const N: usize> Pack for ArrDeque<T, N>
 where
-    T: Pack,
+    T: Pack + Default,
 {
     fn pack(&self, buf: &mut PackBuffer) {
         if N < 256 {

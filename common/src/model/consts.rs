@@ -4,10 +4,6 @@ pub const PIECE_NUM_TYPES: usize = 7;
 pub const PIECE_NUM_ROTATION: usize = 4;
 /// The shape bounds of a piece
 pub const PIECE_SHAPE_SIZE: usize = 4;
-/// All pieces spawn in this column
-pub const PIECE_SPAWN_COLUMN: usize = 3;
-/// Max shift (max a piece can shift left or shift right)
-pub const PIECE_MAX_X_SHIFT: usize = 5;
 
 /// Width of the board
 pub const BOARD_WIDTH: usize = 10;

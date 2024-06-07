@@ -4,7 +4,7 @@ mod children;
 mod consts;
 mod game;
 mod piece;
-mod piece_computed;
+mod piece_info;
 
 // Re-exports
 pub use bag::*;
@@ -13,4 +13,4 @@ pub use children::*;
 pub use consts::*;
 pub use game::*;
 pub use piece::*;
-pub use piece_computed::*;
+pub use piece_info::*;

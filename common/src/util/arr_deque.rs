@@ -6,61 +6,76 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::Index;
+use std::{array, mem};
 
 #[derive(Clone, Copy)]
-/// Basic stack-based circular buffer
+/// Basic stack-based circular buffer,
+/// uses Default trait to handle empty values
 pub struct ArrDeque<T, const N: usize> {
     head: usize,
     len: usize,
-    // head and len should always stay in sync with arr
-    // Some(T) if within array bounds and None if not
-    arr: [Option<T>; N],
+    arr: [T; N],
 }
+
 impl<T, const N: usize> ArrDeque<T, N> {
-    pub fn new() -> Self {
-        // Work around so that T does not need to be Copy
-        let arr = [(); N].map(|_| None);
+    pub fn new() -> Self
+    where
+        T: Default,
+    {
         ArrDeque {
             head: 0,
             len: 0,
-            arr,
+            arr: array::from_fn(|_| Default::default()),
         }
     }
+
     pub fn len(&self) -> usize {
         self.len
     }
+
     pub fn capacity(&self) -> usize {
         N
     }
+
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
     pub fn push_back(&mut self, item: T) -> Result<()> {
         if self.len == N {
-            bail!("insufficient capacity for ArrDeque");
+            bail!("insufficient capacity");
         }
         let i = (self.head + self.len) % N;
-        self.arr[i] = Some(item);
+        self.arr[i] = item;
         self.len += 1;
         Ok(())
     }
-    pub fn pop_front(&mut self) -> Option<T> {
+
+    pub fn pop_front(&mut self) -> Option<T>
+    where
+        T: Default,
+    {
         if self.len == 0 {
             return None;
         }
         let i = self.head;
         self.head = (self.head + 1) % N;
         self.len -= 1;
-        self.arr[i].take()
+        let value = mem::take(&mut self.arr[i]);
+        Some(value)
     }
-    pub fn clear(&mut self) {
+
+    pub fn clear(&mut self)
+    where
+        T: Default,
+    {
         for i in 0..self.len {
-            let idx = (self.head + i) % N;
-            self.arr[idx].take();
+            self.arr[i] = Default::default();
         }
         self.head = 0;
         self.len = 0;
     }
+
     pub fn iter(&self) -> Iter<T> {
         Iter {
             idx: self.head,
@@ -69,14 +84,15 @@ impl<T, const N: usize> ArrDeque<T, N> {
         }
     }
 }
+
 impl<T, const N: usize> Index<usize> for ArrDeque<T, N> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        let i = (index + self.head) % N;
-        self.arr[i].as_ref().unwrap()
+        &self.arr[(self.head + index) % N]
     }
 }
+
 impl<T, const N: usize> PartialEq<Self> for ArrDeque<T, N>
 where
     T: PartialEq<T>,
@@ -90,7 +106,9 @@ where
         true
     }
 }
+
 impl<T, const N: usize> Eq for ArrDeque<T, N> where T: Eq {}
+
 impl<T, const N: usize> Hash for ArrDeque<T, N>
 where
     T: Hash,
@@ -101,19 +119,20 @@ where
         }
     }
 }
+
 impl<T, const N: usize> Default for ArrDeque<T, N>
 where
     T: Default,
 {
     fn default() -> Self {
-        let arr = [(); N].map(|_| None);
         Self {
             head: 0,
             len: 0,
-            arr,
+            arr: array::from_fn(|_| Default::default()),
         }
     }
 }
+
 impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter {
@@ -123,13 +142,18 @@ impl<T, const N: usize> Extend<T> for ArrDeque<T, N> {
         }
     }
 }
-impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N> {
+
+impl<T, const N: usize> FromIterator<T> for ArrDeque<T, N>
+where
+    T: Default,
+{
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut arr = ArrDeque::<T, N>::new();
         arr.extend(iter);
         arr
     }
 }
+
 impl<T, const N: usize> Debug for ArrDeque<T, N>
 where
     T: Debug,
@@ -142,8 +166,9 @@ where
 pub struct Iter<'a, T> {
     idx: usize,
     count: usize,
-    arr: &'a [Option<T>],
+    arr: &'a [T],
 }
+
 impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
@@ -157,7 +182,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
                 self.idx = 0;
             }
             self.count -= 1;
-            Some(self.arr[i].as_ref().unwrap())
+            Some(&self.arr[i])
         }
     }
 }
@@ -177,9 +202,11 @@ where
         state.end()
     }
 }
+
 struct ArrDequeVisitor<T, const N: usize> {
     marker: PhantomData<fn() -> ArrDeque<T, N>>,
 }
+
 impl<T, const N: usize> ArrDequeVisitor<T, N> {
     fn new() -> Self {
         ArrDequeVisitor {
@@ -187,9 +214,10 @@ impl<T, const N: usize> ArrDequeVisitor<T, N> {
         }
     }
 }
+
 impl<'de, T, const N: usize> Visitor<'de> for ArrDequeVisitor<T, N>
 where
-    T: Deserialize<'de>,
+    T: Deserialize<'de> + Default,
 {
     type Value = ArrDeque<T, N>;
 
@@ -217,7 +245,7 @@ where
 
 impl<'de, T, const N: usize> Deserialize<'de> for ArrDeque<T, N>
 where
-    T: Deserialize<'de>,
+    T: Deserialize<'de> + Default,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

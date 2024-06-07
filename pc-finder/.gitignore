@@ -1,5 +1,2 @@
-out.rs
-gen.json
-out.json
-tess.json
-tess-7.json
+data/
+!data/pc-table.bin

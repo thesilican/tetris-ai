@@ -2,32 +2,34 @@ use anyhow::{anyhow, Error, Result};
 use common::*;
 use std::{
     cmp::Ordering,
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::HashMap,
     convert::TryInto,
     fmt::{self, Display, Formatter},
-    fs::File,
     hash::{Hash, Hasher},
-    io::{Read, Write},
 };
-use tinyvec::{ArrayVec, TinyVec};
+use tinyvec::TinyVec;
 
 /// Represents the bottom 4 rows of a tetris board
 /// Invariant: must be valid (see PcBoard::is_valid())
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PcBoard {
     pub rows: [u16; 4],
 }
+
 impl PcBoard {
     pub const fn new() -> Self {
         PcBoard { rows: [0; 4] }
     }
+
     pub const fn from_rows(rows: [u16; 4]) -> Self {
         PcBoard { rows }
     }
+
     #[inline]
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.rows[y as usize] >> x & 1 == 1
     }
+
     #[inline]
     pub fn set(&mut self, x: i32, y: i32, on: bool) {
         if on {
@@ -38,43 +40,7 @@ impl PcBoard {
     }
 
     #[inline]
-    pub fn count_filled_squares(&self) -> i8 {
-        let mut count = 0;
-        for y in 0..4 {
-            for x in 0..10 {
-                if self.get(x, y) {
-                    count += 1;
-                }
-            }
-        }
-        count
-    }
-
-    pub fn child_boards(&self) -> Vec<PcBoard> {
-        let mut visited = HashSet::new();
-        let mut result = Vec::new();
-        for piece_type in PieceType::ALL {
-            let game = Game::from_parts(
-                Board::from(*self),
-                Piece::from_piece_type(piece_type),
-                None,
-                &[PieceType::O],
-                true,
-            );
-            let child_states = game.children().unwrap();
-            for child in child_states {
-                if let Ok(board) = PcBoard::try_from(child.game.board) {
-                    if visited.insert(board) {
-                        result.push(board);
-                    }
-                }
-            }
-        }
-        result
-    }
-
-    #[inline]
-    pub fn intersects(&self, piece: &CanPiece) -> bool {
+    pub fn intersects(&self, piece: &NormPiece) -> bool {
         self.rows
             .iter()
             .zip(piece.rows.iter())
@@ -82,12 +48,13 @@ impl PcBoard {
     }
 
     #[inline]
-    pub fn lock(&mut self, piece: &CanPiece) {
+    pub fn lock(&mut self, piece: &NormPiece) {
         for (b, p) in self.rows.iter_mut().zip(piece.rows.iter()) {
             *b |= *p;
         }
     }
 }
+
 impl TryFrom<Board> for PcBoard {
     type Error = Error;
 
@@ -102,6 +69,7 @@ impl TryFrom<Board> for PcBoard {
         Ok(board)
     }
 }
+
 impl From<PcBoard> for Board {
     fn from(pc_board: PcBoard) -> Self {
         let mut board = Board::new();
@@ -111,6 +79,7 @@ impl From<PcBoard> for Board {
         board
     }
 }
+
 impl Display for PcBoard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let sep = if f.alternate() { '/' } else { '\n' };
@@ -126,21 +95,23 @@ impl Display for PcBoard {
         Ok(())
     }
 }
+
 impl Pack for PcBoard {
     // Serialization format:
     // packed (5 bytes)
     fn pack(&self, buf: &mut PackBuffer) {
-        let num = ((self.rows[0] as u64) << 0)
+        let num = (self.rows[0] as u64)
             + ((self.rows[1] as u64) << 10)
             + ((self.rows[2] as u64) << 20)
             + ((self.rows[3] as u64) << 30);
         buf.write_packed(num, 5);
     }
+
     fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let num = cur.read_packed(5)?;
         let bitmask: u64 = (1 << 10) - 1;
         let rows = [
-            ((num >> 0) & bitmask) as u16,
+            (num & bitmask) as u16,
             ((num >> 10) & bitmask) as u16,
             ((num >> 20) & bitmask) as u16,
             ((num >> 30) & bitmask) as u16,
@@ -148,34 +119,38 @@ impl Pack for PcBoard {
         Ok(PcBoard { rows })
     }
 }
+
 impl Default for PcBoard {
     fn default() -> Self {
         PcBoard::new()
     }
 }
 
-/// Canonical representation of a piece that has
-/// been placed on a PcBoard
+/// Normalized representation of a piece that has been placed on a PcBoard
 #[derive(Debug, Clone, Copy)]
-pub struct CanPiece {
+pub struct NormPiece {
     pub piece_type: PieceType,
     pub rotation: i8,
     pub rows: [u16; 4],
 }
-impl CanPiece {
+
+impl NormPiece {
     pub fn new(piece: Piece) -> Result<Self> {
         piece.try_into()
     }
+
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.rows[y as usize] >> x & 1 == 1
     }
 }
-impl TryFrom<Piece> for CanPiece {
+
+impl TryFrom<Piece> for NormPiece {
     type Error = Error;
 
     fn try_from(piece: Piece) -> Result<Self, Self::Error> {
-        let bit_shape = piece.get_bit_shape(None, None);
-        let (min_x, max_x, min_y, max_y) = piece.get_location_bounds(None);
+        let bit_shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.location.0);
+        let (min_x, max_x, min_y, max_y) =
+            PieceInfo::location_bound(piece.piece_type, piece.rotation);
         if piece.location.0 < min_x
             || piece.location.0 > max_x
             || piece.location.1 < min_y
@@ -187,18 +162,19 @@ impl TryFrom<Piece> for CanPiece {
         let mut matrix = [0; 4];
         for y in 0..4 {
             let i = y - piece.location.1;
-            if 0 <= i && i < 4 {
+            if (0..4).contains(&i) {
                 matrix[y as usize] = bit_shape[i as usize]
             }
         }
-        Ok(CanPiece {
+        Ok(NormPiece {
             piece_type: piece.piece_type,
             rotation: piece.rotation,
             rows: matrix,
         })
     }
 }
-impl Display for CanPiece {
+
+impl Display for NormPiece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let sep = if f.alternate() { '/' } else { '\n' };
         for y in (0..4).rev() {
@@ -213,49 +189,52 @@ impl Display for CanPiece {
         Ok(())
     }
 }
-impl PartialEq for CanPiece {
+
+impl PartialEq for NormPiece {
     fn eq(&self, other: &Self) -> bool {
         self.rows == other.rows
     }
 }
-impl Eq for CanPiece {}
-impl Hash for CanPiece {
+
+impl Eq for NormPiece {}
+
+impl Hash for NormPiece {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.rows.hash(state);
     }
 }
-impl PartialOrd for CanPiece {
+
+impl PartialOrd for NormPiece {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self
-            .piece_type
-            .to_u8()
-            .partial_cmp(&other.piece_type.to_u8())
-        {
-            Some(Ordering::Equal) => {}
-            ord => return ord,
-        }
-        match self.rotation.partial_cmp(&other.rotation) {
-            Some(Ordering::Equal) => {}
-            ord => return ord,
-        }
-        self.rows.partial_cmp(&other.rows)
+        Some(self.cmp(other))
     }
 }
-impl Ord for CanPiece {
+
+impl Ord for NormPiece {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        match self.piece_type.to_u8().cmp(&other.piece_type.to_u8()) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+        match self.rotation.cmp(&other.rotation) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+        self.rows.cmp(&other.rows)
     }
 }
-impl Default for CanPiece {
+
+impl Default for NormPiece {
     fn default() -> Self {
         Piece::new(PieceType::O, 0, (0, 0)).try_into().unwrap()
     }
 }
-impl Pack for CanPiece {
+
+impl Pack for NormPiece {
     // Serialization format:
     // packed (6 bytes)
     fn pack(&self, buf: &mut PackBuffer) {
-        let num = ((self.rows[0] as u64) << 0)
+        let num = (self.rows[0] as u64)
             + ((self.rows[1] as u64) << 10)
             + ((self.rows[2] as u64) << 20)
             + ((self.rows[3] as u64) << 30)
@@ -268,14 +247,14 @@ impl Pack for CanPiece {
         let num = cur.read_packed(6)?;
         let bitmask: u64 = (1 << 10) - 1;
         let rows = [
-            ((num >> 0) & bitmask) as u16,
+            (num & bitmask) as u16,
             ((num >> 10) & bitmask) as u16,
             ((num >> 20) & bitmask) as u16,
             ((num >> 30) & bitmask) as u16,
         ];
         let piece_type = PieceType::from_u8(((num >> 40) & 0b111) as u8)?;
         let rotation = ((num >> 43) & 0b111) as i8;
-        Ok(CanPiece {
+        Ok(NormPiece {
             rows,
             piece_type,
             rotation,
@@ -283,36 +262,44 @@ impl Pack for CanPiece {
     }
 }
 
+/// A tesselation of the 4x10 area consisting of 10 pieces
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tess {
-    pub pieces: [CanPiece; 10],
+    pub pieces: [NormPiece; 10],
 }
+
 impl Tess {
-    pub fn new(pieces: [CanPiece; 10]) -> Self {
-        assert!(pieces.is_sorted());
+    pub fn new(pieces: [NormPiece; 10]) -> Self {
+        // Check that the pieces are sorted
+        for window in pieces.windows(2) {
+            assert!(window[0] < window[1]);
+        }
         Tess { pieces }
     }
 
-    pub fn contains(&self, piece: CanPiece) -> bool {
+    pub fn contains(&self, piece: NormPiece) -> bool {
         self.pieces.contains(&piece)
     }
 }
+
 impl Pack for Tess {
     // Serialization format:
-    // CanPiece (6 bytes * 10)
+    // NormPiece (6 bytes * 10)
     fn pack(&self, buf: &mut PackBuffer) {
         for piece in self.pieces {
             piece.pack(buf);
         }
     }
+
     fn unpack(cur: &mut PackCursor) -> Result<Self> {
         let mut pieces = [Default::default(); 10];
         for piece in pieces.iter_mut() {
-            *piece = CanPiece::unpack(cur)?;
+            *piece = NormPiece::unpack(cur)?;
         }
         Ok(Tess { pieces })
     }
 }
+
 impl Display for Tess {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for y in (0..4).rev() {
@@ -341,16 +328,12 @@ impl Display for Tess {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PcTableKey {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct PcTableKey {
     board: PcBoard,
     piece: PieceType,
 }
-impl PcTableKey {
-    pub fn new(board: PcBoard, piece: PieceType) -> Self {
-        PcTableKey { board, piece }
-    }
-}
+
 impl Pack for PcTableKey {
     // Serialization format
     // board (5 bytes, packed) + piece (1 byte)
@@ -366,34 +349,38 @@ impl Pack for PcTableKey {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct PcTableLeaf {
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PcTableChild {
     board: PcBoard,
-    moves: ArrayVec<[GameMove; 12]>,
+    actions: TinyVec<[GameAction; 8]>,
 }
-impl PcTableLeaf {
-    pub fn new(board: PcBoard, moves: &[GameMove]) -> Self {
-        PcTableLeaf {
+
+impl PcTableChild {
+    pub fn new(board: PcBoard, actions: impl Into<TinyVec<[GameAction; 8]>>) -> Self {
+        PcTableChild {
             board,
-            moves: moves.into_iter().map(|&x| x).collect(),
+            actions: actions.into(),
         }
     }
+
     pub fn board(&self) -> PcBoard {
         self.board
     }
-    pub fn moves(&self) -> &[GameMove] {
-        &self.moves
+
+    pub fn actions(&self) -> &[GameAction] {
+        &self.actions
     }
 }
-impl Pack for PcTableLeaf {
+
+impl Pack for PcTableChild {
     // Serialization layout
     // board (5 bytes) + moves (5 bytes, packed)
     fn pack(&self, buf: &mut PackBuffer) {
         self.board.pack(buf);
         let mut num: u64 = 0;
-        num |= self.moves.len() as u64;
-        for (i, game_move) in self.moves.iter().enumerate() {
-            let bits = game_move.to_u8() as u64;
+        num |= self.actions.len() as u64;
+        for (i, action) in self.actions.iter().enumerate() {
+            let bits = action.to_u8() as u64;
             num |= bits << ((i * 3) + 4)
         }
         buf.write_packed(num, 5);
@@ -403,129 +390,89 @@ impl Pack for PcTableLeaf {
         let board = PcBoard::unpack(cur)?;
         let num = cur.read_packed(5)?;
         let len = num & 0b1111;
-        let mut moves = ArrayVec::new();
+        let mut actions = TinyVec::new();
         for i in 0..len {
             let bits = (num >> ((i * 3) + 4)) & 0b111;
-            let val = GameMove::from_u8(bits as u8)?;
-            moves.push(val);
+            let val = GameAction::from_u8(bits as u8)?;
+            actions.push(val);
         }
-        Ok(PcTableLeaf { board, moves })
+
+        Ok(PcTableChild { board, actions })
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PcTableVal {
-    leaves: TinyVec<[PcTableLeaf; 2]>,
-}
-impl PcTableVal {
-    pub fn new(leaves: &[PcTableLeaf]) -> Self {
-        PcTableVal {
-            leaves: leaves.into_iter().map(|&x| x).collect(),
-        }
-    }
-    pub fn leaves(&self) -> &[PcTableLeaf] {
-        &self.leaves
-    }
-}
-impl Pack for PcTableVal {
-    // Serialization layout
-    // len (1 byte) + leaves (10 bytes * len)
-    fn pack(&self, buf: &mut PackBuffer) {
-        buf.write_u8(self.leaves.len() as u8);
-        for leaf in &self.leaves {
-            leaf.pack(buf);
-        }
-    }
-    fn unpack(cur: &mut PackCursor) -> Result<Self> {
-        let len = cur.read_u8()?;
-        let mut leaves = TinyVec::new();
-        for _ in 0..len {
-            let leaf = PcTableLeaf::unpack(cur)?;
-            leaves.push(leaf);
-        }
-        Ok(PcTableVal { leaves })
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PcTable {
-    map: HashMap<PcTableKey, PcTableVal>,
+    map: HashMap<PcTableKey, TinyVec<[PcTableChild; 2]>>,
 }
+
 impl PcTable {
     pub fn new() -> Self {
         PcTable {
             map: HashMap::new(),
         }
     }
-    pub fn with_map(map: HashMap<PcTableKey, PcTableVal>) -> Self {
-        PcTable { map }
+
+    pub fn insert_child(&mut self, board: PcBoard, piece: PieceType, child: PcTableChild) {
+        let key = PcTableKey { board, piece };
+        let val = self.map.entry(key).or_default();
+        val.push(child);
     }
-    pub fn map(&self) -> &HashMap<PcTableKey, PcTableVal> {
-        &self.map
-    }
-    pub fn insert_leaf(&mut self, key: PcTableKey, leaf: PcTableLeaf) {
-        match self.map.entry(key) {
-            Entry::Occupied(mut o) => {
-                o.get_mut().leaves.push(leaf);
-            }
-            Entry::Vacant(v) => {
-                v.insert(PcTableVal::new(&[leaf]));
-            }
-        }
-    }
+
     pub fn len(&self) -> usize {
         self.map.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     #[inline]
-    pub fn leaves<'a>(
-        &'a self,
+    pub fn children(
+        &self,
         board: PcBoard,
         piece: PieceType,
-    ) -> impl Iterator<Item = &'a PcTableLeaf> + 'a {
+    ) -> impl Iterator<Item = &PcTableChild> + '_ {
         self.map
             .get(&PcTableKey { board, piece })
-            .map(|x| &*x.leaves)
+            .map(|x| x.as_ref())
             .unwrap_or(&[])
             .iter()
     }
-    pub fn leaves_all(&self, board: PcBoard) -> impl Iterator<Item = &PcTableLeaf> + '_ {
-        self.leaves(board, PieceType::O)
-            .chain(self.leaves(board, PieceType::I))
-            .chain(self.leaves(board, PieceType::T))
-            .chain(self.leaves(board, PieceType::L))
-            .chain(self.leaves(board, PieceType::J))
-            .chain(self.leaves(board, PieceType::S))
-            .chain(self.leaves(board, PieceType::Z))
+
+    pub fn all_children(&self, board: PcBoard) -> impl Iterator<Item = &PcTableChild> + '_ {
+        self.children(board, PieceType::O)
+            .chain(self.children(board, PieceType::I))
+            .chain(self.children(board, PieceType::T))
+            .chain(self.children(board, PieceType::L))
+            .chain(self.children(board, PieceType::J))
+            .chain(self.children(board, PieceType::S))
+            .chain(self.children(board, PieceType::Z))
     }
-    pub fn save_to_file(&self, filename: &str) -> Result<()> {
-        println!("Saving pc-table to {}", filename);
-        let mut buf = PackBuffer::new();
-        self.pack(&mut buf);
-        let mut file = File::create(filename)?;
-        file.write_all(buf.read())?;
-        Ok(())
-    }
-    pub fn load_from_file(filename: &str) -> Result<Self> {
-        println!("Loading pc-table from {}", filename);
-        let mut file = File::open(filename)?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
-        Self::unpack(&mut PackCursor::new(&buf))
-    }
+
     pub fn load_static() -> Self {
-        let bytes = &*include_bytes!("../data/pc-table.bin");
+        let bytes = include_bytes!("../data/pc-table.bin").as_ref();
         Self::unpack(&mut PackCursor::new(bytes)).unwrap()
     }
 }
+
 impl Pack for PcTable {
     // Serialization format:
     // PcTable: len (4 bytes) + Entry (* len)
     // Entry: PcTableKey (6 bytes) + PcTableVal (? bytes)
     fn pack(&self, buf: &mut PackBuffer) {
         buf.write_u32(self.len() as u32);
-        for (key, val) in self.map.iter() {
+
+        // Sort so that the output is deterministic
+        let mut vec: Vec<(&PcTableKey, &TinyVec<[PcTableChild; 2]>)> = self.map.iter().collect();
+        vec.sort_by_key(|&(key, _)| key);
+
+        for (key, val) in vec {
             key.pack(buf);
-            val.pack(buf);
+            buf.write_u32(val.len() as u32);
+            for child in val {
+                child.pack(buf);
+            }
         }
     }
 
@@ -534,7 +481,12 @@ impl Pack for PcTable {
         let mut map = HashMap::new();
         for _ in 0..len {
             let key = PcTableKey::unpack(cur)?;
-            let val = PcTableVal::unpack(cur)?;
+            let len = cur.read_u32()?;
+            let mut val = TinyVec::<[PcTableChild; 2]>::new();
+            for _ in 0..len {
+                let child = PcTableChild::unpack(cur)?;
+                val.push(child);
+            }
             map.insert(key, val);
         }
         Ok(PcTable { map })

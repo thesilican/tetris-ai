@@ -14,8 +14,8 @@ fn main() -> Result<()> {
             // Check children
             for child in children.iter() {
                 let mut game = game;
-                for game_move in child.moves() {
-                    game.make_move(game_move);
+                for actions in child.actions() {
+                    game.apply_action(actions);
                 }
                 if game != child.game {
                     println!("Expected:\n{game}");

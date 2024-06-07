@@ -10,6 +10,7 @@ struct PcGame {
     hold: Option<PieceType>,
     queue: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
 }
+
 impl PcGame {
     pub fn from_game(game: Game) -> Result<Self> {
         let board = PcBoard::try_from(game.board)?;
@@ -20,15 +21,13 @@ impl PcGame {
             queue: game.queue,
         })
     }
-    pub fn children<'a, 'b>(
-        &'a self,
-        table: &'b PcTable,
-    ) -> impl Iterator<Item = PcChild<'b>> + 'b {
-        let game = self.clone();
+
+    pub fn children<'a>(&self, table: &'a PcTable) -> impl Iterator<Item = PcChild<'a>> + 'a {
+        let game = *self;
         [false, true]
             .into_iter()
             .filter_map(move |should_hold| {
-                let mut game = game.clone();
+                let mut game = game;
                 if should_hold {
                     let hold = match game.hold {
                         Some(piece) => piece,
@@ -47,16 +46,18 @@ impl PcGame {
                 };
                 let hold = game.hold;
                 let queue = game.queue;
-                let iter = table.leaves(game.board, dropped).map(move |leaf| PcChild {
-                    game: PcGame {
-                        board: leaf.board(),
-                        current,
-                        hold,
-                        queue,
-                    },
-                    hold: should_hold,
-                    pc_moves: leaf.moves(),
-                });
+                let iter = table
+                    .children(game.board, dropped)
+                    .map(move |leaf| PcChild {
+                        game: PcGame {
+                            board: leaf.board(),
+                            current,
+                            hold,
+                            queue,
+                        },
+                        hold: should_hold,
+                        pc_moves: leaf.actions(),
+                    });
                 Some(iter)
             })
             .flatten()
@@ -67,14 +68,15 @@ impl PcGame {
 struct PcChild<'a> {
     game: PcGame,
     hold: bool,
-    pc_moves: &'a [GameMove],
+    pc_moves: &'a [GameAction],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PcFinderAi {
     table: PcTable,
     simple_ai: SimpleAi,
 }
+
 impl PcFinderAi {
     pub fn new() -> Self {
         PcFinderAi {
@@ -83,9 +85,10 @@ impl PcFinderAi {
         }
     }
 }
+
 impl Ai for PcFinderAi {
-    fn evaluate(&mut self, game: &Game) -> AiResult {
-        fn rec<'a>(game: PcGame, table: &'a PcTable) -> Option<PcChild<'a>> {
+    fn evaluate(&mut self, game: &Game) -> Evaluation {
+        fn rec(game: PcGame, table: &PcTable) -> Option<PcChild<'_>> {
             let ancestors = game.children(table).collect::<Vec<_>>();
             for &ancestor in ancestors.iter() {
                 if ancestor.game.board == PcBoard::default() {
@@ -125,10 +128,11 @@ impl Ai for PcFinderAi {
                     })
                 }
             }
-            match counts.iter().enumerate().max_by_key(|(_, &x)| x) {
-                Some((i, _)) => Some(ancestors[i]),
-                None => None,
-            }
+            counts
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, &x)| x)
+                .map(|(i, _)| ancestors[i])
         }
         let pc_game = match PcGame::from_game(*game) {
             Ok(pc_game) => pc_game,
@@ -137,17 +141,17 @@ impl Ai for PcFinderAi {
         let res = rec(pc_game, &self.table);
         match res {
             Some(child) => {
-                let mut moves = Vec::new();
+                let mut actions = Vec::new();
                 if child.hold {
-                    moves.push(GameMove::Hold);
+                    actions.push(GameAction::Hold);
                 }
-                moves.extend(child.pc_moves);
-                Ok(AiEval {
-                    moves,
+                actions.extend(child.pc_moves);
+                Evaluation::Success {
+                    actions,
                     score: Some(0.0),
-                })
+                }
             }
-            None => return self.simple_ai.evaluate(game),
+            None => self.simple_ai.evaluate(game),
         }
     }
 }

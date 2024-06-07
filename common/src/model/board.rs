@@ -1,5 +1,5 @@
 use super::piece::Piece;
-use crate::model::consts::*;
+use crate::{model::consts::*, PieceInfo};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Formatter, Write},
@@ -7,14 +7,14 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LockResult {
+pub struct LockInfo {
     pub top_out: bool,
     pub lines_cleared: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(from = "BoardSer")]
-#[serde(into = "BoardSer")]
+#[serde(from = "crate::serde::SerializedBoard")]
+#[serde(into = "crate::serde::SerializedBoard")]
 pub struct Board {
     pub matrix: [u16; BOARD_HEIGHT],
 }
@@ -24,15 +24,18 @@ impl Board {
             matrix: [0; BOARD_HEIGHT],
         }
     }
+
     pub fn from_matrix(matrix: [u16; BOARD_HEIGHT]) -> Self {
         let mut board = Board::new();
         board.set_matrix(matrix);
         board
     }
+
     #[inline]
     pub fn get(&self, x: usize, y: usize) -> bool {
         self.matrix[y] & (1 << x) != 0
     }
+
     #[inline]
     pub fn set(&mut self, x: usize, y: usize, state: bool) {
         if self.get(x, y) == state {
@@ -44,6 +47,7 @@ impl Board {
             self.matrix[y] &= !(1 << x);
         }
     }
+
     pub fn set_col(&mut self, x: usize, height: u32) {
         for i in 0..BOARD_HEIGHT {
             if (i as u32) < height {
@@ -53,21 +57,25 @@ impl Board {
             }
         }
     }
+
     pub fn set_cols(&mut self, heights: [u32; BOARD_WIDTH]) {
         for i in 0..BOARD_WIDTH {
             self.set_col(i, heights[i]);
         }
     }
+
     pub fn set_row(&mut self, y: usize, row: u16) {
         assert_eq!(row & !((1 << BOARD_WIDTH) - 1), 0);
         self.matrix[y] = row;
     }
+
     pub fn set_matrix(&mut self, matrix: [u16; BOARD_HEIGHT]) {
         for row in matrix {
             assert_eq!(row & !((1 << BOARD_WIDTH) - 1), 0);
         }
         self.matrix = matrix;
     }
+
     pub fn add_garbage(&mut self, col: usize, height: u32) {
         let height = height as usize;
         assert!(col < BOARD_WIDTH);
@@ -82,10 +90,11 @@ impl Board {
             self.matrix[j] = garbage_row;
         }
     }
+
     #[inline]
     pub fn intersects_with(&self, piece: &Piece) -> bool {
         let p_y = piece.location.1 as i32;
-        let shape = piece.get_bit_shape(None, None);
+        let shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.location.0);
         for j in 0..PIECE_SHAPE_SIZE {
             let y = p_y + j as i32;
             if y < 0 || y >= BOARD_HEIGHT as i32 {
@@ -98,10 +107,11 @@ impl Board {
         }
         false
     }
+
     #[inline]
-    pub fn lock(&mut self, piece: &Piece) -> LockResult {
+    pub fn lock(&mut self, piece: &Piece) -> LockInfo {
         let p_y = piece.location.1 as i32;
-        let shape = piece.get_bit_shape(None, None);
+        let shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.location.0);
         for j in 0..PIECE_SHAPE_SIZE {
             let y = p_y + j as i32;
             if y < 0 || y >= BOARD_HEIGHT as i32 {
@@ -125,15 +135,17 @@ impl Board {
         // Check for top-out
         let top_out = self.topped_out();
 
-        LockResult {
+        LockInfo {
             lines_cleared,
             top_out,
         }
     }
+
     #[inline]
     pub fn topped_out(&self) -> bool {
         self.matrix[BOARD_VISIBLE_HEIGHT] != 0
     }
+
     #[inline]
     pub fn max_height(&self) -> u32 {
         for i in 0..BOARD_HEIGHT {
@@ -143,6 +155,7 @@ impl Board {
         }
         BOARD_HEIGHT as u32
     }
+
     pub fn holes(&self) -> [u32; BOARD_WIDTH] {
         let mut holes = [0; BOARD_WIDTH];
         let max_height = self.max_height() as usize;
@@ -155,6 +168,7 @@ impl Board {
         }
         holes
     }
+
     pub fn height_map(&self) -> [u32; BOARD_WIDTH] {
         let mut height_map = [0; BOARD_WIDTH];
         let max_height = self.max_height() as usize;
@@ -175,7 +189,7 @@ impl Board {
             for i in 0..BOARD_WIDTH {
                 let (in_piece_bounds, in_piece) = match piece {
                     Some(piece) => {
-                        let piece_shape = piece.get_shape(None);
+                        let piece_shape = PieceInfo::shape(piece.piece_type, piece.rotation);
                         let p_x = piece.location.0 as usize;
                         let p_y = piece.location.1 as usize;
                         let x = i as i8 - p_x as i8;
@@ -211,40 +225,9 @@ impl Board {
         text
     }
 }
+
 impl Display for Board {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string(None))
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-struct BoardSer([[u8; BOARD_HEIGHT]; BOARD_WIDTH]);
-impl From<BoardSer> for Board {
-    fn from(ser: BoardSer) -> Self {
-        let mut board = Board::new();
-        for (i, col) in ser.0.iter().enumerate() {
-            for (j, cell) in col.iter().enumerate() {
-                let val = match cell {
-                    0 => false,
-                    _ => true,
-                };
-                board.set(i, j, val);
-            }
-        }
-        board
-    }
-}
-impl From<Board> for BoardSer {
-    fn from(board: Board) -> Self {
-        let mut arr = [[0u8; BOARD_HEIGHT]; BOARD_WIDTH];
-        for i in 0..BOARD_WIDTH {
-            for j in 0..BOARD_HEIGHT {
-                arr[i][j] = match board.get(i, j) {
-                    false => 0,
-                    true => 1,
-                };
-            }
-        }
-        BoardSer(arr)
     }
 }

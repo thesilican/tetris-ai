@@ -1,142 +1,85 @@
-use crate::misc::ArrDeque;
 use crate::model::board::Board;
 use crate::model::piece::Piece;
-use crate::model::piece::PieceAction;
 use crate::model::piece::PieceType;
 use crate::model::{Bag, GAME_MAX_QUEUE_LEN};
-use anyhow::bail;
+use crate::util::ArrDeque;
+use crate::LockInfo;
+use anyhow::anyhow;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ActionResult {
-    Success,
-    SuccessDrop { lines_cleared: u32, top_out: bool },
-    Fail,
-}
-impl ActionResult {
-    pub fn is_success(&self) -> bool {
-        match self {
-            ActionResult::Success => true,
-            ActionResult::SuccessDrop { .. } => true,
-            ActionResult::Fail => false,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum GameMove {
-    ShiftLeft,
-    ShiftRight,
-    RotateCW,
-    Rotate180,
-    RotateCCW,
-    Hold,
-    SoftDrop,
-    HardDrop,
-}
-impl GameMove {
-    pub fn from_u8(val: u8) -> Result<Self> {
-        match val {
-            0 => Ok(GameMove::ShiftLeft),
-            1 => Ok(GameMove::ShiftRight),
-            2 => Ok(GameMove::RotateCW),
-            3 => Ok(GameMove::Rotate180),
-            4 => Ok(GameMove::RotateCCW),
-            5 => Ok(GameMove::Hold),
-            6 => Ok(GameMove::SoftDrop),
-            7 => Ok(GameMove::HardDrop),
-            _ => bail!("unknown u8 value for GameMove: {val}"),
-        }
-    }
-    pub fn to_u8(self) -> u8 {
-        match self {
-            GameMove::ShiftLeft => 0,
-            GameMove::ShiftRight => 1,
-            GameMove::RotateCW => 2,
-            GameMove::Rotate180 => 3,
-            GameMove::RotateCCW => 4,
-            GameMove::Hold => 5,
-            GameMove::SoftDrop => 6,
-            GameMove::HardDrop => 7,
-        }
-    }
-    pub fn from_game_action(game_action: GameAction) -> Option<Self> {
-        match game_action {
-            GameAction::ShiftLeft => Some(GameMove::ShiftLeft),
-            GameAction::ShiftRight => Some(GameMove::ShiftRight),
-            GameAction::ShiftDown => None,
-            GameAction::RotateCW => Some(GameMove::RotateCW),
-            GameAction::Rotate180 => Some(GameMove::Rotate180),
-            GameAction::RotateCCW => Some(GameMove::RotateCCW),
-            GameAction::SoftDrop => Some(GameMove::SoftDrop),
-            GameAction::Hold => Some(GameMove::Hold),
-            GameAction::Lock => None,
-            GameAction::AddGarbage { .. } => None,
-        }
-    }
-}
-impl Display for GameMove {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GameMove::ShiftLeft => write!(f, "shiftLeft"),
-            GameMove::ShiftRight => write!(f, "shiftRight"),
-            GameMove::RotateCW => write!(f, "rotateCW"),
-            GameMove::Rotate180 => write!(f, "rotate180"),
-            GameMove::RotateCCW => write!(f, "rotateCCW"),
-            GameMove::Hold => write!(f, "hold"),
-            GameMove::SoftDrop => write!(f, "softDrop"),
-            GameMove::HardDrop => write!(f, "hardDrop"),
-        }
-    }
-}
-impl Default for GameMove {
-    fn default() -> Self {
-        GameMove::ShiftLeft
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub enum GameAction {
     ShiftLeft,
     ShiftRight,
     ShiftDown,
-    RotateCW,
+    RotateCw,
     Rotate180,
-    RotateCCW,
+    RotateCcw,
     SoftDrop,
+    HardDrop,
     Hold,
     Lock,
-    AddGarbage { col: usize, height: u32 },
 }
+
 impl GameAction {
-    pub fn from_piece_action(piece_action: PieceAction) -> Self {
-        match piece_action {
-            PieceAction::ShiftLeft => GameAction::ShiftLeft,
-            PieceAction::ShiftRight => GameAction::ShiftRight,
-            PieceAction::ShiftDown => GameAction::ShiftDown,
-            PieceAction::RotateCW => GameAction::RotateCW,
-            PieceAction::Rotate180 => GameAction::Rotate180,
-            PieceAction::RotateCCW => GameAction::RotateCCW,
-            PieceAction::SoftDrop => GameAction::SoftDrop,
+    pub fn from_u8(value: u8) -> Result<Self> {
+        match value {
+            0 => Ok(GameAction::ShiftLeft),
+            1 => Ok(GameAction::ShiftRight),
+            2 => Ok(GameAction::ShiftDown),
+            3 => Ok(GameAction::RotateCw),
+            4 => Ok(GameAction::Rotate180),
+            5 => Ok(GameAction::RotateCcw),
+            6 => Ok(GameAction::SoftDrop),
+            7 => Ok(GameAction::HardDrop),
+            8 => Ok(GameAction::Hold),
+            9 => Ok(GameAction::Lock),
+            x => Err(anyhow!("unknown game action {x}")),
         }
     }
-    pub fn from_game_move(game_move: GameMove) -> Option<Self> {
-        match game_move {
-            GameMove::ShiftLeft => Some(GameAction::ShiftLeft),
-            GameMove::ShiftRight => Some(GameAction::ShiftRight),
-            GameMove::RotateCW => Some(GameAction::RotateCW),
-            GameMove::Rotate180 => Some(GameAction::Rotate180),
-            GameMove::RotateCCW => Some(GameAction::RotateCCW),
-            GameMove::SoftDrop => Some(GameAction::SoftDrop),
-            GameMove::Hold => Some(GameAction::Hold),
-            GameMove::HardDrop => None,
+
+    pub fn to_u8(self) -> u8 {
+        match self {
+            GameAction::ShiftLeft => 0,
+            GameAction::ShiftRight => 1,
+            GameAction::ShiftDown => 2,
+            GameAction::RotateCw => 3,
+            GameAction::Rotate180 => 4,
+            GameAction::RotateCcw => 5,
+            GameAction::SoftDrop => 6,
+            GameAction::HardDrop => 7,
+            GameAction::Hold => 8,
+            GameAction::Lock => 9,
         }
+    }
+}
+
+impl Default for GameAction {
+    fn default() -> Self {
+        GameAction::ShiftLeft
+    }
+}
+
+impl Display for GameAction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            GameAction::ShiftLeft => "shift-left",
+            GameAction::ShiftRight => "shift-right",
+            GameAction::ShiftDown => "shift-down",
+            GameAction::RotateCw => "rotate-cw",
+            GameAction::Rotate180 => "rotate-180",
+            GameAction::RotateCcw => "rotate-ccw",
+            GameAction::SoftDrop => "soft-drop",
+            GameAction::HardDrop => "hard-drop",
+            GameAction::Hold => "hold",
+            GameAction::Lock => "lock",
+        };
+        write!(f, "{str}")
     }
 }
 
@@ -149,6 +92,7 @@ pub struct Game {
     #[serde(rename = "canHold")]
     pub can_hold: bool,
 }
+
 impl Game {
     pub fn from_parts(
         board: Board,
@@ -167,9 +111,10 @@ impl Game {
             can_hold,
         }
     }
+
     pub fn from_bag(bag: &mut Bag) -> Self {
         let active = Piece::from_piece_type(bag.next());
-        let mut queue = ArrDeque::<PieceType, GAME_MAX_QUEUE_LEN>::new();
+        let mut queue = ArrDeque::new();
         while queue.len() < GAME_MAX_QUEUE_LEN {
             queue.push_back(bag.next()).unwrap();
         }
@@ -181,6 +126,7 @@ impl Game {
             can_hold: true,
         }
     }
+
     pub fn from_pieces(active: PieceType, hold: Option<PieceType>, queue: &[PieceType]) -> Self {
         Game {
             board: Board::new(),
@@ -196,17 +142,21 @@ impl Game {
         self.active.reset();
         self.can_hold = true;
     }
+
     pub fn set_hold(&mut self, piece: Option<PieceType>) {
         self.hold = piece;
         self.can_hold = true;
     }
+
     pub fn set_queue(&mut self, pieces: &[PieceType]) {
         self.clear_queue();
         self.extend_queue(pieces);
     }
+
     pub fn append_queue(&mut self, piece: PieceType) {
         self.queue.push_back(piece).unwrap();
     }
+
     pub fn extend_queue(&mut self, pieces: &[PieceType]) {
         for &piece in pieces {
             if self.queue.len() < GAME_MAX_QUEUE_LEN {
@@ -214,18 +164,25 @@ impl Game {
             }
         }
     }
+
     pub fn clear_queue(&mut self) {
         self.queue.clear();
     }
+
     pub fn refill_queue(&mut self, bag: &mut Bag) {
         while self.queue.len() < GAME_MAX_QUEUE_LEN {
             self.append_queue(bag.next());
         }
     }
+
     pub fn set_can_hold(&mut self, can_hold: bool) {
         self.can_hold = can_hold;
     }
+
     pub fn swap_hold(&mut self) -> bool {
+        if !self.can_hold {
+            return false;
+        }
         let hold = match self.hold {
             Some(hold) => hold,
             None => match self.queue.pop_front() {
@@ -236,94 +193,54 @@ impl Game {
         self.hold = Some(self.active.piece_type);
         self.active.piece_type = hold;
         self.active.reset();
+        self.can_hold = true;
         true
     }
 
-    pub fn apply_action(&mut self, game_action: GameAction) -> ActionResult {
-        match game_action {
-            GameAction::ShiftLeft
-            | GameAction::ShiftRight
-            | GameAction::ShiftDown
-            | GameAction::RotateCW
-            | GameAction::Rotate180
-            | GameAction::RotateCCW
-            | GameAction::SoftDrop => {
-                let piece_move = PieceAction::from_game_action(game_action).unwrap();
-                let res = self.active.apply_action(piece_move, &self.board);
-                if res {
-                    ActionResult::Success
-                } else {
-                    ActionResult::Fail
-                }
-            }
-            GameAction::Hold => {
-                if !self.can_hold {
-                    return ActionResult::Fail;
-                }
-                if self.swap_hold() {
-                    self.can_hold = false;
-                    ActionResult::Success
-                } else {
-                    ActionResult::Fail
-                }
-            }
-            GameAction::Lock => {
-                if self.queue.is_empty() {
-                    return ActionResult::Fail;
-                }
-
-                self.active.soft_drop(&self.board);
-                let res = self.board.lock(&self.active);
-                self.active.piece_type = self.queue.pop_front().unwrap();
-                self.active.reset();
-                self.can_hold = true;
-
-                ActionResult::SuccessDrop {
-                    lines_cleared: res.lines_cleared,
-                    top_out: res.top_out,
-                }
-            }
-            GameAction::AddGarbage { col, height } => {
-                self.board.add_garbage(col, height);
-                ActionResult::Success
-            }
+    pub fn lock(&mut self) -> Option<LockInfo> {
+        if self.queue.is_empty() {
+            return None;
         }
+
+        let info = self.board.lock(&self.active);
+        self.active.piece_type = self.queue.pop_front().unwrap();
+        self.active.reset();
+        self.can_hold = true;
+
+        Some(info)
     }
-    pub fn make_move(&mut self, game_move: GameMove) -> ActionResult {
-        match game_move {
-            GameMove::ShiftLeft
-            | GameMove::ShiftRight
-            | GameMove::RotateCW
-            | GameMove::Rotate180
-            | GameMove::RotateCCW
-            | GameMove::SoftDrop
-            | GameMove::Hold => {
-                let action = GameAction::from_game_move(game_move).unwrap();
-                self.apply_action(action)
-            }
-            GameMove::HardDrop => {
-                if self.queue.is_empty() {
-                    return ActionResult::Fail;
-                }
 
-                self.apply_action(GameAction::SoftDrop);
-                let res = self.apply_action(GameAction::Lock);
+    pub fn hard_drop(&mut self) -> Option<LockInfo> {
+        if self.queue.is_empty() {
+            return None;
+        }
 
-                if let ActionResult::SuccessDrop { .. } = res {
-                    res
-                } else {
-                    panic!("Expected GameActionRes::SuccessDrop(_)")
-                }
-            }
+        self.active.soft_drop(&self.board);
+        self.lock()
+    }
+
+    pub fn apply_action(&mut self, game_action: GameAction) -> bool {
+        match game_action {
+            GameAction::ShiftLeft => self.active.shift_left(&self.board),
+            GameAction::ShiftRight => self.active.shift_right(&self.board),
+            GameAction::ShiftDown => self.active.shift_down(&self.board),
+            GameAction::RotateCw => self.active.rotate_cw(&self.board),
+            GameAction::Rotate180 => self.active.rotate_180(&self.board),
+            GameAction::RotateCcw => self.active.rotate_ccw(&self.board),
+            GameAction::SoftDrop => self.active.soft_drop(&self.board),
+            GameAction::HardDrop => self.hard_drop().is_some(),
+            GameAction::Hold => self.swap_hold(),
+            GameAction::Lock => self.lock().is_some(),
         }
     }
 }
+
 impl Display for Game {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         // Board + Active Piece
         write!(f, "{}", self.board.to_string(Some(&self.active)))?;
 
-        // Curr, Hold, and Queue pieces
+        // Current, Hold, and Queue pieces
         let curr = format!("{}", &self.active);
         let hold = match &self.hold {
             Some(piece) => {

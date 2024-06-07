@@ -19,35 +19,35 @@ fn main() -> Result<()> {
         match key? {
             Key::Ctrl('c') => break,
             Key::Left => {
-                game.make_move(GameMove::ShiftLeft);
+                game.active.shift_left(&game.board);
             }
             Key::Right => {
-                game.make_move(GameMove::ShiftRight);
+                game.active.shift_right(&game.board);
             }
             Key::Up => {
-                game.make_move(GameMove::SoftDrop);
+                game.active.soft_drop(&game.board);
             }
             Key::Down => {
-                let res = game.make_move(GameMove::HardDrop);
-                if let ActionResult::SuccessDrop {
+                let info = game.hard_drop();
+                if let Some(LockInfo {
                     lines_cleared,
                     top_out,
-                } = res
+                }) = info
                 {
                     println!("Drop: Lines cleared: {lines_cleared} Top out: {top_out}");
                 }
             }
             Key::Char('a') => {
-                game.make_move(GameMove::Rotate180);
+                game.active.rotate_180(&game.board);
             }
             Key::Char('z') => {
-                game.make_move(GameMove::RotateCCW);
+                game.active.rotate_ccw(&game.board);
             }
             Key::Char('x') => {
-                game.make_move(GameMove::RotateCW);
+                game.active.rotate_cw(&game.board);
             }
             Key::Char('c') => {
-                game.make_move(GameMove::Hold);
+                game.swap_hold();
             }
             Key::Char('g') => game.board.add_garbage(6, 2),
             _ => {}

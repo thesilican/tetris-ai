@@ -12,6 +12,7 @@ pub struct Context<M, N> {
     sender: Sender<ThreadRes<N>>,
     receiver: Receiver<M>,
 }
+
 impl<M, N> Context<M, N> {
     pub fn thread_id(&self) -> usize {
         self.thread_id
@@ -36,6 +37,7 @@ enum Worker {
     Running(JoinHandle<Result<()>>),
     Finished,
 }
+
 impl Worker {
     fn new<F, M, N>(
         f: F,
@@ -112,6 +114,7 @@ impl<M, N> ThreadPool<M, N> {
             receiver,
         }
     }
+
     pub fn send(&self, thread_id: usize, msg: M) -> Result<()> {
         if thread_id >= self.senders.len() {
             bail!("thread_id {thread_id} is out of bounds");
@@ -123,6 +126,7 @@ impl<M, N> ThreadPool<M, N> {
             .send(msg)
             .map_err(|_| anyhow!("error sending message"))
     }
+
     pub fn recv(&mut self) -> Result<Option<(usize, N)>> {
         loop {
             let msg = self
@@ -140,6 +144,7 @@ impl<M, N> ThreadPool<M, N> {
             }
         }
     }
+
     pub fn join(mut self) -> Result<()> {
         let mut fail_count = 0;
         for worker in self.workers.iter_mut() {
@@ -156,6 +161,7 @@ impl<M, N> ThreadPool<M, N> {
             Ok(())
         }
     }
+
     pub fn active_workers(&self) -> usize {
         self.workers.iter().filter(|w| !w.is_finished()).count()
     }

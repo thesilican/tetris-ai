@@ -1,6 +1,5 @@
+use crate::{Game, GameAction, PieceInfo, BOARD_WIDTH, PIECE_SHAPE_SIZE};
 use std::{error::Error, fmt::Display};
-
-use crate::{ActionResult, Game, GameMove, BOARD_WIDTH, PIECE_SHAPE_SIZE};
 
 #[derive(Debug)]
 pub enum ChildError {
@@ -10,6 +9,7 @@ pub enum ChildError {
     /// Cannot generate children when piece is against the wall
     AgainstWall,
 }
+
 impl Display for ChildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -18,6 +18,7 @@ impl Display for ChildError {
         }
     }
 }
+
 impl Error for ChildError {}
 
 #[derive(Clone, Copy)]
@@ -28,33 +29,34 @@ pub struct Child {
     shift: i8,
     fin: i8,
 }
+
 impl Child {
-    pub fn moves(&self) -> impl Iterator<Item = GameMove> {
-        let hold: &[GameMove] = if self.hold { &[GameMove::Hold] } else { &[] };
-        let rot: &[GameMove] = match self.rot {
+    pub fn actions(&self) -> impl Iterator<Item = GameAction> {
+        let hold: &[GameAction] = if self.hold { &[GameAction::Hold] } else { &[] };
+        let rot: &[GameAction] = match self.rot {
             0 => &[],
-            1 => &[GameMove::RotateCW],
-            2 => &[GameMove::Rotate180],
-            3 => &[GameMove::RotateCCW],
+            1 => &[GameAction::RotateCw],
+            2 => &[GameAction::Rotate180],
+            3 => &[GameAction::RotateCcw],
             _ => panic!("rotation out of bounds"),
         };
         let shift = if self.shift < 0 {
-            std::iter::repeat(&GameMove::ShiftLeft).take(-self.shift as usize)
+            std::iter::repeat(&GameAction::ShiftLeft).take(-self.shift as usize)
         } else {
-            std::iter::repeat(&GameMove::ShiftRight).take(self.shift as usize)
+            std::iter::repeat(&GameAction::ShiftRight).take(self.shift as usize)
         };
-        let drop: &[GameMove] = if self.fin == 0 {
+        let drop: &[GameAction] = if self.fin == 0 {
             &[]
         } else {
-            &[GameMove::SoftDrop]
+            &[GameAction::SoftDrop]
         };
-        let fin: &[GameMove] = match self.fin {
+        let fin: &[GameAction] = match self.fin {
             0 => &[],
-            1 => &[GameMove::ShiftLeft],
-            2 => &[GameMove::ShiftRight],
-            3 => &[GameMove::RotateCW],
-            4 => &[GameMove::Rotate180],
-            5 => &[GameMove::RotateCCW],
+            1 => &[GameAction::ShiftLeft],
+            2 => &[GameAction::ShiftRight],
+            3 => &[GameAction::RotateCw],
+            4 => &[GameAction::Rotate180],
+            5 => &[GameAction::RotateCcw],
             _ => panic!("fin out of bounds"),
         };
         hold.iter()
@@ -62,7 +64,7 @@ impl Child {
             .chain(shift)
             .chain(drop)
             .chain(fin)
-            .chain(std::iter::once(&GameMove::HardDrop))
+            .chain(std::iter::once(&GameAction::HardDrop))
             .copied()
     }
 }
@@ -102,7 +104,7 @@ impl Game {
         for hold in [false, true] {
             let mut game = *self;
             if hold {
-                if let ActionResult::Fail = game.make_move(GameMove::Hold) {
+                if !game.swap_hold() {
                     continue;
                 }
             }
@@ -114,7 +116,8 @@ impl Game {
             for rot in [0, 1, 2, 3] {
                 let mut game = game;
                 game.active.rotation = (game.active.rotation + rot) % 4;
-                let shift_bounds = game.active.get_location_bounds(None);
+                let shift_bounds =
+                    PieceInfo::location_bound(game.active.piece_type, game.active.rotation);
                 let min_x = shift_bounds.0 as i32;
                 let max_x = shift_bounds.1 as i32;
 
@@ -126,7 +129,8 @@ impl Game {
 
                     // Soft drop
                     let x = game.active.location.0 as i32;
-                    let piece_map = game.active.get_height_map(None);
+                    let piece_map =
+                        PieceInfo::height_map(game.active.piece_type, game.active.rotation);
                     let mut min_y = i32::MIN;
                     for i in 0..PIECE_SHAPE_SIZE {
                         if piece_map[i].0 == -1 {
@@ -141,7 +145,7 @@ impl Game {
                     }
                     game.active.location.1 = min_y as i8;
 
-                    // Final move
+                    // Final action
                     // 0 - nothing
                     // 1 - shift left
                     // 2 - shift right
@@ -176,7 +180,8 @@ impl Game {
                             if px < 0 || px >= 4 || py < 0 || py >= 4 {
                                 continue;
                             }
-                            let shape = game.active.get_shape(None);
+                            let shape =
+                                PieceInfo::shape(game.active.piece_type, game.active.rotation);
                             let bit = shape[px as usize][py as usize];
                             if bit {
                                 found = true;

@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     println!(
         "{}\n{:?}\n{} of {}",
         child_states[index].game,
-        child_states[index].moves().collect::<Vec<_>>(),
+        child_states[index].actions().collect::<Vec<_>>(),
         index + 1,
         child_states.len()
     );
@@ -33,8 +33,8 @@ fn main() -> Result<()> {
                 index = (index + 1) % child_states.len();
             }
             Key::Char(' ') => {
-                for game_move in child_states[index].moves() {
-                    game.make_move(game_move);
+                for action in child_states[index].actions() {
+                    game.apply_action(action);
                 }
                 game.refill_queue(&mut bag);
                 child_states = game.children().unwrap();
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
         println!(
             "{}\n{:?}\n{} of {}",
             child_states[index].game,
-            child_states[index].moves().collect::<Vec<_>>(),
+            child_states[index].actions().collect::<Vec<_>>(),
             index + 1,
             child_states.len()
         );
