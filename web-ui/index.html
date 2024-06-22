@@ -2,12 +2,47 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + TS</title>
+    <title>Tetris AI</title>
+    <meta name="color-scheme" content="dark" />
   </head>
   <body>
-    <canvas id="canvas"></canvas>
+    <div class="container">
+      <h1 class="title">Tetris AI</h1>
+      <p class="subtitle">By <a href="https://thesilican.com">Bryan Chen</a></p>
+      <div class="container-row">
+        <div class="options">
+          <div class="options-row">
+            <select value="human">
+              <option value="human">Human</option>
+              <option value="cpu-tree-bot">CPU: Tree Bot</option>
+              <option value="cpu-pc-finder">CPU: PC Finder</option>
+            </select>
+            <button id="start-game">Start</button>
+          </div>
+          <p>
+            Select Human to play tetris, or select a CPU bot to watch, then
+            press start.
+          </p>
+        </div>
+        <div class="canvas-container">
+          <canvas id="canvas" width="550" height="600"></canvas>
+        </div>
+        <div class="controls">
+          <h2>Controls</h2>
+          <div class="controls-column">
+            <kbd>←</kbd> <span>Move Left</span> <kbd>→</kbd>
+            <span>Move Right</span> <kbd>↓</kbd> <span>Soft Drop</span>
+            <kbd>Space</kbd> <span>Hard Drop</span> <kbd>Z</kbd>
+            <span>Rotate Left</span> <kbd>X</kbd> <span>Rotate Right</span>
+            <kbd>A</kbd> <span>Rotate 180</span> <kbd>C</kbd> <span>Hold</span>
+            <kbd>P</kbd> <span>Pause Game</span> <kbd>R</kbd>
+            <span>Restart Game</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,5 +1,5 @@
 import { PieceInfo } from "./computed";
-import { Xorshift } from "./rng";
+import { Xorshift } from "./util";
 
 export const BOARD_WIDTH = 10;
 export const BOARD_HEIGHT = 40;
@@ -19,6 +19,7 @@ export type GameMove =
 
 export type LockInfo = {
   linesCleared: number;
+  topOut: boolean;
 };
 
 export class Piece {
@@ -208,6 +209,7 @@ export class Board {
 
   lock(piece: Piece): LockInfo {
     const shape = PieceInfo.Shapes[piece.pieceType][piece.rotation];
+    const topOut = this.intersectsWith(piece);
 
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -248,6 +250,7 @@ export class Board {
 
     return {
       linesCleared,
+      topOut,
     };
   }
 
@@ -299,6 +302,9 @@ export class Game {
   queue: PieceType[];
   canHold: boolean;
   bag: Bag;
+  started: boolean;
+  finished: boolean;
+  paused: boolean;
 
   constructor(seed = 0) {
     this.board = new Board();
@@ -307,6 +313,9 @@ export class Game {
     this.queue = [];
     this.canHold = true;
     this.bag = new Bag(seed);
+    this.started = false;
+    this.finished = false;
+    this.paused = false;
   }
 
   start(seed = 0) {
@@ -320,6 +329,8 @@ export class Game {
       this.queue.push(this.bag.next());
     }
     this.canHold = true;
+    this.started = true;
+    this.finished = false;
   }
 
   swapHold(): boolean {
@@ -344,13 +355,15 @@ export class Game {
     return true;
   }
 
-  hardDrop() {
+  lock() {
     if (this.queue.length === 0) {
-      throw new Error("cannot hard drop while queue is empty");
+      throw new Error("cannot lock while queue is empty");
     }
 
-    this.active.softDrop(this.board);
-    this.board.lock(this.active);
+    const info = this.board.lock(this.active);
+    if (info.topOut) {
+      this.finished = true;
+    }
     this.active.pieceType = this.queue.shift()!;
     this.active.reset();
     this.canHold = true;
@@ -358,5 +371,21 @@ export class Game {
     if (this.queue.length < 6) {
       this.queue.push(this.bag.next());
     }
+  }
+
+  gravityShift() {
+    const success = this.active.shiftDown(this.board);
+    if (!success) {
+      this.lock();
+    }
+  }
+
+  hardDrop() {
+    if (this.queue.length === 0) {
+      throw new Error("cannot hard drop while queue is empty");
+    }
+
+    this.active.softDrop(this.board);
+    this.lock();
   }
 }
