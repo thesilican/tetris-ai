@@ -14,17 +14,20 @@
       <div class="container-row">
         <div class="options">
           <div class="options-row">
-            <select value="human">
+            <select id="start-select" value="human">
               <option value="human">Human</option>
-              <option value="cpu-tree-bot">CPU: Tree Bot</option>
-              <option value="cpu-pc-finder">CPU: PC Finder</option>
+              <option value="bot-simple-ai">Bot: Simple AI</option>
             </select>
             <button id="start-game">Start</button>
           </div>
-          <p>
-            Select Human to play tetris, or select a CPU bot to watch, then
-            press start.
-          </p>
+          <p id="description"></p>
+          <div id="ai-controls">
+            <div class="options-row">
+              <label for="ai-speed">Speed:</label>
+              <input id="ai-speed" type="range" value="10" min="1" max="10" />
+            </div>
+            <pre id="ai-output"></pre>
+          </div>
         </div>
         <div class="canvas-container">
           <canvas id="canvas" width="550" height="600"></canvas>
@@ -32,13 +35,15 @@
         <div class="controls">
           <h2>Controls</h2>
           <div class="controls-column">
+            <kbd>P</kbd> <span>Pause Game</span>
+            <kbd>R</kbd>
+            <span>Restart Game</span>
+            <div class="spacer"></div>
             <kbd>←</kbd> <span>Move Left</span> <kbd>→</kbd>
             <span>Move Right</span> <kbd>↓</kbd> <span>Soft Drop</span>
             <kbd>Space</kbd> <span>Hard Drop</span> <kbd>Z</kbd>
             <span>Rotate Left</span> <kbd>X</kbd> <span>Rotate Right</span>
             <kbd>A</kbd> <span>Rotate 180</span> <kbd>C</kbd> <span>Hold</span>
-            <kbd>P</kbd> <span>Pause Game</span> <kbd>R</kbd>
-            <span>Restart Game</span>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 use crate::{frames::FrameCollection, GameExt};
-use common::model::{Game, GameAction, Stream, BOARD_HEIGHT, BOARD_WIDTH};
+use libtetris::model::{Action, Game, Stream, BOARD_HEIGHT, BOARD_WIDTH};
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::fmt::{self, Display, Formatter};
@@ -16,7 +16,7 @@ use std::lazy::{Lazy, OnceCell};
 pub struct KeyFrame {
     pub start: Game,
     pub end: Game,
-    pub actions: Vec<GameAction>,
+    pub actions: Vec<Action>,
 }
 impl Display for KeyFrame {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -32,7 +32,7 @@ impl Display for KeyFrame {
 pub struct Replay {
     pub name: String,
     pub stream: Stream,
-    pub actions: Vec<GameAction>,
+    pub actions: Vec<Action>,
     frames_cache: OnceCell<Vec<Game>>,
     keyframes_cache: OnceCell<Vec<KeyFrame>>,
 }
@@ -116,69 +116,66 @@ fn frames_to_stream(frames: &FrameCollection) -> Stream {
     Stream::from_iter(pieces)
 }
 
-static ACTIONS_LIST: Lazy<Vec<Vec<GameAction>>> = Lazy::new(|| {
+static ACTIONS_LIST: Lazy<Vec<Vec<Action>>> = Lazy::new(|| {
     let pool = vec![
         // No-op
         vec![],
         // Hold
-        vec![GameAction::Hold],
+        vec![Action::Hold],
         // Rotates
-        vec![GameAction::RotateCW],
-        vec![GameAction::Rotate180],
-        vec![GameAction::RotateCCW],
+        vec![Action::RotateCW],
+        vec![Action::Rotate180],
+        vec![Action::RotateCCW],
         // Shifts left/right
-        vec![GameAction::ShiftLeft; 1],
-        vec![GameAction::ShiftRight; 1],
-        vec![GameAction::ShiftLeft; 2],
-        vec![GameAction::ShiftRight; 2],
-        vec![GameAction::ShiftLeft; 3],
-        vec![GameAction::ShiftRight; 3],
-        vec![GameAction::ShiftLeft; 7],
-        vec![GameAction::ShiftRight; 4],
-        vec![GameAction::ShiftLeft; 4],
-        vec![GameAction::ShiftRight; 5],
-        vec![GameAction::ShiftLeft; 5],
-        vec![GameAction::ShiftRight; 6],
-        vec![GameAction::ShiftLeft; 6],
-        vec![GameAction::ShiftRight; 7],
-        vec![GameAction::ShiftLeft; 8],
-        vec![GameAction::ShiftRight; 8],
-        vec![GameAction::ShiftLeft; 9],
-        vec![GameAction::ShiftRight; 9],
-        vec![GameAction::ShiftLeft; 10],
-        vec![GameAction::ShiftRight; 10],
+        vec![Action::ShiftLeft; 1],
+        vec![Action::ShiftRight; 1],
+        vec![Action::ShiftLeft; 2],
+        vec![Action::ShiftRight; 2],
+        vec![Action::ShiftLeft; 3],
+        vec![Action::ShiftRight; 3],
+        vec![Action::ShiftLeft; 7],
+        vec![Action::ShiftRight; 4],
+        vec![Action::ShiftLeft; 4],
+        vec![Action::ShiftRight; 5],
+        vec![Action::ShiftLeft; 5],
+        vec![Action::ShiftRight; 6],
+        vec![Action::ShiftLeft; 6],
+        vec![Action::ShiftRight; 7],
+        vec![Action::ShiftLeft; 8],
+        vec![Action::ShiftRight; 8],
+        vec![Action::ShiftLeft; 9],
+        vec![Action::ShiftRight; 9],
+        vec![Action::ShiftLeft; 10],
+        vec![Action::ShiftRight; 10],
         // Shift down
-        vec![GameAction::ShiftDown],
-        vec![GameAction::ShiftDown; 2],
-        vec![GameAction::ShiftDown; 3],
-        vec![GameAction::ShiftDown; 4],
-        vec![GameAction::ShiftDown; 5],
-        vec![GameAction::ShiftDown; 6],
-        vec![GameAction::ShiftDown; 7],
-        vec![GameAction::ShiftDown; 8],
-        vec![GameAction::ShiftDown; 9],
-        vec![GameAction::ShiftDown; 10],
+        vec![Action::ShiftDown],
+        vec![Action::ShiftDown; 2],
+        vec![Action::ShiftDown; 3],
+        vec![Action::ShiftDown; 4],
+        vec![Action::ShiftDown; 5],
+        vec![Action::ShiftDown; 6],
+        vec![Action::ShiftDown; 7],
+        vec![Action::ShiftDown; 8],
+        vec![Action::ShiftDown; 9],
+        vec![Action::ShiftDown; 10],
         // Soft drop
-        vec![GameAction::SoftDrop],
+        vec![Action::SoftDrop],
         // Hard drop
-        vec![GameAction::SoftDrop, GameAction::Lock],
+        vec![Action::SoftDrop, Action::Lock],
     ];
-    let mut actions_list = Vec::<Vec<GameAction>>::new();
-    let mut actions_set = HashSet::<Vec<GameAction>>::new();
+    let mut actions_list = Vec::<Vec<Action>>::new();
+    let mut actions_set = HashSet::<Vec<Action>>::new();
     for action_1 in pool.iter() {
         for action_2 in pool.iter() {
             for action_3 in pool.iter() {
                 for action_4 in pool.iter() {
-                    let mut actions = Vec::<GameAction>::new();
+                    let mut actions = Vec::<Action>::new();
                     actions.extend(action_1);
                     actions.extend(action_2);
                     actions.extend(action_3);
                     actions.extend(action_4);
-                    // Ensure that there is at most 1 GameAction::Lock
-                    let lock_count = actions
-                        .iter()
-                        .filter(|x| matches!(x, GameAction::Lock))
-                        .count();
+                    // Ensure that there is at most 1 Action::Lock
+                    let lock_count = actions.iter().filter(|x| matches!(x, Action::Lock)).count();
                     if lock_count > 1 {
                         continue;
                     }
@@ -196,10 +193,10 @@ static ACTIONS_LIST: Lazy<Vec<Vec<GameAction>>> = Lazy::new(|| {
 
 // Find a list of actions to get from each frame to the next
 // All of these actions strung together form the game actions for the replay
-fn frames_stream_to_actions(frames: &FrameCollection, stream: &Stream) -> Vec<GameAction> {
+fn frames_stream_to_actions(frames: &FrameCollection, stream: &Stream) -> Vec<Action> {
     // Find the garbage actions that convert curr => target
     // or None if not possible
-    fn find_garbage_actions(curr: Game, target: Game) -> Option<Vec<GameAction>> {
+    fn find_garbage_actions(curr: Game, target: Game) -> Option<Vec<Action>> {
         // Find the height of the garbage
         // i.e. find the first height where for the board matrixes:
         // target[j..] == curr[?..]
@@ -226,30 +223,29 @@ fn frames_stream_to_actions(frames: &FrameCollection, stream: &Stream) -> Vec<Ga
             .collect::<Option<Vec<_>>>()?;
 
         // Turn the garbage cols into actions
-        let garbage_actions =
-            garbage_cols
-                .into_iter()
-                .fold(Vec::<GameAction>::new(), |mut a, v| {
-                    // If the previous garbage is in the same column,
-                    // simply increase the height
-                    if let Some(GameAction::AddGarbage {
-                        col,
-                        ref mut height,
-                    }) = a.last_mut()
-                    {
-                        if *col == v {
-                            *height += 1;
-                            return a;
-                        }
+        let garbage_actions = garbage_cols
+            .into_iter()
+            .fold(Vec::<Action>::new(), |mut a, v| {
+                // If the previous garbage is in the same column,
+                // simply increase the height
+                if let Some(Action::AddGarbage {
+                    col,
+                    ref mut height,
+                }) = a.last_mut()
+                {
+                    if *col == v {
+                        *height += 1;
+                        return a;
                     }
-                    // Otherwise add a new garbage column
-                    a.push(GameAction::AddGarbage { col: v, height: 1 });
-                    a
-                });
+                }
+                // Otherwise add a new garbage column
+                a.push(Action::AddGarbage { col: v, height: 1 });
+                a
+            });
         Some(garbage_actions)
     }
 
-    let mut all_actions = Vec::<GameAction>::new();
+    let mut all_actions = Vec::<Action>::new();
     let mut curr = Game::from_stream(&mut stream.clone());
     // Windows iterate over all pairs of frames
     for target in frames.frames.iter() {
@@ -261,13 +257,13 @@ fn frames_stream_to_actions(frames: &FrameCollection, stream: &Stream) -> Vec<Ga
             let mut actions_final = Vec::new();
             // Debug
             for action in actions.iter() {
-                game.apply_action(*action);
+                game.apply(*action);
                 actions_final.push(*action);
-                if let GameAction::Lock = action {
+                if let Action::Lock = action {
                     let garbage_actions = find_garbage_actions(game, target);
                     if let Some(garbage_actions) = garbage_actions {
                         for action in garbage_actions.iter() {
-                            game.apply_action(*action);
+                            game.apply(*action);
                         }
                         actions_final.extend(garbage_actions);
                     }
@@ -300,22 +296,22 @@ fn replay_to_keyframes(replay: &Replay) -> Vec<KeyFrame> {
     let mut actions = Vec::new();
     for action in replay.actions.iter() {
         match action {
-            GameAction::Lock => {
+            Action::Lock => {
                 keyframes.push(KeyFrame {
                     start,
                     end: game,
                     actions,
                 });
                 actions = Vec::new();
-                game.apply_action(*action);
+                game.apply(*action);
                 start = game;
             }
-            GameAction::AddGarbage { .. } => {
-                game.apply_action(*action);
+            Action::AddGarbage { .. } => {
+                game.apply(*action);
                 start = game;
             }
             _ => {
-                game.apply_action(*action);
+                game.apply(*action);
                 actions.push(*action);
             }
         }
@@ -330,7 +326,7 @@ fn replay_to_frames(replay: &Replay) -> Vec<Game> {
     let mut game = Game::from_stream(&mut queue);
     frames.push(game);
     for action in replay.actions.iter() {
-        game.apply_action(*action);
+        game.apply(*action);
         game.refill_queue_stream(&mut queue);
         frames.push(game);
     }

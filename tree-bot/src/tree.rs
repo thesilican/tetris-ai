@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use common::{Board, Game, Piece, PieceType};
+use libtetris::{Board, Game, Piece, PieceType};
 use smallvec::SmallVec;
 
 #[derive(Clone, Copy)]
@@ -91,6 +91,7 @@ pub struct Tree {
     nodes: HashMap<Node, SmallVec<[Node; 100]>>,
     queue: Vec<PieceType>,
 }
+
 impl Tree {
     pub fn new() -> Self {
         Tree {
@@ -98,6 +99,7 @@ impl Tree {
             queue: Vec::new(),
         }
     }
+
     pub fn probe_queue(
         &mut self,
         step: usize,
@@ -121,12 +123,14 @@ impl Tree {
         }
         Ok(())
     }
+
     pub fn get(&mut self, node: &Node) -> Result<&[Node]> {
         if !self.nodes.contains_key(node) {
             self.insert(node)?;
         }
         Ok(self.nodes.get(node).unwrap())
     }
+
     pub fn insert(&mut self, node: &Node) -> Result<()> {
         let game = node.to_game(&self.queue)?;
         let children = game.children()?;

@@ -1,4 +1,4 @@
-use common::{
+use libtetris::{
     misc::GenericErr,
     model::{Board, BOARD_HEIGHT, BOARD_WIDTH},
 };

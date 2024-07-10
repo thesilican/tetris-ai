@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use common::*;
+use libtetris::*;
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -148,20 +148,20 @@ impl TryFrom<Piece> for NormPiece {
     type Error = Error;
 
     fn try_from(piece: Piece) -> Result<Self, Self::Error> {
-        let bit_shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.location.0);
+        let bit_shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.position_x);
         let (min_x, max_x, min_y, max_y) =
             PieceInfo::location_bound(piece.piece_type, piece.rotation);
-        if piece.location.0 < min_x
-            || piece.location.0 > max_x
-            || piece.location.1 < min_y
-            || piece.location.1 > max_y - 20
+        if piece.position_x < min_x
+            || piece.position_x > max_x
+            || piece.position_y < min_y
+            || piece.position_y > max_y - 20
         {
             return Err(anyhow!(""));
         }
 
         let mut matrix = [0; 4];
         for y in 0..4 {
-            let i = y - piece.location.1;
+            let i = y - piece.position_y;
             if (0..4).contains(&i) {
                 matrix[y as usize] = bit_shape[i as usize]
             }
@@ -352,11 +352,11 @@ impl Pack for PcTableKey {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PcTableChild {
     board: PcBoard,
-    actions: TinyVec<[GameAction; 8]>,
+    actions: TinyVec<[Action; 8]>,
 }
 
 impl PcTableChild {
-    pub fn new(board: PcBoard, actions: impl Into<TinyVec<[GameAction; 8]>>) -> Self {
+    pub fn new(board: PcBoard, actions: impl Into<TinyVec<[Action; 8]>>) -> Self {
         PcTableChild {
             board,
             actions: actions.into(),
@@ -367,7 +367,7 @@ impl PcTableChild {
         self.board
     }
 
-    pub fn actions(&self) -> &[GameAction] {
+    pub fn actions(&self) -> &[Action] {
         &self.actions
     }
 }
@@ -393,7 +393,7 @@ impl Pack for PcTableChild {
         let mut actions = TinyVec::new();
         for i in 0..len {
             let bits = (num >> ((i * 3) + 4)) & 0b111;
-            let val = GameAction::from_u8(bits as u8)?;
+            let val = Action::from_u8(bits as u8)?;
             actions.push(val);
         }
 

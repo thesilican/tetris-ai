@@ -1,6 +1,6 @@
 use crate::{PcBoard, Tess};
 use anyhow::Result;
-use common::{Board, Game, Pack, Piece, PieceType, BOARD_WIDTH};
+use libtetris::{Board, Game, Pack, Piece, PieceType, BOARD_WIDTH};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs::File,

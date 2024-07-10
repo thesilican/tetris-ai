@@ -1,5 +1,5 @@
 use crate::Replay;
-use common::model::{Board, GameAction, BOARD_HEIGHT, BOARD_WIDTH, MOVES_4F_NH};
+use libtetris::model::{Action, Board, BOARD_HEIGHT, BOARD_WIDTH, MOVES_4F_NH};
 use rand::{prelude::StdRng, seq::SliceRandom};
 use serde::Serialize;
 
@@ -18,7 +18,7 @@ impl TestCase {
             // Generate "good" case from keyframe end
             let good_case = {
                 let mut game = keyframe.end;
-                game.apply_action(GameAction::Lock);
+                game.apply(Action::Lock);
                 TestCase {
                     board: game.board,
                     label: true,
@@ -30,7 +30,7 @@ impl TestCase {
             child_states.shuffle(&mut rng);
             let bad_cases = child_states.iter().take(1).map(|child_state| {
                 let mut game = child_state.game;
-                game.apply_action(GameAction::Lock);
+                game.apply(Action::Lock);
                 TestCase {
                     board: game.board,
                     label: false,

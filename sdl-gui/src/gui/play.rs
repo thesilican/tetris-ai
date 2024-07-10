@@ -2,7 +2,7 @@ use std::{thread::sleep, time::Duration};
 
 use crate::*;
 use anyhow::Result;
-use common::*;
+use libtetris::*;
 use sdl2::keyboard::Keycode;
 
 enum ShiftDirection {
@@ -30,6 +30,7 @@ pub struct PlayGui {
     lock: i32,
     game_over: bool,
 }
+
 impl PlayGui {
     pub fn new() -> Result<Self> {
         let mut bag = Bag::new_rng7(2);
@@ -49,6 +50,7 @@ impl PlayGui {
             lock: 0,
         })
     }
+
     pub fn run(&mut self) -> Result<()> {
         self.init();
         while !self.game_over {
@@ -57,6 +59,7 @@ impl PlayGui {
         }
         Ok(())
     }
+
     fn init(&mut self) {
         self.bag = Bag::new_rng7(123);
         self.game = ColoredGame::new(Game::from_bag(&mut self.bag));
@@ -69,12 +72,13 @@ impl PlayGui {
         self.shift_das = 0;
         self.shift_arr = 0;
     }
+
     fn tick(&mut self) -> Result<()> {
         self.read_input();
 
         if self.drop {
             if self.drop_arr <= 1 {
-                self.game.apply_action(GameAction::ShiftDown);
+                self.game.apply(Action::ShiftDown);
                 self.drop_arr = DROP_ARR;
             } else {
                 self.drop_arr -= 1;
@@ -86,13 +90,13 @@ impl PlayGui {
                 if self.shift_das <= 1 {
                     if self.shift_arr <= 1 {
                         if let ShiftDirection::Left = self.shift {
-                            let res = self.game.make_move(GameMove::ShiftLeft);
-                            if res != ActionResult::Fail {
+                            let res = self.game.apply(Action::ShiftLeft);
+                            if res {
                                 self.lock = LOCK;
                             }
                         } else {
-                            let res = self.game.make_move(GameMove::ShiftRight);
-                            if res != ActionResult::Fail {
+                            let res = self.game.apply(Action::ShiftRight);
+                            if res {
                                 self.lock = LOCK;
                             }
                         }
@@ -106,7 +110,7 @@ impl PlayGui {
             }
         }
         if self.gravity <= 1 {
-            self.game.apply_action(GameAction::ShiftDown);
+            self.game.apply(Action::ShiftDown);
             self.gravity = GRAVITY;
         } else {
             self.gravity -= 1;
@@ -114,11 +118,11 @@ impl PlayGui {
 
         let should_lock = {
             let mut game = *self.game.game();
-            game.apply_action(GameAction::ShiftDown) == ActionResult::Fail
+            !game.apply(Action::ShiftDown)
         };
         if should_lock {
             if self.lock <= 1 {
-                self.game.apply_action(GameAction::Lock);
+                self.game.apply(Action::Lock);
                 self.lock = LOCK;
                 self.gravity = GRAVITY;
             } else {
@@ -130,6 +134,7 @@ impl PlayGui {
         self.window.draw_colored_game(&self.game)?;
         Ok(())
     }
+
     fn read_input(&mut self) {
         for event in self.window.poll_events() {
             match event {
@@ -140,14 +145,14 @@ impl PlayGui {
                     self.init();
                 }
                 GuiEvent::KeyDown(Keycode::Left) => {
-                    self.game.make_move(GameMove::ShiftLeft);
+                    self.game.apply(Action::ShiftLeft);
                     self.shift = ShiftDirection::Left;
                     self.shift_das = SHIFT_DAS;
                     self.shift_arr = 0;
                     self.lock = LOCK;
                 }
                 GuiEvent::KeyDown(Keycode::Right) => {
-                    self.game.make_move(GameMove::ShiftRight);
+                    self.game.apply(Action::ShiftRight);
                     self.shift = ShiftDirection::Right;
                     self.shift_das = SHIFT_DAS;
                     self.shift_arr = 0;
@@ -157,7 +162,7 @@ impl PlayGui {
                     self.shift = ShiftDirection::None;
                 }
                 GuiEvent::KeyDown(Keycode::Down) => {
-                    self.game.apply_action(GameAction::ShiftDown);
+                    self.game.apply(Action::ShiftDown);
                     self.drop = true;
                     self.drop_arr = DROP_ARR;
                     self.lock = LOCK;
@@ -166,24 +171,24 @@ impl PlayGui {
                     self.drop = false;
                 }
                 GuiEvent::KeyDown(Keycode::Space) => {
-                    self.game.make_move(GameMove::HardDrop);
+                    self.game.apply(Action::HardDrop);
                     self.lock = LOCK;
                     self.gravity = GRAVITY;
                 }
                 GuiEvent::KeyDown(Keycode::Z) => {
-                    self.game.make_move(GameMove::RotateCCW);
+                    self.game.apply(Action::RotateCcw);
                     self.lock = LOCK;
                 }
                 GuiEvent::KeyDown(Keycode::X) => {
-                    self.game.make_move(GameMove::RotateCW);
+                    self.game.apply(Action::RotateCw);
                     self.lock = LOCK;
                 }
                 GuiEvent::KeyDown(Keycode::A) => {
-                    self.game.make_move(GameMove::Rotate180);
+                    self.game.apply(Action::Rotate180);
                     self.lock = LOCK;
                 }
                 GuiEvent::KeyDown(Keycode::C) => {
-                    self.game.make_move(GameMove::Hold);
+                    self.game.apply(Action::Hold);
                     self.lock = LOCK;
                 }
                 _ => {}

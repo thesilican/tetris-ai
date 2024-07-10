@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 redis = { version = "*" }
 fnv = "1.0"
-common = { path = "../common" }
+libtetris = { path = "../libtetris" }
 rand = "0.8.5"
 rayon = "1.5"
 tinyvec = { version = "1.6", features = ["alloc"] }

@@ -1,4 +1,4 @@
-use common::*;
+use libtetris::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TileColor {
@@ -13,6 +13,7 @@ pub enum TileColor {
     Gray,
     Ghost,
 }
+
 impl TileColor {
     pub fn from_piece_type(piece_type: PieceType) -> Self {
         match piece_type {
@@ -32,6 +33,7 @@ pub struct ColoredGame {
     game: Game,
     colors: [[TileColor; BOARD_HEIGHT]; BOARD_WIDTH],
 }
+
 impl ColoredGame {
     pub fn new(game: Game) -> Self {
         let mut colors = [[TileColor::None; BOARD_HEIGHT]; BOARD_WIDTH];
@@ -46,12 +48,17 @@ impl ColoredGame {
 
         ColoredGame { game, colors }
     }
+
     pub fn game(&self) -> &Game {
         &self.game
     }
-    fn simulate_lock(game: Game, colors: &mut [[TileColor; BOARD_HEIGHT]; BOARD_WIDTH]) {
-        let (px, py) = game.active.location;
-        let shape = game.active.get_shape(None);
+
+    fn paint_active_piece(&mut self) {
+        let game = &self.game;
+        let colors = &mut self.colors;
+        let px = game.active.position_x;
+        let py = game.active.position_y;
+        let shape = PieceInfo::shape(game.active.piece_type, game.active.rotation);
         for i in 0..4 {
             for j in 0..4 {
                 if !shape[i as usize][j as usize] {
@@ -65,6 +72,7 @@ impl ColoredGame {
                 }
             }
         }
+
         let mut lines_cleared = 0;
         for j in 0..BOARD_HEIGHT {
             if (0..BOARD_WIDTH)
@@ -84,41 +92,26 @@ impl ColoredGame {
             }
         }
     }
-    pub fn apply_action(&mut self, game_action: GameAction) -> ActionResult {
-        match game_action {
-            GameAction::Lock => {
-                ColoredGame::simulate_lock(self.game, &mut self.colors);
+
+    pub fn apply(&mut self, action: Action) -> bool {
+        match action {
+            Action::Lock => {
+                self.paint_active_piece();
+                self.game.apply(Action::Lock)
             }
-            GameAction::AddGarbage { col, height } => {
-                for j in (0..BOARD_HEIGHT).rev() {
-                    for i in 0..BOARD_WIDTH {
-                        if j < height as usize {
-                            if i == col {
-                                self.colors[i][j] = TileColor::None;
-                            } else {
-                                self.colors[i][j] = TileColor::Gray;
-                            }
-                        } else {
-                            self.colors[i][j] = self.colors[i][j - height as usize];
-                        }
-                    }
-                }
+            Action::HardDrop => {
+                self.game.apply(Action::SoftDrop);
+                self.paint_active_piece();
+                self.game.apply(Action::Lock)
             }
-            _ => {}
+            action => self.game.apply(action),
         }
-        self.game.apply_action(game_action)
     }
-    pub fn make_move(&mut self, game_move: GameMove) -> ActionResult {
-        if let GameMove::HardDrop = game_move {
-            let mut game = self.game;
-            game.apply_action(GameAction::SoftDrop);
-            ColoredGame::simulate_lock(game, &mut self.colors);
-        }
-        self.game.make_move(game_move)
-    }
+
     pub fn refill_queue(&mut self, bag: &mut Bag) {
         self.game.refill_queue(bag);
     }
+
     pub fn get_tile(&self, x: usize, y: usize) -> TileColor {
         self.colors[x][y]
     }

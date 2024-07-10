@@ -1,4 +1,4 @@
-use common::*;
+use libtetris::*;
 use pc_finder::*;
 
 fn main() {

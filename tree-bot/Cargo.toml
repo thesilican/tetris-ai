@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common = { path = "../common" }
+libtetris = { path = "../libtetris" }
 anyhow = "1.0"
 rayon = "1.5"
 smallvec = { version = "1.10.0", features = ["const_generics"] }

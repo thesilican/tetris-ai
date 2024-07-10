@@ -1,6 +1,6 @@
 use crate::{PcBoard, PcTable};
 use anyhow::Result;
-use common::*;
+use libtetris::*;
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,7 +68,7 @@ impl PcGame {
 struct PcChild<'a> {
     game: PcGame,
     hold: bool,
-    pc_moves: &'a [GameAction],
+    pc_moves: &'a [Action],
 }
 
 #[derive(Debug, Default)]
@@ -143,7 +143,7 @@ impl Ai for PcFinderAi {
             Some(child) => {
                 let mut actions = Vec::new();
                 if child.hold {
-                    actions.push(GameAction::Hold);
+                    actions.push(Action::Hold);
                 }
                 actions.extend(child.pc_moves);
                 Evaluation::Success {

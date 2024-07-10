@@ -7,9 +7,10 @@ export const BOARD_VISIBLE_HEIGHT = 20;
 
 export type PieceType = "O" | "I" | "T" | "L" | "J" | "S" | "Z";
 export type Tile = " " | PieceType | "G";
-export type GameMove =
+export type Action =
   | "shift-left"
   | "shift-right"
+  | "shift-down"
   | "rotate-cw"
   | "rotate-ccw"
   | "rotate-180"
@@ -25,32 +26,38 @@ export type LockInfo = {
 export class Piece {
   pieceType: PieceType;
   rotation: number;
-  location: [number, number];
+  positionX: number;
+  positionY: number;
 
   constructor(
     pieceType: PieceType,
     rotation: number,
-    location: [number, number]
+    positionX: number,
+    positionY: number
   ) {
     this.pieceType = pieceType;
     this.rotation = rotation;
-    this.location = location;
+    this.positionX = positionX;
+    this.positionY = positionY;
   }
 
   reset() {
     this.rotation = 0;
-    this.location = PieceInfo.SpawnLocation[this.pieceType];
+    [this.positionX, this.positionY] = PieceInfo.SpawnLocation[this.pieceType];
   }
 
   clone(): Piece {
-    return new Piece(this.pieceType, this.rotation, [
-      this.location[0],
-      this.location[1],
-    ]);
+    return new Piece(
+      this.pieceType,
+      this.rotation,
+      this.positionX,
+      this.positionY
+    );
   }
 
   rotate(amount: number, board: Board): boolean {
-    const [oldX, oldY] = this.location;
+    const oldX = this.positionX;
+    const oldY = this.positionY;
     const oldRot = this.rotation;
     const newRot = (this.rotation + amount) % 4;
     this.rotation = newRot;
@@ -62,7 +69,8 @@ export class Piece {
     for (const [dx, dy] of kickTable) {
       const newX = oldX + dx;
       const newY = oldY + dy;
-      this.location = [newX, newY];
+      this.positionX = newX;
+      this.positionY = newY;
       if (
         newX >= left &&
         newX <= right &&
@@ -75,7 +83,8 @@ export class Piece {
     }
 
     this.rotation = oldRot;
-    this.location = [oldX, oldY];
+    this.positionX = oldX;
+    this.positionY = oldY;
     return false;
   }
 
@@ -92,10 +101,12 @@ export class Piece {
   }
 
   shift([dx, dy]: [number, number], board: Board): boolean {
-    const [oldX, oldY] = this.location;
+    const oldX = this.positionX;
+    const oldY = this.positionY;
     const newX = oldX + dx;
     const newY = oldY + dy;
-    this.location = [newX, newY];
+    this.positionX = newX;
+    this.positionY = newY;
 
     const [left, right, bottom, top] =
       PieceInfo.LocationBounds[this.pieceType][this.rotation];
@@ -108,7 +119,8 @@ export class Piece {
     ) {
       return true;
     }
-    this.location = [oldX, oldY];
+    this.positionX = oldX;
+    this.positionY = oldY;
     return false;
   }
 
@@ -150,10 +162,10 @@ export class Piece {
 }
 
 export class Board {
-  tiles: Tile[];
+  matrix: Tile[];
 
   constructor() {
-    this.tiles = Array.from(Array(BOARD_WIDTH * BOARD_HEIGHT)).map((_) => " ");
+    this.matrix = Array.from(Array(BOARD_WIDTH * BOARD_HEIGHT)).map((_) => " ");
   }
 
   get(x: number, y: number): Tile {
@@ -161,7 +173,7 @@ export class Board {
     if (idx < 0 || idx >= BOARD_WIDTH * BOARD_HEIGHT) {
       throw new Error("indexed board out of bounds");
     }
-    return this.tiles[idx];
+    return this.matrix[idx];
   }
 
   set(x: number, y: number, tile: Tile) {
@@ -169,15 +181,15 @@ export class Board {
     if (idx < 0 || idx >= BOARD_WIDTH * BOARD_HEIGHT) {
       throw new Error("indexed board out of bounds");
     }
-    this.tiles[idx] = tile;
+    this.matrix[idx] = tile;
   }
 
   addGarbage(col: number, height: number) {
     // Copy rows up
     for (let j = BOARD_HEIGHT - 1; j >= height; j--) {
       for (let i = 0; i < BOARD_WIDTH; i++) {
-        this.tiles[j * BOARD_WIDTH + i] =
-          this.tiles[(j - height) * BOARD_WIDTH + i];
+        this.matrix[j * BOARD_WIDTH + i] =
+          this.matrix[(j - height) * BOARD_WIDTH + i];
       }
     }
 
@@ -185,7 +197,7 @@ export class Board {
     for (let j = 0; j < height; j++) {
       for (let i = 0; i < BOARD_WIDTH; i++) {
         const tile = i === col ? " " : "G";
-        this.tiles[j * BOARD_WIDTH + i] = tile;
+        this.matrix[j * BOARD_WIDTH + i] = tile;
       }
     }
   }
@@ -194,8 +206,8 @@ export class Board {
     let shape = PieceInfo.Shapes[piece.pieceType][piece.rotation];
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
-        const x = piece.location[0] + i;
-        const y = piece.location[1] + j;
+        const x = piece.positionX + i;
+        const y = piece.positionY + j;
         if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) {
           continue;
         }
@@ -214,11 +226,7 @@ export class Board {
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
         if (shape[i][j]) {
-          this.set(
-            piece.location[0] + i,
-            piece.location[1] + j,
-            piece.pieceType
-          );
+          this.set(piece.positionX + i, piece.positionY + j, piece.pieceType);
         }
       }
     }
@@ -302,34 +310,29 @@ export class Game {
   queue: PieceType[];
   canHold: boolean;
   bag: Bag;
-  started: boolean;
   finished: boolean;
-  paused: boolean;
 
   constructor(seed = 0) {
     this.board = new Board();
-    this.active = new Piece("O", 0, [0, 0]);
+    this.active = new Piece("O", 0, 0, 0);
     this.hold = null;
     this.queue = [];
     this.canHold = true;
     this.bag = new Bag(seed);
-    this.started = false;
     this.finished = false;
-    this.paused = false;
   }
 
   start(seed = 0) {
     this.bag = new Bag(seed);
     this.board = new Board();
     const active = this.bag.next();
-    this.active = new Piece(active, 0, PieceInfo.SpawnLocation[active]);
+    this.active = new Piece(active, 0, ...PieceInfo.SpawnLocation[active]);
     this.hold = null;
     this.queue = [];
     for (let i = 0; i < 6; i++) {
       this.queue.push(this.bag.next());
     }
     this.canHold = true;
-    this.started = true;
     this.finished = false;
   }
 
@@ -387,5 +390,27 @@ export class Game {
 
     this.active.softDrop(this.board);
     this.lock();
+  }
+
+  apply(action: Action) {
+    if (action === "hard-drop") {
+      this.hardDrop();
+    } else if (action === "hold") {
+      this.swapHold();
+    } else if (action === "rotate-180") {
+      this.active.rotate180(this.board);
+    } else if (action === "rotate-ccw") {
+      this.active.rotateCcw(this.board);
+    } else if (action === "rotate-cw") {
+      this.active.rotateCw(this.board);
+    } else if (action === "shift-left") {
+      this.active.shiftLeft(this.board);
+    } else if (action === "shift-right") {
+      this.active.shiftRight(this.board);
+    } else if (action === "shift-down") {
+      this.active.shiftDown(this.board);
+    } else if (action === "soft-drop") {
+      this.active.softDrop(this.board);
+    }
   }
 }

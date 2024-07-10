@@ -1,6 +1,6 @@
 use crate::{PcBoard, PcTable, PcTableChild};
 use anyhow::Result;
-use common::{Board, Game, Pack, Piece, PieceType};
+use libtetris::{Board, Game, Pack, Piece, PieceType};
 use std::{
     collections::HashSet,
     fs::File,

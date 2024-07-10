@@ -1,4 +1,4 @@
-use common::misc::ThreadPool;
+use libtetris::misc::ThreadPool;
 use processor::{FrameCollection, Replay, TestCase};
 use rand::{
     prelude::{SliceRandom, StdRng},

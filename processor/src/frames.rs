@@ -1,4 +1,4 @@
-use common::model::*;
+use libtetris::model::*;
 use std::{ffi::OsStr, fs};
 
 #[derive(Debug, Clone)]

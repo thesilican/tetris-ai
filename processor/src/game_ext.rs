@@ -1,4 +1,4 @@
-use common::model::Game;
+use libtetris::model::Game;
 
 pub trait GameExt {
     fn eq_ignore_queue(&self, other: Self) -> bool;

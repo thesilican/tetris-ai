@@ -1,4 +1,4 @@
-use common::*;
+use libtetris::*;
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, fmt::Display};
 
@@ -54,7 +54,7 @@ impl Display for CenterState {
 
 pub struct CenterChild {
     state: CenterState,
-    moves: &'static [GameMove],
+    moves: &'static [Action],
 }
 
 pub struct CenterTransitions {

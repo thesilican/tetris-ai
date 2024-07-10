@@ -1,6 +1,6 @@
 mod tree;
 
-use common::*;
+use libtetris::*;
 use std::collections::BinaryHeap;
 use tree::{Node, Tree};
 
@@ -10,12 +10,15 @@ impl PartialEq for ScoredNode {
         self.0.score == other.0.score
     }
 }
+
 impl Eq for ScoredNode {}
+
 impl PartialOrd for ScoredNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.0.score.partial_cmp(&other.0.score)
     }
 }
+
 impl Ord for ScoredNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.score.total_cmp(&other.0.score)
@@ -28,6 +31,7 @@ pub struct DeepAi {
     pub step: usize,
     tree: Tree,
 }
+
 impl DeepAi {
     pub fn new(depth: usize, take: usize) -> Self {
         assert!(depth >= 1);
@@ -39,26 +43,35 @@ impl DeepAi {
         }
     }
 }
+
 impl Ai for DeepAi {
-    fn evaluate(&mut self, game: &Game) -> AiResult {
+    fn evaluate(&mut self, game: &Game) -> Evaluation {
         if game.hold.is_none() {
-            return Ok(AiEval {
-                moves: vec![GameMove::Hold],
+            return Evaluation::Success {
+                actions: vec![Action::Hold],
                 score: None,
-            });
+            };
         }
-        self.tree
+        let res = self
+            .tree
             .probe_queue(self.step, game.queue.iter().copied())
-            .map_err(|e| format!("error probing queue: {e}"))?;
+            .map_err(|e| format!("error probing queue: {e}"));
+        if res.is_err() {
+            return Evaluation::Fail {
+                message: "Queue probe failed".to_string(),
+            };
+        }
+
         let children = match game.children() {
             Ok(children) => children,
             Err(_) => {
-                return Ok(AiEval {
-                    moves: vec![GameMove::HardDrop],
+                return Evaluation::Success {
+                    actions: vec![Action::Hold],
                     score: None,
-                })
+                }
             }
         };
+
         let mut best_score = f32::NEG_INFINITY;
         let mut best_node = None;
         for child in children {
@@ -74,14 +87,17 @@ impl Ai for DeepAi {
         }
         self.step += 1;
         match best_node {
-            Some(child) => Ok(AiEval {
-                moves: child.moves().collect(),
+            Some(child) => Evaluation::Success {
+                actions: child.actions().collect(),
                 score: Some(best_score as f64),
-            }),
-            None => Err("No valid moves".to_string()),
+            },
+            None => Evaluation::Fail {
+                message: "No valid moves".to_string(),
+            },
         }
     }
 }
+
 impl DeepAi {
     fn dfs(&mut self, node: &Node, depth: usize) -> Option<f32> {
         if depth == self.depth {

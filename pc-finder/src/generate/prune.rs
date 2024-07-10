@@ -1,6 +1,6 @@
 use crate::PcBoard;
 use anyhow::Result;
-use common::Pack;
+use libtetris::Pack;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs::File,

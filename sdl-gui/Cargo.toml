@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common = { version = "0.1.0", path = "../common" }
-sdl2 = { version = "0.36", features = ["bundled"] }
+libtetris = { version = "0.1.0", path = "../libtetris" }
+sdl2 = { version = "0.37", features = ["bundled"] }
 anyhow = "1.0"

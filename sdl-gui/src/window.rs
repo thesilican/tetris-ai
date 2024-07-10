@@ -1,6 +1,6 @@
 use crate::{colored_game::ColoredGame, TileColor};
 use anyhow::{anyhow, Result};
-use common::*;
+use libtetris::*;
 use sdl2::{
     event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::WindowCanvas, EventPump,
 };
@@ -15,6 +15,7 @@ pub struct Window {
     canvas: WindowCanvas,
     event_pump: EventPump,
 }
+
 impl Window {
     pub fn new() -> Result<Self> {
         let sdl_ctx = sdl2::init().map_err(|_e| anyhow!("couldn't initialize sdl context"))?;
@@ -34,6 +35,7 @@ impl Window {
         let window = Window { canvas, event_pump };
         Ok(window)
     }
+
     pub fn poll_events(&mut self) -> Vec<GuiEvent> {
         self.event_pump
             .poll_iter()
@@ -86,19 +88,23 @@ impl Window {
             TileColor::Ghost => Some(COLOR_GHOST),
         }
     }
+
     fn set_draw_color(&mut self, color: Color) {
         self.canvas.set_draw_color(color);
     }
+
     fn draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32) -> Result<()> {
         self.canvas
             .draw_rect(Rect::new(x, y, w as u32, h as u32))
             .map_err(|e| anyhow!("error drawing rect: {e}"))
     }
+
     fn fill_rect(&mut self, x: i32, y: i32, w: i32, h: i32) -> Result<()> {
         self.canvas
             .fill_rect(Rect::new(x, y, w as u32, h as u32))
             .map_err(|e| anyhow!("error drawing rect: {e}"))
     }
+
     fn draw_game_ui(&mut self) -> Result<()> {
         // Draw grid
         self.canvas.set_draw_color(LIGHT);
@@ -115,6 +121,7 @@ impl Window {
         self.fill_rect(SIZE * 15, SIZE * 4, SIZE, SIZE * 21)?;
         Ok(())
     }
+
     fn draw_board(&mut self, game: &Game) -> Result<()> {
         // Draw board
         self.set_draw_color(COLOR_GRAY);
@@ -129,6 +136,7 @@ impl Window {
         }
         Ok(())
     }
+
     fn draw_colored_board(
         &mut self,
         game: &ColoredGame,
@@ -152,6 +160,7 @@ impl Window {
         }
         Ok(())
     }
+
     fn draw_piece(
         &mut self,
         piece_type: PieceType,
@@ -167,7 +176,7 @@ impl Window {
         };
         if let Some(color) = Window::get_tile_color(tile) {
             self.canvas.set_draw_color(color);
-            let grid = Piece::from_piece_type(piece_type).get_shape(Some(rot));
+            let grid = PieceInfo::shape(piece_type, rot);
             for i in 0..4 {
                 for j in 0..4 {
                     if grid[i as usize][j as usize] {
@@ -182,6 +191,7 @@ impl Window {
         }
         Ok(())
     }
+
     pub fn draw_game(&mut self, game: &Game) -> Result<()> {
         self.canvas.set_draw_color(WHITE);
         self.canvas.clear();
@@ -192,11 +202,11 @@ impl Window {
         // Draw ghost piece
         let ghost = {
             let mut game = *game;
-            game.make_move(GameMove::SoftDrop);
+            game.apply(Action::SoftDrop);
             game.active
         };
-        let x = SIZE * 5 + ghost.location.0 as i32 * SIZE;
-        let y = SIZE * 23 - ghost.location.1 as i32 * SIZE;
+        let x = SIZE * 5 + ghost.position_x as i32 * SIZE;
+        let y = SIZE * 23 - ghost.position_y as i32 * SIZE;
         self.draw_piece(
             ghost.piece_type,
             ghost.rotation,
@@ -207,8 +217,8 @@ impl Window {
 
         // Draw current piece
         let active = game.active;
-        let x = SIZE * 5 + active.location.0 as i32 * SIZE;
-        let y = SIZE * 23 - active.location.1 as i32 * SIZE;
+        let x = SIZE * 5 + active.position_x as i32 * SIZE;
+        let y = SIZE * 23 - active.position_y as i32 * SIZE;
         self.draw_piece(active.piece_type, active.rotation, x, y, None)?;
 
         // Draw hold
@@ -219,7 +229,7 @@ impl Window {
         }
 
         // Draw queue
-        for (idx, &piece) in game.queue.iter().take(5).enumerate() {
+        for (idx, piece) in game.queue.iter().take(5).enumerate() {
             let x = SIZE * 16;
             let y = SIZE * (8 + idx as i32 * 4);
             self.draw_piece(piece, 0, x, y, None)?;
@@ -228,6 +238,7 @@ impl Window {
         self.canvas.present();
         Ok(())
     }
+
     pub fn draw_colored_game(&mut self, game: &ColoredGame) -> Result<()> {
         self.canvas.set_draw_color(WHITE);
         self.canvas.clear();
@@ -238,11 +249,11 @@ impl Window {
         // Draw ghost piece
         let ghost = {
             let mut game = *game;
-            game.make_move(GameMove::SoftDrop);
+            game.apply(Action::SoftDrop);
             game.game().active
         };
-        let x = SIZE * 5 + ghost.location.0 as i32 * SIZE;
-        let y = SIZE * 23 - ghost.location.1 as i32 * SIZE;
+        let x = SIZE * 5 + ghost.position_x as i32 * SIZE;
+        let y = SIZE * 23 - ghost.position_y as i32 * SIZE;
         self.draw_piece(
             ghost.piece_type,
             ghost.rotation,
@@ -253,8 +264,8 @@ impl Window {
 
         // Draw current piece
         let active = game.game().active;
-        let x = SIZE * 5 + active.location.0 as i32 * SIZE;
-        let y = SIZE * 23 - active.location.1 as i32 * SIZE;
+        let x = SIZE * 5 + active.position_x as i32 * SIZE;
+        let y = SIZE * 23 - active.position_y as i32 * SIZE;
         self.draw_piece(active.piece_type, active.rotation, x, y, None)?;
 
         // Draw hold
@@ -265,7 +276,7 @@ impl Window {
         }
 
         // Draw queue
-        for (idx, &piece) in game.game().queue.iter().take(5).enumerate() {
+        for (idx, piece) in game.game().queue.iter().take(5).enumerate() {
             let x = SIZE * 16;
             let y = SIZE * (8 + idx as i32 * 4);
             self.draw_piece(piece, 0, x, y, None)?;

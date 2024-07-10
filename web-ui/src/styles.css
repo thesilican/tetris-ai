@@ -25,7 +25,7 @@ body {
   margin-top: 16px;
 }
 
-@media screen and (min-width: 900px) {
+@media screen and (min-width: 1000px) {
   .container-row {
     margin-top: none;
     flex-direction: row;
@@ -35,8 +35,10 @@ body {
 }
 
 .canvas-container {
+  width: 100%;
   display: flex;
   justify-content: center;
+  overflow-x: auto;
 }
 
 #canvas {
@@ -48,6 +50,7 @@ button {
   appearance: none;
   font-size: 14px;
   padding: 4px;
+  color: white;
   background-color: #444;
   border: none;
   border-bottom: 2px solid #333;
@@ -61,15 +64,31 @@ button:active {
 select {
   padding: 4px 24px 4px 4px;
   appearance: none;
+  color: white;
   background: #444;
   border: none;
   border-bottom: 2px solid #333;
   border-radius: 2px;
   font-size: 14px;
-  background-image: url("data:image/svg+xml;utf8,<svg fill='black' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
   background-repeat: no-repeat;
   background-position-x: 100%;
   background-position-y: center;
+}
+
+input[type="range"] {
+  appearance: none;
+  color: white;
+  background: #444;
+  font-size: 14px;
+  width: 100px;
+  height: 4px;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+pre {
+  margin: 0px;
 }
 
 h1,
@@ -88,11 +107,11 @@ p {
   width: 300px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
 }
 
-@media screen and (min-width: 900px) {
+@media screen and (min-width: 1000px) {
   .options {
     align-items: flex-start;
   }
@@ -101,8 +120,13 @@ p {
 .options-row {
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
   align-items: center;
+}
+
+#ai-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .controls {
@@ -121,9 +145,18 @@ p {
   text-wrap: nowrap;
 }
 
-@media screen and (min-width: 900px) {
+.spacer {
+  height: 4px;
+  grid-column: 1 / 5;
+}
+
+@media screen and (min-width: 1000px) {
   .controls-column {
     grid-template-columns: auto auto;
+  }
+  .spacer {
+    height: 4px;
+    grid-column: 1 / 3;
   }
 }
 

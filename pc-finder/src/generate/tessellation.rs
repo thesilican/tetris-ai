@@ -1,6 +1,6 @@
 use crate::{NormPiece, PcBoard, Tess};
 use anyhow::Result;
-use common::{ArrDeque, Pack, Piece, PieceInfo, PieceType};
+use libtetris::{ArrDeque, Pack, Piece, PieceInfo, PieceType};
 use std::{
     collections::HashSet,
     fs::File,

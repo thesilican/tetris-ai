@@ -1,4 +1,4 @@
-use common::misc::GenericErr;
+use libtetris::misc::GenericErr;
 use processor::{FrameCollection, Replay};
 use termion::event::Key;
 use termion::input::TermRead;

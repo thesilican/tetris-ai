@@ -1,4 +1,4 @@
-use common::api::Ai;
+use libtetris::api::Ai;
 use ml_bot::MlBot;
 
 fn main() {

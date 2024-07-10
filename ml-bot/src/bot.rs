@@ -1,5 +1,5 @@
 use crate::NeuralNetwork;
-use common::{
+use libtetris::{
     api::{Ai, AiRes},
     misc::GenericErr,
     model::{Game, MOVES_4F},

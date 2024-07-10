@@ -1,144 +1,77 @@
 import "sanitize.css";
 import "sanitize.css/typography.css";
-import { Game } from "./model/model";
+import { HumanPlayer } from "./player/human";
 import { Canvas } from "./render/canvas";
 import { GameRenderer } from "./render/game-renderer";
 import "./styles.css";
-import { DasTimer, generateSeed } from "./model/util";
+import WasmWorker from "./wasm/worker?worker";
+import { AiPlayer } from "./player/ai";
 
 const startGameButton = document.getElementById(
   "start-game"
 ) as HTMLButtonElement;
+const startSelect = document.getElementById(
+  "start-select"
+) as HTMLSelectElement;
+const description = document.getElementById(
+  "description"
+) as HTMLParagraphElement;
+const aiSpeed = document.getElementById("ai-speed") as HTMLInputElement;
+const aiControls = document.getElementById("ai-controls") as HTMLDivElement;
+const aiOutput = document.getElementById("ai-output") as HTMLPreElement;
 const canvasElement = document.getElementById("canvas") as HTMLCanvasElement;
 const canvas = new Canvas(canvasElement);
-const gameRenderer = new GameRenderer(canvas);
-const game = new Game();
+const worker = new WasmWorker();
+const renderer = new GameRenderer(canvas);
+renderer.adjustScaling();
+renderer.renderStartScreen();
+let player: HumanPlayer | AiPlayer | undefined;
+
+function updateControls(value: string) {
+  if (value === "human") {
+    description.innerText = "Play a game of tetris (see controls).";
+    aiControls.style.display = "none";
+  } else if (value.startsWith("bot-")) {
+    aiControls.style.display = "";
+    const bot = value.slice(4);
+    if (bot === "simple-ai") {
+      description.innerText =
+        "A simple AI that looks 1 move deep and agressively minimizes board height.";
+    }
+  }
+}
+// TODO: remove
+startSelect.value = "human";
+updateControls("human");
+
+startSelect.addEventListener("change", (e) => {
+  const value = (e.target as HTMLSelectElement).value;
+  updateControls(value);
+});
 
 startGameButton.addEventListener("click", () => {
-  game.start(generateSeed());
+  if (player !== undefined) {
+    player.stop();
+  }
+  if (startSelect.value === "human") {
+    player = new HumanPlayer(renderer);
+    aiOutput.innerText = "";
+  } else if (startSelect.value.startsWith("bot-")) {
+    player = new AiPlayer(
+      startSelect.value.slice(4),
+      renderer,
+      worker,
+      aiOutput
+    );
+  } else {
+    throw new Error("unreachable");
+  }
+  player.start();
 });
 
-let leftPressed = false;
-let leftTimer = new DasTimer(8, 1);
-let rightPressed = false;
-let rightTimer = new DasTimer(8, 1);
-let downPressed = false;
-let downTimer = new DasTimer(0, 1);
-let gravityTimer = new DasTimer(0, 60);
-
-window.addEventListener("keydown", (event) => {
-  if (event.repeat) {
-    return;
-  }
-  if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
-    return;
-  }
-  if (!game.started) {
-    return;
-  }
-  if (event.code === "KeyR") {
-    event.preventDefault();
-    game.start(generateSeed());
-  }
-  if (game.finished) {
-    return;
-  }
-  if (event.code === "KeyP") {
-    event.preventDefault();
-    game.paused = !game.paused;
-  }
-  if (game.paused) {
-    return;
-  }
-  if (event.code === "ArrowLeft") {
-    event.preventDefault();
-    game.active.shiftLeft(game.board);
-    gravityTimer.reset();
-    rightPressed = false;
-    leftPressed = true;
-    leftTimer.reset();
-  } else if (event.code === "ArrowRight") {
-    event.preventDefault();
-    game.active.shiftRight(game.board);
-    gravityTimer.reset();
-    leftPressed = false;
-    rightPressed = true;
-    rightTimer.reset();
-  } else if (event.code === "ArrowDown") {
-    event.preventDefault();
-    game.active.shiftDown(game.board);
-    gravityTimer.reset();
-    downPressed = true;
-    downTimer.reset();
-  } else if (event.code === "Space") {
-    event.preventDefault();
-    game.hardDrop();
-    gravityTimer.reset();
-    leftTimer.reset();
-    rightTimer.reset();
-  } else if (event.code === "KeyZ") {
-    event.preventDefault();
-    game.active.rotateCcw(game.board);
-    gravityTimer.reset();
-  } else if (event.code === "KeyX") {
-    event.preventDefault();
-    game.active.rotateCw(game.board);
-    gravityTimer.reset();
-  } else if (event.code === "KeyA") {
-    event.preventDefault();
-    game.active.rotate180(game.board);
-    gravityTimer.reset();
-  } else if (event.code === "KeyC") {
-    event.preventDefault();
-    game.swapHold();
-    gravityTimer.reset();
+aiSpeed.addEventListener("change", (e) => {
+  const speed = parseInt((e.target as HTMLInputElement).value, 10);
+  if (player instanceof AiPlayer) {
+    player.setSpeed(speed);
   }
 });
-
-window.addEventListener("keyup", (event) => {
-  if (event.repeat) {
-    return;
-  }
-  if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
-    return;
-  }
-  if (!game.started || game.finished || game.paused) {
-    return;
-  }
-  if (event.code === "ArrowLeft") {
-    event.preventDefault();
-    leftPressed = false;
-  } else if (event.code === "ArrowRight") {
-    event.preventDefault();
-    rightPressed = false;
-  } else if (event.code === "ArrowDown") {
-    event.preventDefault();
-    downPressed = false;
-  }
-});
-
-function tick() {
-  if (game.started && !game.paused && !game.finished) {
-    if (leftPressed) {
-      if (leftTimer.tick()) {
-        game.active.shiftLeft(game.board);
-      }
-    } else if (rightPressed) {
-      if (rightTimer.tick()) {
-        game.active.shiftRight(game.board);
-      }
-    }
-    if (downPressed) {
-      if (downTimer.tick()) {
-        game.active.shiftDown(game.board);
-      }
-    }
-    if (gravityTimer.tick()) {
-      game.gravityShift();
-    }
-  }
-
-  gameRenderer.draw(game);
-  requestAnimationFrame(tick);
-}
-requestAnimationFrame(tick);

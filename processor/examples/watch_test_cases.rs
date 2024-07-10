@@ -1,5 +1,5 @@
-use common::misc::GenericErr;
-use common::model::{BOARD_HEIGHT, BOARD_WIDTH};
+use libtetris::misc::GenericErr;
+use libtetris::model::{BOARD_HEIGHT, BOARD_WIDTH};
 use processor::{FrameCollection, Replay, TestCase};
 use rand::prelude::StdRng;
 use rand::SeedableRng;

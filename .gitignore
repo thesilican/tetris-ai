@@ -1,8 +1,9 @@
-**/target/
-**/flamegraph.svg
-**/perf.data*
-# For convenience
-out.txt
-jstris/
-tetrio/
-/data/
+data/
+target/
+flamegraph.svg
+
+ml/
+ml-bot/data/
+web-ui/node_modules/
+web-ui/dist/
+web-wasm/pkg/

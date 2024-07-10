@@ -2,7 +2,7 @@
 mod center_state;
 
 pub use center_state::*;
-use common::*;
+use libtetris::*;
 
 pub struct C4WBot {}
 impl C4WBot {

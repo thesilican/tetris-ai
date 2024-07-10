@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common::SimpleAi;
+use libtetris::SimpleAi;
 use sdl_gui::AiGui;
 
 fn main() -> Result<()> {
