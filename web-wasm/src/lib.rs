@@ -72,7 +72,7 @@ pub fn evaluate(ai_type: String, game: String) -> ApiEvaluation {
                 .map(|action| action.to_string())
                 .collect(),
             message: match score {
-                Some(score) => format!("Score: {score:0.2}"),
+                Some(score) => format!("Eval: {score:0.2}"),
                 None => format!(""),
             },
         },

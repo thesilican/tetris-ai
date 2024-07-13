@@ -311,6 +311,7 @@ export class Game {
   canHold: boolean;
   bag: Bag;
   finished: boolean;
+  score: number;
 
   constructor(seed = 0) {
     this.board = new Board();
@@ -320,6 +321,7 @@ export class Game {
     this.canHold = true;
     this.bag = new Bag(seed);
     this.finished = false;
+    this.score = 0;
   }
 
   start(seed = 0) {
@@ -334,6 +336,7 @@ export class Game {
     }
     this.canHold = true;
     this.finished = false;
+    this.score = 0;
   }
 
   swapHold(): boolean {
@@ -364,6 +367,7 @@ export class Game {
     }
 
     const info = this.board.lock(this.active);
+    this.score += info.linesCleared;
     if (info.topOut) {
       this.finished = true;
     }

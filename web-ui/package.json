@@ -15,6 +15,7 @@
     "vite-plugin-wasm": "^3.3.0"
   },
   "dependencies": {
+    "@fontsource/rubik": "^5.0.20",
     "@types/node": "^20.14.7",
     "sanitize.css": "^13.0.0",
     "web-wasm": "file:../web-wasm/pkg"

@@ -16,7 +16,7 @@ self.addEventListener("message", (e: MessageEvent<RequestMessage>) => {
       type: "evaluate",
       success: response.success(),
       actions: response.actions() as Action[],
-      message: `Eval: ${elapsed} ms\n${response.message()}`,
+      message: `Time: ${elapsed} ms\n${response.message()}`,
     };
     self.postMessage(message);
     response.free();

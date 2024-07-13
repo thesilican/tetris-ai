@@ -1,11 +1,13 @@
 import "sanitize.css";
 import "sanitize.css/typography.css";
 import { HumanPlayer } from "./player/human";
-import { Canvas } from "./render/canvas";
 import { GameRenderer } from "./render/game-renderer";
 import "./styles.css";
 import WasmWorker from "./wasm/worker?worker";
 import { AiPlayer } from "./player/ai";
+import { WelcomePlayer } from "./player/welcome";
+import "@fontsource/rubik/400.css";
+import "@fontsource/rubik/500.css";
 
 const startGameButton = document.getElementById(
   "start-game"
@@ -19,13 +21,12 @@ const description = document.getElementById(
 const aiSpeed = document.getElementById("ai-speed") as HTMLInputElement;
 const aiControls = document.getElementById("ai-controls") as HTMLDivElement;
 const aiOutput = document.getElementById("ai-output") as HTMLPreElement;
-const canvasElement = document.getElementById("canvas") as HTMLCanvasElement;
-const canvas = new Canvas(canvasElement);
+const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const worker = new WasmWorker();
 const renderer = new GameRenderer(canvas);
-renderer.adjustScaling();
-renderer.renderStartScreen();
-let player: HumanPlayer | AiPlayer | undefined;
+let player: HumanPlayer | AiPlayer | WelcomePlayer;
+player = new WelcomePlayer(renderer);
+player.start();
 
 function updateControls(value: string) {
   if (value === "human") {
@@ -36,13 +37,12 @@ function updateControls(value: string) {
     const bot = value.slice(4);
     if (bot === "simple-ai") {
       description.innerText =
-        "A simple AI that looks 1 move deep and agressively minimizes board height.";
+        "A simple AI that looks 1 move deep and greedily minimizes board height.";
     }
   }
 }
-// TODO: remove
 startSelect.value = "human";
-updateControls("human");
+updateControls(startSelect.value);
 
 startSelect.addEventListener("change", (e) => {
   const value = (e.target as HTMLSelectElement).value;

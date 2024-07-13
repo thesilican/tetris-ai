@@ -45,6 +45,7 @@ export class AiPlayer {
     this.started = false;
     if (this.interval !== undefined) {
       cancelAnimationFrame(this.interval);
+      this.interval = undefined;
     }
     this.worker.removeEventListener("message", this.handleMessage);
     window.removeEventListener("keydown", this.handleKeyDown);
@@ -106,7 +107,7 @@ export class AiPlayer {
         }
       }
     }
-    this.renderer.render(this.game, this.paused);
+    this.renderer.render({ game: this.game, paused: this.paused });
     this.interval = requestAnimationFrame(this.tick);
   };
 }

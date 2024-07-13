@@ -34,6 +34,7 @@ export class HumanPlayer {
     this.started = false;
     if (this.interval !== undefined) {
       cancelAnimationFrame(this.interval);
+      this.interval = undefined;
     }
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("keyup", this.handleKeyUp);
@@ -148,7 +149,7 @@ export class HumanPlayer {
       }
     }
 
-    this.renderer.render(this.game, this.paused);
+    this.renderer.render({ game: this.game, paused: this.paused });
     this.interval = requestAnimationFrame(this.tick);
   };
 }

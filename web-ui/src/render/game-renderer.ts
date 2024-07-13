@@ -1,70 +1,263 @@
 import { PieceInfo } from "../model/computed";
 import { Game, PieceType, Tile } from "../model/model";
-import { Canvas } from "./canvas";
 import { Rect, Vec2 } from "./math";
+import {
+  Sprite,
+  SPRITE_GRAY,
+  SPRITE_I,
+  SPRITE_J,
+  SPRITE_L,
+  SPRITE_O,
+  SPRITE_S,
+  SPRITE_T,
+  SPRITE_Z,
+} from "./sprite";
 
-const TILE_COLORS: { [key in Tile]: string } = {
-  " ": "transparent",
-  G: "gray",
-  O: "#f0f000",
-  I: "#00f0f0",
-  T: "#a000f0",
-  L: "#f0a000",
-  J: "#0000f0",
-  S: "#00f000",
-  Z: "#f00000",
+type DrawTextOptions = {
+  text: string;
+  position: Vec2;
+  fontSize?: number;
+  color?: string;
+  align?: "baseline" | "top" | "center" | "bottom";
+  jusitfy?: "left" | "center" | "right";
+  debug?: boolean;
 };
 
+type DrawCircleOptions = {
+  position: Vec2;
+  radius: number;
+  color?: string;
+};
+
+type DrawRectOptions = {
+  rect: Rect;
+  color?: string;
+};
+
+type DrawSpriteOptions = {
+  sprite: Sprite;
+  position: Vec2;
+  dim?: Vec2;
+};
+
+type RenderGameOptions = {
+  game: Game;
+  paused?: boolean;
+};
+
+const COLOR_BACKGROUND = "#1e1e1e";
+const COLOR_FOREGROUND = "#ffffff";
+const COLOR_SURFACE = "#333333";
+const COLOR_GHOST = "#a9b0c8";
 const RENDER_AREA_WIDTH = 22;
 const RENDER_AREA_HEIGHT = 25;
 
 export class GameRenderer {
-  canvas: Canvas;
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  dim: Vec2;
   scale: number;
   translate: Vec2;
 
-  constructor(canvas: Canvas) {
+  constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+    const ctx = canvas.getContext("2d");
+    if (ctx === null) {
+      throw new Error("Cannot obtain 2d context");
+    }
+    this.ctx = ctx;
     this.scale = 1;
     this.translate = new Vec2(0, 0);
+    this.dim = new Vec2(0, 0);
+    this.updateDim();
+    window.addEventListener("resize", this.handleResize);
   }
+
+  updateDim() {
+    this.dim.x = this.canvas.clientWidth * window.devicePixelRatio;
+    this.dim.y = this.canvas.clientHeight * window.devicePixelRatio;
+    this.canvas.width = this.dim.x;
+    this.canvas.height = this.dim.y;
+    this.scale = Math.floor(
+      Math.min(this.dim.y / RENDER_AREA_HEIGHT, this.dim.x / RENDER_AREA_WIDTH)
+    );
+    const translateX = Math.floor(
+      (this.dim.x - RENDER_AREA_WIDTH * this.scale) / 2
+    );
+    const translateY = Math.floor(
+      (this.dim.y - RENDER_AREA_HEIGHT * this.scale) / 2
+    );
+    this.translate = new Vec2(translateX, translateY);
+  }
+
+  handleResize = () => {
+    this.updateDim();
+  };
 
   clear() {
-    this.canvas.clear();
+    this.ctx.fillStyle = COLOR_BACKGROUND;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  drawDebug() {
-    this.canvas.drawText(`${this.canvas.dim.x}`, new Vec2(0, 0), 100, "black");
+  drawCircle(options: DrawCircleOptions) {
+    const position = options.position;
+    const radius = options.radius;
+    const color = options.color ?? COLOR_FOREGROUND;
+    this.ctx.fillStyle = color;
+    this.ctx.beginPath();
+    this.ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
   }
 
-  drawRect(rect: Rect, color: string) {
+  drawRect(options: DrawRectOptions) {
+    const rect = options.rect;
+    this.ctx.fillStyle = options.color ?? COLOR_FOREGROUND;
+    this.ctx.fillRect(rect.min.x, rect.min.y, rect.width, rect.height);
+  }
+
+  drawText(options: DrawTextOptions) {
+    const text = options.text;
+    const position = options.position;
+    const fontSize = options.fontSize ?? 24;
+    const color = options.color ?? COLOR_FOREGROUND;
+    const align = options.align ?? "baseline";
+    const justify = options.jusitfy ?? "left";
+    const debug = options.debug ?? false;
+
+    this.ctx.font = `${fontSize}px Rubik`;
+    const metrics = this.ctx.measureText(text);
+    const width = metrics.width;
+    const height =
+      metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+    let textX = position.x;
+    let textY = position.y;
+    if (align === "baseline") {
+    } else if (align === "top") {
+      textY += metrics.actualBoundingBoxAscent;
+    } else if (align === "center") {
+      textY += metrics.actualBoundingBoxAscent - Math.round(height / 2);
+    } else if (align === "bottom") {
+      textY -= metrics.actualBoundingBoxDescent;
+    }
+    if (justify === "left") {
+    } else if (justify === "center") {
+      textX -= Math.round(width / 2);
+    } else if (justify === "right") {
+      textX -= width;
+    }
+    if (debug) {
+      this.drawRect({
+        rect: new Rect(
+          textX,
+          textY - metrics.actualBoundingBoxAscent,
+          width,
+          height
+        ),
+        color: "red",
+      });
+    }
+    this.ctx.fillStyle = color;
+    this.ctx.fillText(text, textX, textY);
+    if (debug) {
+      const size = Math.round(fontSize / 20);
+      this.drawRect({
+        rect: new Rect(textX - size, textY - size, size * 2, size * 2),
+        color: "green",
+      });
+      this.drawCircle({
+        position,
+        radius: size,
+        color: "cyan",
+      });
+    }
+  }
+
+  drawSprite(options: DrawSpriteOptions) {
+    const sprite = options.sprite;
+    const pos = options.position;
+    const dim = options.dim;
+    const spriteDim = dim ?? sprite.dim;
+    this.ctx.drawImage(sprite.image, pos.x, pos.y, spriteDim.x, spriteDim.y);
+  }
+
+  drawScaledCircle(options: DrawCircleOptions) {
+    const newOptions = {
+      ...options,
+      position: options.position.scale(this.scale).add(this.translate),
+      radius: options.radius * this.scale,
+    };
+    this.drawCircle(newOptions);
+  }
+
+  drawScaledRect(options: DrawRectOptions) {
     const newRect = new Rect(
-      rect.min.scale(this.scale).add(this.translate),
-      rect.max.scale(this.scale).add(this.translate)
+      options.rect.min.scale(this.scale).add(this.translate),
+      options.rect.max.scale(this.scale).add(this.translate)
     );
-    this.canvas.drawRect(newRect, color);
+    const newOptions = {
+      ...options,
+      rect: newRect,
+    };
+    this.drawRect(newOptions);
   }
 
-  drawText(text: string, position: Vec2, color = "black", size = 1) {
-    const newPosition = position.scale(this.scale).add(this.translate);
-    this.canvas.drawText(text, newPosition, this.scale * size, color);
+  drawScaledText(options: DrawTextOptions) {
+    const newOptions = {
+      ...options,
+      position: options.position.scale(this.scale).add(this.translate),
+      fontSize:
+        options.fontSize !== undefined
+          ? options.fontSize * this.scale
+          : 1 * this.scale,
+    };
+    this.drawText(newOptions);
+  }
+
+  drawScaledSprite(options: DrawSpriteOptions) {
+    const newOptions = {
+      ...options,
+      position: options.position.scale(this.scale).add(this.translate),
+      dim: options.dim
+        ? options.dim.scale(this.scale)
+        : options.sprite.dim.scale(this.scale),
+    };
+    this.drawSprite(newOptions);
+  }
+
+  drawTile(tile: Tile, position: Vec2) {
+    if (tile === " ") {
+      return;
+    }
+    const lookup = {
+      O: SPRITE_O,
+      I: SPRITE_I,
+      T: SPRITE_T,
+      L: SPRITE_L,
+      J: SPRITE_J,
+      S: SPRITE_S,
+      Z: SPRITE_Z,
+      G: SPRITE_GRAY,
+    };
+    const sprite = lookup[tile];
+    this.drawScaledSprite({
+      sprite,
+      position,
+      dim: new Vec2(1, 1),
+    });
   }
 
   drawPiece(
     pieceType: PieceType,
     rotation: number,
     position: Vec2,
-    overrideColor?: string
+    overrideTile?: Tile
   ) {
     const shape = PieceInfo.Shapes[pieceType][rotation];
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
         if (shape[i][j]) {
-          const color = overrideColor ?? TILE_COLORS[pieceType];
-          this.drawRect(
-            new Rect(position.x + i, position.y + 3 - j, 1, 1),
-            color
-          );
+          const tile = overrideTile ?? pieceType;
+          this.drawTile(tile, new Vec2(position.x + i, position.y + 3 - j));
         }
       }
     }
@@ -72,41 +265,43 @@ export class GameRenderer {
 
   drawUi() {
     // Draw game well
-    this.drawRect(
-      new Rect(0, 0, RENDER_AREA_WIDTH, RENDER_AREA_HEIGHT),
-      "#1E1E1E"
-    );
-    this.drawRect(new Rect(5.75, 4, 10.5, 20.25), "white");
-    this.drawRect(new Rect(6, 4, 10, 20), "#1E1E1E");
-    this.drawText("Queue", new Vec2(18, 4), "white");
-    this.drawText("Hold", new Vec2(1, 4), "white");
+    this.drawScaledRect({
+      rect: new Rect(5.75, 4, 10.5, 20.25),
+      color: COLOR_FOREGROUND,
+    });
+    this.drawScaledRect({
+      rect: new Rect(6, 4, 10, 20),
+      color: COLOR_BACKGROUND,
+    });
+    this.drawScaledText({
+      text: "Queue",
+      position: new Vec2(18, 4),
+    });
+    this.drawScaledText({
+      text: "Hold",
+      position: new Vec2(1, 4),
+    });
   }
 
-  adjustScaling() {
-    this.scale = Math.floor(
-      Math.min(
-        this.canvas.dim.y / RENDER_AREA_HEIGHT,
-        this.canvas.dim.x / RENDER_AREA_WIDTH
-      )
-    );
-    const translateX = Math.floor(
-      (this.canvas.dim.x - RENDER_AREA_WIDTH * this.scale) / 2
-    );
-    const translateY = Math.floor(
-      (this.canvas.dim.y - RENDER_AREA_HEIGHT * this.scale) / 2
-    );
-    this.translate = new Vec2(translateX, translateY);
-  }
-
-  renderStartScreen() {
+  renderWelcome() {
     this.clear();
 
     this.drawUi();
-    this.drawRect(new Rect(6, 9.75, 10, 1.35), "#333");
-    this.drawText("Press start to play", new Vec2(7, 9.85), "white");
+    this.drawScaledRect({
+      rect: new Rect(6, 10, 10, 1),
+      color: COLOR_SURFACE,
+    });
+    this.drawScaledText({
+      text: "Press start to play",
+      fontSize: 0.75,
+      position: new Vec2(11, 10.5),
+      align: "center",
+      jusitfy: "center",
+    });
   }
 
-  render(game: Game, paused: boolean) {
+  render(options: RenderGameOptions) {
+    const game = options.game;
     this.clear();
 
     // Draw UI
@@ -116,8 +311,7 @@ export class GameRenderer {
     for (let j = 0; j < 40; j++) {
       for (let i = 0; i < 10; i++) {
         const tile = game.board.get(i, j);
-        const color = TILE_COLORS[tile];
-        this.drawRect(new Rect(i + 6, 23 - j, 1, 1), color);
+        this.drawTile(tile, new Vec2(i + 6, 23 - j));
       }
     }
 
@@ -131,7 +325,10 @@ export class GameRenderer {
           if (ghostShape[i][j]) {
             const x = ghost.positionX + i;
             const y = ghost.positionY + j;
-            this.drawRect(new Rect(6 + x, 23 - y, 1, 1), "#aaa");
+            this.drawScaledRect({
+              rect: new Rect(6 + x, 23 - y, 1, 1),
+              color: COLOR_GHOST,
+            });
           }
         }
       }
@@ -144,8 +341,7 @@ export class GameRenderer {
           if (shape[i][j]) {
             const x = game.active.positionX + i;
             const y = game.active.positionY + j;
-            const color = TILE_COLORS[game.active.pieceType];
-            this.drawRect(new Rect(6 + x, 23 - y, 1, 1), color);
+            this.drawTile(game.active.pieceType, new Vec2(6 + x, 23 - y));
           }
         }
       }
@@ -153,8 +349,8 @@ export class GameRenderer {
 
     // Draw hold
     if (game.hold) {
-      const overrideColor = game.canHold ? undefined : TILE_COLORS["G"];
-      this.drawPiece(game.hold, 0, new Vec2(0, 5), overrideColor);
+      const overrideTile = game.canHold ? undefined : "G";
+      this.drawPiece(game.hold, 0, new Vec2(0, 5), overrideTile);
     }
 
     // Draw queue
@@ -164,13 +360,36 @@ export class GameRenderer {
     }
 
     // Draw text
-    if (paused) {
-      this.drawRect(new Rect(6, 9.75, 10, 1.35), "#333");
-      this.drawText("Paused", new Vec2(9.25, 10), "white");
+    this.drawScaledText({
+      position: new Vec2(0, 0),
+      text: `Score: ${game.score}`,
+      align: "top",
+    });
+    if (options.paused ?? false) {
+      this.drawScaledRect({
+        rect: new Rect(6, 10, 10, 1),
+        color: COLOR_SURFACE,
+      });
+      this.drawScaledText({
+        text: "Paused",
+        fontSize: 0.75,
+        position: new Vec2(11, 10.5),
+        align: "center",
+        jusitfy: "center",
+      });
     }
     if (game.finished) {
-      this.drawRect(new Rect(6, 9.75, 10, 1.35), "#333");
-      this.drawText("Game Over", new Vec2(8.5, 10), "white");
+      this.drawScaledRect({
+        rect: new Rect(6, 10, 10, 1),
+        color: COLOR_SURFACE,
+      });
+      this.drawScaledText({
+        text: "Game Over",
+        fontSize: 0.75,
+        position: new Vec2(11, 10.5),
+        align: "center",
+        jusitfy: "center",
+      });
     }
   }
 }
