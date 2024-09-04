@@ -2,6 +2,7 @@ use crate::{
     Action, Board, Game, Piece, PieceInfo, PieceType, BOARD_HEIGHT, BOARD_VISIBLE_HEIGHT,
     BOARD_WIDTH,
 };
+use std::sync::LazyLock;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Child {
@@ -9,7 +10,9 @@ pub struct Child {
     hold: bool,
     rotate: i8,
     shift: i8,
-    finish: i8,
+    // A 4 digit base-6 number representing the final actions
+    // of a child game (why did I do this)
+    finish: u16,
 }
 
 impl Child {
@@ -32,28 +35,60 @@ impl Child {
         } else {
             &[Action::SoftDrop]
         };
-        let fin: &[Action] = match self.finish {
+        let fin: &[Action] = match self.finish % 6 {
             0 => &[],
             1 => &[Action::ShiftLeft],
             2 => &[Action::ShiftRight],
             3 => &[Action::RotateCw],
-            4 => &[Action::Rotate180],
-            5 => &[Action::RotateCcw],
-            _ => panic!("fin out of bounds"),
+            4 => &[Action::RotateCcw],
+            5 => &[Action::Rotate180],
+            _ => unreachable!(),
+        };
+        let fin2: &[Action] = match (self.finish / 6) % 6 {
+            0 => &[],
+            1 => &[Action::ShiftLeft],
+            2 => &[Action::ShiftRight],
+            3 => &[Action::RotateCw],
+            4 => &[Action::RotateCcw],
+            5 => &[Action::Rotate180],
+            _ => unreachable!(),
+        };
+        let fin3: &[Action] = match (self.finish / 36) % 6 {
+            0 => &[],
+            1 => &[Action::ShiftLeft],
+            2 => &[Action::ShiftRight],
+            3 => &[Action::RotateCw],
+            4 => &[Action::RotateCcw],
+            5 => &[Action::Rotate180],
+            _ => unreachable!(),
+        };
+        let fin4: &[Action] = match (self.finish / 216) % 6 {
+            0 => &[],
+            1 => &[Action::ShiftLeft],
+            2 => &[Action::ShiftRight],
+            3 => &[Action::RotateCw],
+            4 => &[Action::RotateCcw],
+            5 => &[Action::Rotate180],
+            _ => unreachable!(),
         };
         hold.iter()
-            .chain(rot.iter())
+            .chain(rot)
             .chain(shift)
             .chain(drop)
             .chain(fin)
+            .chain(fin2)
+            .chain(fin3)
+            .chain(fin4)
             .chain(std::iter::once(&Action::HardDrop))
             .copied()
     }
 }
 
 impl Game {
+    /// Generate children with highly optimized code, no final actions. Assumes
+    /// active piece is in starting position.
     pub fn children_fast(&self) -> Vec<Child> {
-        let mut visited = BoardSet::new();
+        let mut boardset = BoardSet::new();
 
         let mut max_height = BOARD_HEIGHT as i8;
         for i in 0..BOARD_HEIGHT as i8 {
@@ -177,55 +212,167 @@ impl Game {
                         shift: position_x - 3,
                         finish: 0,
                     };
-                    visited.insert(child);
+                    boardset.insert(child);
                 }
             }
         }
-        visited.entries
+        boardset.to_entries()
+    }
+
+    /// Generate children, up to 4 final actions.
+    pub fn children(&self, fin: usize) -> Vec<Child> {
+        assert!(fin <= 4);
+
+        let mut boardset = BoardSet::new();
+        for hold in [false, true] {
+            let mut game = self.clone();
+            if hold {
+                game.apply(Action::Hold);
+            }
+
+            for rotate in 0..4 {
+                let mut game = game.clone();
+                match rotate {
+                    0 => {}
+                    1 => {
+                        game.apply(Action::RotateCw);
+                    }
+                    2 => {
+                        game.apply(Action::Rotate180);
+                    }
+                    3 => {
+                        game.apply(Action::RotateCcw);
+                    }
+                    _ => unreachable!(),
+                }
+
+                let (min_x, max_x, _, _) =
+                    PieceInfo::location_bound(game.active.piece_type, game.active.rotation);
+
+                // Piece shift
+                for position_x in min_x..=max_x {
+                    let mut game = game.clone();
+                    let shift = position_x - game.active.position_x;
+                    if shift < 0 {
+                        for _ in 0..(-shift) {
+                            game.apply(Action::ShiftLeft);
+                        }
+                    } else {
+                        for _ in 0..shift {
+                            game.apply(Action::ShiftRight);
+                        }
+                    }
+
+                    for perm in &FIN_PERMUTATIONS[fin] {
+                        let mut game = game.clone();
+                        if perm.actions.len() > 0 {
+                            game.apply(Action::SoftDrop);
+                        }
+                        for &action in &perm.actions {
+                            game.apply(action);
+                        }
+
+                        game.apply(Action::HardDrop);
+                        let child = Child {
+                            game,
+                            hold,
+                            rotate,
+                            shift,
+                            finish: perm.id,
+                        };
+                        boardset.insert(child);
+                    }
+                }
+            }
+        }
+        boardset.to_entries()
     }
 }
 
-const BUCKETS: usize = 123;
+#[derive(Debug, Clone)]
+pub struct Perm {
+    actions: Vec<Action>,
+    id: u16,
+}
 
+pub static FIN_PERMUTATIONS: LazyLock<Vec<Vec<Perm>>> = LazyLock::new(|| {
+    use Action::{Rotate180, RotateCcw, RotateCw, ShiftLeft, ShiftRight};
+    let mut fin_permutations = Vec::<Vec<Perm>>::new();
+    fin_permutations.push(vec![Perm {
+        actions: Vec::new(),
+        id: 0,
+    }]);
+    for i in 1..=4 {
+        let prev_perms = fin_permutations.last().unwrap();
+        let mut new_perms = prev_perms.clone();
+        for prev_perm in prev_perms {
+            if prev_perm.actions.len() == i - 1 {
+                for (j, action) in [ShiftLeft, ShiftRight, RotateCw, RotateCcw, Rotate180]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let mut actions = prev_perm.actions.clone();
+                    actions.push(action);
+                    let new_perm = Perm {
+                        actions,
+                        id: prev_perm.id + 6u16.pow(i as u32 - 1) * (j as u16 + 1),
+                    };
+                    new_perms.push(new_perm);
+                }
+            }
+        }
+        fin_permutations.push(new_perms);
+    }
+    fin_permutations
+});
+
+const BUCKETS: usize = 255;
+
+/// Hashset of board
 pub struct BoardSet {
-    hashset: [bool; BUCKETS],
-    entries: Vec<Child>,
+    entries: Box<[Option<Child>; BUCKETS]>,
+    insert_order: Vec<usize>,
 }
 
 impl BoardSet {
     pub fn new() -> Self {
         BoardSet {
-            hashset: [false; BUCKETS],
-            entries: Vec::with_capacity(128),
+            entries: Box::new([None; BUCKETS]),
+            insert_order: Vec::with_capacity(BUCKETS),
         }
     }
 
     fn hash(&self, child: Child) -> u32 {
         let mut hash: u32 = 0;
         for (i, &row) in child.game.board.matrix.iter().enumerate() {
-            hash += row as u32 * (i as u32 + 7);
+            hash ^= (row as u32).wrapping_mul(i as u32 + 1234567890);
         }
         if child.hold {
-            hash += 1;
+            hash ^= 1234567890;
         }
-        hash % BUCKETS as u32
+        hash
     }
 
     pub fn insert(&mut self, child: Child) {
-        let idx = self.hash(child) as usize;
+        let mut idx = self.hash(child) as usize % BUCKETS;
 
-        if self.hashset[idx] == false {
-            self.hashset[idx] = true;
-            self.entries.push(child);
-            return;
+        while let Some(entry) = &mut self.entries[idx] {
+            if entry.hold == child.hold && entry.game.board == child.game.board {
+                if child.finish < entry.finish {
+                    *entry = child;
+                }
+                return;
+            }
+            idx = (idx + 1) % BUCKETS;
         }
+        self.entries[idx] = Some(child);
+        self.insert_order.push(idx);
+    }
 
-        if !self
-            .entries
-            .iter()
-            .any(|other| other.hold == child.hold && other.game.board == child.game.board)
-        {
-            self.entries.push(child);
-        }
+    pub fn to_entries(self) -> Vec<Child> {
+        self.insert_order
+            .into_iter()
+            .map(|idx| self.entries[idx].unwrap())
+            .collect()
     }
 }

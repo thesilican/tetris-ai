@@ -12,14 +12,15 @@ fn main() -> Result<()> {
     let mut bag = Bag::new_rng7(0);
     let mut game = Game::from_bag(&mut bag);
     let mut index = 0;
-    let mut child_states = game.children_fast();
+    // let mut children = game.children_fast();
+    let mut children = game.children(4);
 
     println!(
         "{}\n{:?}\n{} of {}",
-        child_states[index].game,
-        child_states[index].actions().collect::<Vec<_>>(),
+        children[index].game,
+        children[index].actions().collect::<Vec<_>>(),
         index + 1,
-        child_states.len()
+        children.len()
     );
     stdout.activate_raw_mode()?;
     for key in stdin.keys() {
@@ -27,19 +28,19 @@ fn main() -> Result<()> {
         match key? {
             Key::Ctrl('c') => break,
             Key::Left => {
-                index = (index + child_states.len() - 1) % child_states.len();
+                index = (index + children.len() - 1) % children.len();
             }
             Key::Right => {
-                index = (index + 1) % child_states.len();
+                index = (index + 1) % children.len();
             }
             Key::Char(' ') => {
-                for action in child_states[index].actions() {
+                for action in children[index].actions() {
                     game.apply(action);
                 }
                 game.refill_queue(&mut bag);
-                child_states = game.children_fast();
+                children = game.children(4);
                 index = 0;
-                if child_states.is_empty() {
+                if children.is_empty() {
                     println!("No valid child states");
                     break;
                 }
@@ -48,10 +49,10 @@ fn main() -> Result<()> {
         }
         println!(
             "{}\n{:?}\n{} of {}",
-            child_states[index].game,
-            child_states[index].actions().collect::<Vec<_>>(),
+            children[index].game,
+            children[index].actions().collect::<Vec<_>>(),
             index + 1,
-            child_states.len()
+            children.len()
         );
         stdout.activate_raw_mode()?;
     }

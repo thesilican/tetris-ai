@@ -194,7 +194,7 @@ fn main() {
         Action::ShiftLeft,
         Action::HardDrop,
     ];
-    bench_fn("dt_cannon_loop", count, |_| {
+    bench_fn("dt_cannon_loop", count / 4, |_| {
         let mut bag = Bag::new_fixed(&PieceType::ALL);
         let mut game = Game::from_bag(&mut bag);
         game.swap_hold();
@@ -221,9 +221,39 @@ fn main() {
         scenarios.push(game);
     }
 
-    bench_fn("gen_children", count, |i| {
+    bench_fn("gen_children_fast", count, |i| {
         let game = scenarios[i];
         let child_states = game.children_fast();
+        black_box(&child_states);
+    });
+
+    bench_fn("gen_children_0", count, |i| {
+        let game = scenarios[i];
+        let child_states = game.children(0);
+        black_box(&child_states);
+    });
+
+    bench_fn("gen_children_1", count, |i| {
+        let game = scenarios[i];
+        let child_states = game.children(1);
+        black_box(&child_states);
+    });
+
+    bench_fn("gen_children_2", count / 4, |i| {
+        let game = scenarios[i];
+        let child_states = game.children(2);
+        black_box(&child_states);
+    });
+
+    bench_fn("gen_children_3", count / 16, |i| {
+        let game = scenarios[i];
+        let child_states = game.children(3);
+        black_box(&child_states);
+    });
+
+    bench_fn("gen_children_4", count / 64, |i| {
+        let game = scenarios[i];
+        let child_states = game.children(4);
         black_box(&child_states);
     });
 }

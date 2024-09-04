@@ -8,7 +8,7 @@ struct PcGame {
     board: PcBoard,
     current: PieceType,
     hold: Option<PieceType>,
-    queue: ArrDeque<PieceType, GAME_MAX_QUEUE_LEN>,
+    queue: PieceQueue,
 }
 
 impl PcGame {
@@ -31,7 +31,7 @@ impl PcGame {
                 if should_hold {
                     let hold = match game.hold {
                         Some(piece) => piece,
-                        None => match game.queue.pop_front() {
+                        None => match game.queue.dequeue() {
                             Some(piece) => piece,
                             None => return None,
                         },
@@ -40,7 +40,7 @@ impl PcGame {
                     game.current = hold;
                 }
                 let dropped = game.current;
-                let current = match game.queue.pop_front() {
+                let current = match game.queue.dequeue() {
                     Some(piece) => piece,
                     None => return None,
                 };
@@ -78,9 +78,9 @@ pub struct PcFinderAi {
 }
 
 impl PcFinderAi {
-    pub fn new() -> Self {
+    pub fn new(pc_table_data: &[u8]) -> Self {
         PcFinderAi {
-            table: PcTable::load_static(),
+            table: PcTable::load(pc_table_data),
             simple_ai: SimpleAi::new(),
         }
     }

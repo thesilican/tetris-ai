@@ -1,16 +1,13 @@
 use anyhow::{anyhow, Error, Result};
 use libtetris::*;
 use std::{
-    cmp::Ordering,
     collections::HashMap,
     convert::TryInto,
     fmt::{self, Display, Formatter},
-    hash::{Hash, Hasher},
 };
 use tinyvec::TinyVec;
 
 /// Represents the bottom 4 rows of a tetris board
-/// Invariant: must be valid (see PcBoard::is_valid())
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PcBoard {
     pub rows: [u16; 4],
@@ -61,7 +58,7 @@ impl TryFrom<Board> for PcBoard {
     /// Fails if the height of the board is greater than 4
     fn try_from(value: Board) -> Result<Self> {
         if value.matrix[4] != 0 {
-            return Err(anyhow!("Uh oh"));
+            return Err(anyhow!("board exceeds max height of 4"));
         }
         let board = PcBoard {
             rows: value.matrix[0..4].try_into().unwrap(),
@@ -127,10 +124,9 @@ impl Default for PcBoard {
 }
 
 /// Normalized representation of a piece that has been placed on a PcBoard
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NormPiece {
     pub piece_type: PieceType,
-    pub rotation: i8,
     pub rows: [u16; 4],
 }
 
@@ -148,7 +144,6 @@ impl TryFrom<Piece> for NormPiece {
     type Error = Error;
 
     fn try_from(piece: Piece) -> Result<Self, Self::Error> {
-        let bit_shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.position_x);
         let (min_x, max_x, min_y, max_y) =
             PieceInfo::location_bound(piece.piece_type, piece.rotation);
         if piece.position_x < min_x
@@ -156,9 +151,10 @@ impl TryFrom<Piece> for NormPiece {
             || piece.position_y < min_y
             || piece.position_y > max_y - 20
         {
-            return Err(anyhow!(""));
+            return Err(anyhow!("piece out of bounds"));
         }
 
+        let bit_shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.position_x);
         let mut matrix = [0; 4];
         for y in 0..4 {
             let i = y - piece.position_y;
@@ -168,7 +164,6 @@ impl TryFrom<Piece> for NormPiece {
         }
         Ok(NormPiece {
             piece_type: piece.piece_type,
-            rotation: piece.rotation,
             rows: matrix,
         })
     }
@@ -190,43 +185,9 @@ impl Display for NormPiece {
     }
 }
 
-impl PartialEq for NormPiece {
-    fn eq(&self, other: &Self) -> bool {
-        self.rows == other.rows
-    }
-}
-
-impl Eq for NormPiece {}
-
-impl Hash for NormPiece {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.rows.hash(state);
-    }
-}
-
-impl PartialOrd for NormPiece {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NormPiece {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.piece_type.to_u8().cmp(&other.piece_type.to_u8()) {
-            Ordering::Equal => {}
-            ord => return ord,
-        }
-        match self.rotation.cmp(&other.rotation) {
-            Ordering::Equal => {}
-            ord => return ord,
-        }
-        self.rows.cmp(&other.rows)
-    }
-}
-
 impl Default for NormPiece {
     fn default() -> Self {
-        Piece::new(PieceType::O, 0, (0, 0)).try_into().unwrap()
+        Piece::from_parts(PieceType::O, 0, 0, 0).try_into().unwrap()
     }
 }
 
@@ -238,8 +199,7 @@ impl Pack for NormPiece {
             + ((self.rows[1] as u64) << 10)
             + ((self.rows[2] as u64) << 20)
             + ((self.rows[3] as u64) << 30)
-            + ((self.piece_type.to_u8() as u64) << 40)
-            + ((self.rotation as u64) << 43);
+            + ((self.piece_type.to_u8() as u64) << 40);
         buf.write_packed(num, 6);
     }
 
@@ -253,12 +213,7 @@ impl Pack for NormPiece {
             ((num >> 30) & bitmask) as u16,
         ];
         let piece_type = PieceType::from_u8(((num >> 40) & 0b111) as u8)?;
-        let rotation = ((num >> 43) & 0b111) as i8;
-        Ok(NormPiece {
-            rows,
-            piece_type,
-            rotation,
-        })
+        Ok(NormPiece { rows, piece_type })
     }
 }
 
@@ -450,8 +405,7 @@ impl PcTable {
             .chain(self.children(board, PieceType::Z))
     }
 
-    pub fn load_static() -> Self {
-        let bytes = include_bytes!("../data/pc-table.bin").as_ref();
+    pub fn load(bytes: &[u8]) -> Self {
         Self::unpack(&mut PackCursor::new(bytes)).unwrap()
     }
 }

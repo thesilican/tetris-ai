@@ -11,7 +11,7 @@ fn main() -> Result<()> {
         let mut bag = Bag::new_rng7(i as u64);
         let mut game = Game::from_bag(&mut bag);
         for _ in 0..5 {
-            let children = game.children_fast();
+            let children = game.children(4);
             // Check children
             for child in children.iter() {
                 let mut new_game = game;
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
             let idx = rng.next_u64() as usize % children.len();
             game = children[idx].game;
         }
-        println!("\x1b[F{i}/{count}")
+        println!("\x1b[F{}/{count}", i + 1);
     }
     println!("All correct!");
     Ok(())

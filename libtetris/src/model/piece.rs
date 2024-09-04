@@ -84,6 +84,15 @@ pub struct Piece {
 }
 
 impl Piece {
+    pub fn from_parts(piece_type: PieceType, rotation: i8, position_x: i8, position_y: i8) -> Self {
+        Piece {
+            piece_type,
+            rotation,
+            position_x,
+            position_y,
+        }
+    }
+
     pub fn from_piece_type(piece_type: PieceType) -> Self {
         let (position_x, position_y) = PieceInfo::spawn_location(piece_type);
         Piece {

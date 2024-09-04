@@ -1,8 +1,8 @@
 use crate::{NormPiece, PcBoard, Tess};
 use anyhow::Result;
-use libtetris::{ArrDeque, Pack, Piece, PieceInfo, PieceType};
+use libtetris::{Pack, Piece, PieceInfo, PieceType};
 use std::{
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     fs::File,
     io::{Read, Write},
 };
@@ -25,7 +25,7 @@ fn generate_all_norm_pieces() -> Vec<NormPiece> {
             let (min_x, max_x, min_y, max_y) = PieceInfo::location_bound(piece_type, rot);
             for y in min_y..=(max_y - 20) {
                 for x in min_x..=max_x {
-                    let piece = Piece::new(piece_type, rot, (x, y));
+                    let piece = Piece::from_parts(piece_type, rot, x, y);
                     let normed = NormPiece::try_from(piece).unwrap();
                     if !dups.contains(&normed) {
                         pieces.push(normed);
@@ -40,7 +40,7 @@ fn generate_all_norm_pieces() -> Vec<NormPiece> {
 
 // Check whether a given board has valid parity
 fn parity_check(board: &PcBoard) -> bool {
-    let mut queue = ArrDeque::<(i32, i32), 40>::new();
+    let mut queue = VecDeque::<(i32, i32)>::with_capacity(40);
     let mut visited = [[false; 4]; 10];
     for x in 0..10 {
         for y in 0..4 {
@@ -53,7 +53,7 @@ fn parity_check(board: &PcBoard) -> bool {
 
             // Mark adjacent cells as visited
             let mut count = 1;
-            queue.push_back((x, y)).unwrap();
+            queue.push_back((x, y));
             visited[x as usize][y as usize] = true;
             while let Some((x, y)) = queue.pop_front() {
                 for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
@@ -68,7 +68,7 @@ fn parity_check(board: &PcBoard) -> bool {
                         continue;
                     }
                     count += 1;
-                    queue.push_back((nx, ny)).unwrap();
+                    queue.push_back((nx, ny));
                     visited[nx as usize][ny as usize] = true;
                 }
             }
