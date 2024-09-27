@@ -105,7 +105,7 @@ fn explore_bfs(
                 &[PieceType::O],
                 true,
             );
-            let children = game.children().unwrap();
+            let children = game.children(4);
             for child in children {
                 let Ok(child) = PcBoard::try_from(child.game.board) else {
                     continue;

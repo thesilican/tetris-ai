@@ -210,7 +210,7 @@ impl Board {
                 } else if in_piece_bounds {
                     write!(text, "--").unwrap();
                 } else {
-                    write!(text, "  ").unwrap();
+                    write!(text, "..").unwrap();
                 }
             }
             writeln!(text).unwrap();

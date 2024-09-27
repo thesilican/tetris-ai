@@ -218,7 +218,7 @@ impl Pack for NormPiece {
 }
 
 /// A tesselation of the 4x10 area consisting of 10 pieces
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tess {
     pub pieces: [NormPiece; 10],
 }
@@ -226,6 +226,7 @@ pub struct Tess {
 impl Tess {
     pub fn new(pieces: [NormPiece; 10]) -> Self {
         // Check that the pieces are sorted
+        // The exact ordering doesn't matter as long as it's consistent
         for window in pieces.windows(2) {
             assert!(window[0] < window[1]);
         }
@@ -261,10 +262,10 @@ impl Display for Tess {
             for x in 0..10 {
                 for p in self.pieces {
                     let text = match p.piece_type {
-                        PieceType::O => "\x1b[33m[]\x1b[0m",
-                        PieceType::I => "\x1b[36m[]\x1b[0m",
-                        PieceType::T => "\x1b[37m[]\x1b[0m",
-                        PieceType::L => "\x1b[30m[]\x1b[0m",
+                        PieceType::O => "\x1b[93m[]\x1b[0m",
+                        PieceType::I => "\x1b[96m[]\x1b[0m",
+                        PieceType::T => "\x1b[95m[]\x1b[0m",
+                        PieceType::L => "\x1b[33m[]\x1b[0m",
                         PieceType::J => "\x1b[34m[]\x1b[0m",
                         PieceType::S => "\x1b[32m[]\x1b[0m",
                         PieceType::Z => "\x1b[31m[]\x1b[0m",
@@ -307,6 +308,7 @@ impl Pack for PcTableKey {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PcTableChild {
     board: PcBoard,
+    // Tiny vec because most sequences are less than 8 long, prevents heap fragmentation
     actions: TinyVec<[Action; 8]>,
 }
 
@@ -417,8 +419,8 @@ impl Pack for PcTable {
     fn pack(&self, buf: &mut PackBuffer) {
         buf.write_u32(self.len() as u32);
 
-        // Sort so that the output is deterministic
         let mut vec: Vec<(&PcTableKey, &TinyVec<[PcTableChild; 2]>)> = self.map.iter().collect();
+        // Sort so that the output is deterministic
         vec.sort_by_key(|&(key, _)| key);
 
         for (key, val) in vec {

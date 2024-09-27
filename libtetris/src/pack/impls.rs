@@ -36,12 +36,14 @@ where
 
 impl<K, V> Pack for HashMap<K, V>
 where
-    K: Pack + Eq + Hash,
+    K: Pack + Eq + Hash + Ord,
     V: Pack,
 {
     fn pack(&self, buf: &mut PackBuffer) {
+        let mut vec = self.into_iter().collect::<Vec<_>>();
+        vec.sort_by(|a, b| a.0.cmp(b.0));
         buf.write_u64(self.len() as u64);
-        for (k, v) in self {
+        for (k, v) in vec {
             k.pack(buf);
             v.pack(buf);
         }

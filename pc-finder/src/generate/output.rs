@@ -25,9 +25,7 @@ fn construct_table(pruned: Vec<(PcBoard, PcBoard)>) -> PcTable {
                 &[PieceType::O],
                 true,
             );
-            let Ok(children) = game.children() else {
-                continue;
-            };
+            let children = game.children(4);
             visited.clear();
             for child_state in children {
                 let Ok(child) = PcBoard::try_from(child_state.game.board) else {

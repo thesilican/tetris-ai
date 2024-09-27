@@ -85,6 +85,7 @@ fn recurse(
     board: PcBoard,
     pieces: [NormPiece; 10],
     len: usize,
+    // Count of how much each piece has been used
     flags: [i8; 7],
     output: &mut Vec<Tess>,
     all_pieces: &[NormPiece],
