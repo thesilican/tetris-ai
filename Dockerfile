@@ -1,4 +1,4 @@
-FROM rust:1.79 AS wasm
+FROM rust:1.80 AS wasm
 WORKDIR /app
 RUN cargo install wasm-pack
 COPY libtetris/ /app/libtetris/
