@@ -342,13 +342,18 @@ impl BoardSet {
         }
     }
 
-    fn hash(&self, child: Child) -> u32 {
-        let mut hash: u32 = 0;
-        for (i, &row) in child.game.board.matrix.iter().enumerate() {
-            hash ^= (row as u32).wrapping_mul(i as u32 + 1234567890);
+    fn hash(&self, child: Child) -> u64 {
+        const NOISE: u64 = 0x0123456789abcdef;
+        let mut hash: u64 = 0;
+        for (i, row) in child.game.board.matrix.chunks_exact(4).enumerate() {
+            let num = row[0] as u64
+                + ((row[1] as u64) << 16)
+                + ((row[2] as u64) << 32)
+                + ((row[3] as u64) << 48);
+            hash ^= num.wrapping_mul(i as u64 + NOISE);
         }
         if child.hold {
-            hash ^= 1234567890;
+            hash ^= NOISE;
         }
         hash
     }

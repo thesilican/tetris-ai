@@ -35,3 +35,12 @@
 2024-07-05
 - dt_cannon_loop: 335.457µs
 - gen_children: 17.472µs
+
+2024-12-17
+- dt_cannon_loop: 302.945µs
+- gen_children_fast: 2.094µs
+- gen_children_0: 6.58µs
+- gen_children_1: 39.657µs
+- gen_children_2: 223.424µs
+- gen_children_3: 1.241123ms
+- gen_children_4: 6.835378ms
