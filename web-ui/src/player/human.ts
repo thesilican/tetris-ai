@@ -8,9 +8,9 @@ export class HumanPlayer {
   started = false;
   paused = false;
   leftPressed = false;
-  leftTimer = new DasTimer(8, 1);
+  leftTimer = new DasTimer(12, 1);
   rightPressed = false;
-  rightTimer = new DasTimer(8, 1);
+  rightTimer = new DasTimer(12, 1);
   downPressed = false;
   downTimer = new DasTimer(0, 1);
   gravityTimer = new DasTimer(0, 60);
