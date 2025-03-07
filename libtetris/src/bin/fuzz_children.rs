@@ -11,7 +11,7 @@ fn main() -> Result<()> {
         let mut bag = Bag::new_rng7(i as u64);
         let mut game = Game::from_bag(&mut bag);
         for _ in 0..5 {
-            let children = game.children(4);
+            let children = game.children(Fin::Full3);
             // Check children
             for child in children.iter() {
                 let mut new_game = game;

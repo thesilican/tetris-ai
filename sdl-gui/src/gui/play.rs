@@ -91,12 +91,12 @@ impl PlayGui {
                     if self.shift_arr <= 1 {
                         if let ShiftDirection::Left = self.shift {
                             let res = self.game.apply(Action::ShiftLeft);
-                            if res {
+                            if res != ActionInfo::Fail {
                                 self.lock = LOCK;
                             }
                         } else {
                             let res = self.game.apply(Action::ShiftRight);
-                            if res {
+                            if res != ActionInfo::Fail {
                                 self.lock = LOCK;
                             }
                         }
@@ -118,7 +118,7 @@ impl PlayGui {
 
         let should_lock = {
             let mut game = *self.game.game();
-            !game.apply(Action::ShiftDown)
+            game.apply(Action::ShiftDown) == ActionInfo::Fail
         };
         if should_lock {
             if self.lock <= 1 {

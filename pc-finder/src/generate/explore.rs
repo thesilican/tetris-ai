@@ -1,6 +1,6 @@
 use crate::{PcBoard, Tess};
-use anyhow::Result;
-use libtetris::{Board, Game, Pack, Piece, PieceType, BOARD_WIDTH};
+use anyhow::{bail, Result};
+use libtetris::{Board, Fin, Game, Pack, Piece, PieceType, BOARD_WIDTH};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs::File,
@@ -105,7 +105,7 @@ fn explore_bfs(
                 &[PieceType::O],
                 true,
             );
-            let children = game.children(4);
+            let children = game.children(Fin::Full3);
             for child in children {
                 let Ok(child) = PcBoard::try_from(child.game.board) else {
                     continue;
@@ -133,16 +133,12 @@ fn explore_bfs(
 
 // Use DFS to generate all directed edges of the pc board graph
 pub fn explore_graph(tessellations: Vec<Tess>) -> Result<Vec<(PcBoard, PcBoard)>> {
-    println!("Exploring graph edges");
-    let file = File::open("data/edges.bin");
-    if let Ok(mut file) = file {
-        println!("Reading graph edges from data/edges.bin");
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-        let output = Vec::<(PcBoard, PcBoard)>::unpack_bytes(&data)?;
-        return Ok(output);
+    match read_edges() {
+        Ok(edges) => return Ok(edges),
+        Err(err) => println!("{err}"),
     }
 
+    println!("Exploring graph edges");
     // Extra info: see which tessellation is the most used
     let mut tess_stats = HashMap::<Tess, u64>::new();
     let output = explore_bfs(tessellations, &mut tess_stats);
@@ -158,4 +154,25 @@ pub fn explore_graph(tessellations: Vec<Tess>) -> Result<Vec<(PcBoard, PcBoard)>
     file.write_all(&bytes)?;
 
     Ok(output)
+}
+
+pub fn read_edges() -> Result<Vec<(PcBoard, PcBoard)>> {
+    println!("Reading graph edges from data/edges.bin");
+    let mut file = File::open("data/edges.bin")?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+    Vec::<(PcBoard, PcBoard)>::unpack_bytes(&data)
+}
+
+pub fn read_tess_stats() -> Result<HashMap<Tess, u64>> {
+    println!("Reading tessellation stats");
+    let file = File::open("data/edges-tess-stats.bin");
+    if let Ok(mut file) = file {
+        println!("Reading tessellation states from data/edges-tess-stats.bin");
+        let mut data = Vec::new();
+        file.read_to_end(&mut data)?;
+        let output = HashMap::<Tess, u64>::unpack_bytes(&data)?;
+        return Ok(output);
+    }
+    bail!("Could not open file data/edges-tess-stats.bin");
 }

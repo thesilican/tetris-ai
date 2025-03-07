@@ -71,10 +71,7 @@ pub fn evaluate(ai_type: String, game: String) -> ApiEvaluation {
                 .into_iter()
                 .map(|action| action.to_string())
                 .collect(),
-            message: match score {
-                Some(score) => format!("Eval: {score:0.2}"),
-                None => format!(""),
-            },
+            message: format!("Eval: {score:0.2}"),
         },
         Evaluation::Fail { message } => ApiEvaluation {
             success: false,

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use sdl_gui::AiGui;
-use tree_bot::DeepAi;
+use tree_bot::{TreeAi, DEFAULT_SCORE_PARAMS};
 
 fn main() -> Result<()> {
-    AiGui::new(DeepAi::new(5, 6))?.run()?;
+    AiGui::new(TreeAi::new(4, 4, DEFAULT_SCORE_PARAMS))?.run()?;
     Ok(())
 }

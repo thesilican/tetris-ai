@@ -1,6 +1,6 @@
 use crate::{PcBoard, PcTable, PcTableChild};
 use anyhow::Result;
-use libtetris::{Board, Game, Pack, Piece, PieceType};
+use libtetris::{Board, Fin, Game, Pack, Piece, PieceType};
 use std::{
     collections::HashSet,
     fs::File,
@@ -25,7 +25,7 @@ fn construct_table(pruned: Vec<(PcBoard, PcBoard)>) -> PcTable {
                 &[PieceType::O],
                 true,
             );
-            let children = game.children(4);
+            let children = game.children(Fin::Full3);
             visited.clear();
             for child_state in children {
                 let Ok(child) = PcBoard::try_from(child_state.game.board) else {
@@ -51,16 +51,12 @@ fn construct_table(pruned: Vec<(PcBoard, PcBoard)>) -> PcTable {
 }
 
 pub fn generate_pc_table(pruned: Vec<(PcBoard, PcBoard)>) -> Result<PcTable> {
-    println!("Constructing PcTable");
-    let file = File::open("data/pc-table.bin");
-    if let Ok(mut file) = file {
-        println!("Reading PcTable from data/pc-table.bin");
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-        let output = PcTable::unpack_bytes(&data)?;
-        return Ok(output);
+    match read_pc_table() {
+        Ok(table) => return Ok(table),
+        Err(err) => println!("{err}"),
     }
 
+    println!("Constructing PcTable");
     let output = construct_table(pruned);
 
     println!("Saving PcTable to data/pc-table.bin");
@@ -69,4 +65,12 @@ pub fn generate_pc_table(pruned: Vec<(PcBoard, PcBoard)>) -> Result<PcTable> {
     file.write_all(&bytes)?;
 
     Ok(output)
+}
+
+pub fn read_pc_table() -> Result<PcTable> {
+    println!("Reading PcTable from data/pc-table.bin");
+    let mut file = File::open("data/pc-table.bin")?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+    PcTable::unpack_bytes(&data)
 }

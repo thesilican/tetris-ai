@@ -1,4 +1,4 @@
-use super::piece::Piece;
+use super::{piece::Piece, PieceType};
 use crate::PieceInfo;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -20,7 +20,8 @@ pub const BOARD_VISIBLE_HEIGHT: usize = 20;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LockInfo {
     pub top_out: bool,
-    pub lines_cleared: i8,
+    pub lines_cleared: u8,
+    pub tspin: bool,
 }
 
 /// Represents a rectangular grid of tiles using a bitboard
@@ -105,36 +106,67 @@ impl Board {
         false
     }
 
+    /// Check whether a piece is in a tspin position
+    pub fn check_tspin(&self, piece: &Piece) -> bool {
+        if piece.piece_type != PieceType::T {
+            return false;
+        }
+        // Check if all 4 corners of T is in bounds
+        // We don't support tspin minis unfortunately
+        if !(0..=(BOARD_WIDTH as i8) - 3).contains(&piece.position_x)
+            || !(0..=(BOARD_HEIGHT as i8) - 3).contains(&piece.position_y)
+        {
+            return false;
+        }
+        let bottom_idx = piece.position_y as usize;
+        let top_idx = bottom_idx + 2;
+        let bottom = (self.matrix[bottom_idx] >> piece.position_x) & 0b101;
+        let top = (self.matrix[top_idx] >> piece.position_x) & 0b101;
+        match piece.rotation {
+            0 => top == 0b101 && bottom != 0,
+            1 => (top == 0b101 && (bottom & 0b100 != 0)) || (bottom == 0b101 && (top & 0b100 != 0)),
+            2 => bottom == 0b101 && top != 0,
+            3 => (top == 0b101 && (bottom & 0b001 != 0)) || (bottom == 0b101 && (top & 0b001 != 0)),
+            _ => panic!("invalid rotation"),
+        }
+    }
+
     /// Lock a piece onto the board
     pub fn lock(&mut self, piece: &Piece) -> LockInfo {
-        let p_y = piece.position_y;
+        // Check if it was a t-spin
+        let tspin = self.check_tspin(piece);
+
+        // Write piece onto board
+        let p_y = piece.position_y as i32;
         let shape = PieceInfo::bit_shape(piece.piece_type, piece.rotation, piece.position_x);
         for j in 0..4 {
             let y = p_y + j;
-            if !(0..BOARD_HEIGHT as i8).contains(&y) {
+            if !(0..(BOARD_HEIGHT as i32)).contains(&y) {
                 continue;
             }
             self.matrix[y as usize] |= shape[j as usize];
         }
 
+        // Check for cleared lines
         let mut lines_cleared = 0;
         for j in 0..BOARD_HEIGHT {
             if self.matrix[j] == (1 << BOARD_WIDTH) - 1 {
                 lines_cleared += 1;
             } else {
-                self.matrix[j - lines_cleared as usize] = self.matrix[j];
+                self.matrix[j - lines_cleared] = self.matrix[j];
             }
         }
         for j in 0..lines_cleared {
-            self.matrix[(BOARD_HEIGHT as i8 - lines_cleared + j) as usize] = 0;
+            self.matrix[BOARD_HEIGHT - lines_cleared + j] = 0;
         }
 
         // Check for top-out
         let top_out = self.topped_out();
 
         LockInfo {
-            lines_cleared,
+            lines_cleared: lines_cleared as u8,
             top_out,
+            tspin,
         }
     }
 
@@ -157,10 +189,10 @@ impl Board {
     /// as an empty tile that has a full tile somewhere above it.
     pub fn holes(&self) -> [i8; BOARD_WIDTH] {
         let mut holes = [0; BOARD_WIDTH];
-        let max_height = self.max_height() as usize;
+        let height_map = self.height_map();
         for i in 0..BOARD_WIDTH {
-            for j in 0..max_height {
-                if self.get(i, j) {
+            for j in 0..(height_map[i] - 1) {
+                if !self.get(i, j as usize) {
                     holes[i] += 1;
                 }
             }

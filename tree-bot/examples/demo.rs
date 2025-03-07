@@ -1,6 +1,6 @@
 use libtetris::Ai;
-use tree_bot::DeepAi;
+use tree_bot::{TreeAi, DEFAULT_SCORE_PARAMS};
 
 fn main() {
-    DeepAi::new(6, 4).demo();
+    TreeAi::new(4, 4, DEFAULT_SCORE_PARAMS).demo();
 }

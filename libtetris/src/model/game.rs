@@ -15,6 +15,7 @@ use std::hash::Hash;
 /// An action that can modify the game state
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[repr(u8)]
 pub enum Action {
     ShiftLeft,
     ShiftRight,
@@ -48,33 +49,7 @@ impl Action {
 
     /// Convert the game action to u8 representation
     pub fn to_u8(self) -> u8 {
-        match self {
-            Action::ShiftLeft => 0,
-            Action::ShiftRight => 1,
-            Action::ShiftDown => 2,
-            Action::RotateCw => 3,
-            Action::Rotate180 => 4,
-            Action::RotateCcw => 5,
-            Action::SoftDrop => 6,
-            Action::HardDrop => 7,
-            Action::Hold => 8,
-            Action::Lock => 9,
-        }
-    }
-
-    pub fn to_string(self) -> String {
-        match self {
-            Action::ShiftLeft => "shift-left".to_string(),
-            Action::ShiftRight => "shift-right".to_string(),
-            Action::ShiftDown => "shift-down".to_string(),
-            Action::RotateCw => "rotate-cw".to_string(),
-            Action::Rotate180 => "rotate-180".to_string(),
-            Action::RotateCcw => "rotate-ccw".to_string(),
-            Action::SoftDrop => "soft-drop".to_string(),
-            Action::HardDrop => "hard-drop".to_string(),
-            Action::Hold => "hold".to_string(),
-            Action::Lock => "lock".to_string(),
-        }
+        self as u8
     }
 }
 
@@ -99,6 +74,32 @@ impl Display for Action {
             Action::Lock => "lock",
         };
         write!(f, "{str}")
+    }
+}
+
+/// Information after performing an action
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionInfo {
+    Success,
+    Lock(LockInfo),
+    Fail,
+}
+
+impl From<bool> for ActionInfo {
+    fn from(value: bool) -> Self {
+        match value {
+            true => ActionInfo::Success,
+            false => ActionInfo::Fail,
+        }
+    }
+}
+
+impl From<Option<LockInfo>> for ActionInfo {
+    fn from(value: Option<LockInfo>) -> Self {
+        match value {
+            Some(lock_info) => ActionInfo::Lock(lock_info),
+            None => ActionInfo::Success,
+        }
     }
 }
 
@@ -195,9 +196,9 @@ impl Game {
         true
     }
 
-    pub fn lock(&mut self) -> Option<LockInfo> {
+    pub fn lock(&mut self) -> ActionInfo {
         if self.queue.is_empty() {
-            return None;
+            return ActionInfo::Fail;
         }
 
         let info = self.board.lock(&self.active);
@@ -205,30 +206,30 @@ impl Game {
         self.active.reset();
         self.can_hold = true;
 
-        Some(info)
+        ActionInfo::Lock(info)
     }
 
-    pub fn hard_drop(&mut self) -> Option<LockInfo> {
+    pub fn hard_drop(&mut self) -> ActionInfo {
         if self.queue.is_empty() {
-            return None;
+            return ActionInfo::Fail;
         }
 
         self.active.soft_drop(&self.board);
         self.lock()
     }
 
-    pub fn apply(&mut self, action: Action) -> bool {
+    pub fn apply(&mut self, action: Action) -> ActionInfo {
         match action {
-            Action::ShiftLeft => self.active.shift_left(&self.board),
-            Action::ShiftRight => self.active.shift_right(&self.board),
-            Action::ShiftDown => self.active.shift_down(&self.board),
-            Action::RotateCw => self.active.rotate_cw(&self.board),
-            Action::Rotate180 => self.active.rotate_180(&self.board),
-            Action::RotateCcw => self.active.rotate_ccw(&self.board),
-            Action::SoftDrop => self.active.soft_drop(&self.board),
-            Action::HardDrop => self.hard_drop().is_some(),
-            Action::Hold => self.swap_hold(),
-            Action::Lock => self.lock().is_some(),
+            Action::ShiftLeft => self.active.shift_left(&self.board).into(),
+            Action::ShiftRight => self.active.shift_right(&self.board).into(),
+            Action::ShiftDown => self.active.shift_down(&self.board).into(),
+            Action::RotateCw => self.active.rotate_cw(&self.board).into(),
+            Action::Rotate180 => self.active.rotate_180(&self.board).into(),
+            Action::RotateCcw => self.active.rotate_ccw(&self.board).into(),
+            Action::SoftDrop => self.active.soft_drop(&self.board).into(),
+            Action::HardDrop => self.hard_drop(),
+            Action::Hold => self.swap_hold().into(),
+            Action::Lock => self.lock(),
         }
     }
 }

@@ -194,6 +194,7 @@ fn main() {
         Action::ShiftLeft,
         Action::HardDrop,
     ];
+
     bench_fn("dt_cannon_loop", count / 4, |_| {
         let mut bag = Bag::new_fixed(&PieceType::ALL);
         let mut game = Game::from_bag(&mut bag);
@@ -214,46 +215,58 @@ fn main() {
         let mut bag = Bag::new_rng7(i as u64);
         let mut game = Game::from_bag(&mut bag);
         for _ in 0..3 {
-            let mut child_states = game.children_fast();
+            let mut child_states = game.children(Fin::None);
             child_states.shuffle(&mut rng);
             game = child_states[0].game;
         }
         scenarios.push(game);
     }
 
-    bench_fn("gen_children_fast", count, |i| {
+    // bench_fn("gen_children_fast", count, |i| {
+    //     let game = scenarios[i];
+    //     let child_states = game.children_fast();
+    //     black_box(&child_states);
+    // });
+
+    bench_fn("gen_children_none", count, |i| {
         let game = scenarios[i];
-        let child_states = game.children_fast();
+        let child_states = game.children(Fin::None);
         black_box(&child_states);
     });
 
-    bench_fn("gen_children_0", count, |i| {
+    bench_fn("gen_children_simple_1", count, |i| {
         let game = scenarios[i];
-        let child_states = game.children(0);
+        let child_states = game.children(Fin::Simple1);
         black_box(&child_states);
     });
 
-    bench_fn("gen_children_1", count, |i| {
+    bench_fn("gen_children_simple_2", count / 4, |i| {
         let game = scenarios[i];
-        let child_states = game.children(1);
+        let child_states = game.children(Fin::Simple2);
         black_box(&child_states);
     });
 
-    bench_fn("gen_children_2", count / 4, |i| {
+    bench_fn("gen_children_simple_3", count / 16, |i| {
         let game = scenarios[i];
-        let child_states = game.children(2);
+        let child_states = game.children(Fin::Simple3);
         black_box(&child_states);
     });
 
-    bench_fn("gen_children_3", count / 16, |i| {
+    bench_fn("gen_children_full_1", count, |i| {
         let game = scenarios[i];
-        let child_states = game.children(3);
+        let child_states = game.children(Fin::Full1);
         black_box(&child_states);
     });
 
-    bench_fn("gen_children_4", count / 64, |i| {
+    bench_fn("gen_children_full_2", count / 4, |i| {
         let game = scenarios[i];
-        let child_states = game.children(4);
+        let child_states = game.children(Fin::Full2);
+        black_box(&child_states);
+    });
+
+    bench_fn("gen_children_full_3", count / 16, |i| {
+        let game = scenarios[i];
+        let child_states = game.children(Fin::Full3);
         black_box(&child_states);
     });
 }

@@ -6,6 +6,7 @@ use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum PieceType {
     O,
     I,
@@ -28,15 +29,7 @@ impl PieceType {
     ];
 
     pub fn to_u8(self) -> u8 {
-        match self {
-            PieceType::O => 0,
-            PieceType::I => 1,
-            PieceType::T => 2,
-            PieceType::L => 3,
-            PieceType::J => 4,
-            PieceType::S => 5,
-            PieceType::Z => 6,
-        }
+        self as u8
     }
 
     pub fn from_u8(value: u8) -> Result<Self> {

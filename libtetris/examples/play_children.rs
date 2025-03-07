@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     let mut game = Game::from_bag(&mut bag);
     let mut index = 0;
     // let mut children = game.children_fast();
-    let mut children = game.children(4);
+    let mut children = game.children(Fin::Full3);
 
     println!(
         "{}\n{:?}\n{} of {}",
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
                     game.apply(action);
                 }
                 game.refill_queue(&mut bag);
-                children = game.children(4);
+                children = game.children(Fin::Full3);
                 index = 0;
                 if children.is_empty() {
                     println!("No valid child states");

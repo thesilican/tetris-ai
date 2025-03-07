@@ -127,16 +127,12 @@ fn recurse(
 }
 
 pub fn generate_tessellations() -> Result<Vec<Tess>> {
-    println!("Generating tessellations");
-    let file = File::open("data/tessellations.bin");
-    if let Ok(mut file) = file {
-        println!("Reading tessellations from data/tessellations.bin");
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-        let output: Vec<Tess> = Vec::<Tess>::unpack_bytes(&data)?;
-        return Ok(output);
+    match read_tessellations() {
+        Ok(tess) => return Ok(tess),
+        Err(err) => println!("{err}"),
     }
 
+    println!("Generating tessellations");
     let all_pieces = generate_all_norm_pieces();
     let mut output = Vec::new();
     recurse(
@@ -155,4 +151,12 @@ pub fn generate_tessellations() -> Result<Vec<Tess>> {
     file.write_all(&bytes)?;
 
     Ok(output)
+}
+
+pub fn read_tessellations() -> Result<Vec<Tess>> {
+    println!("Reading tessellations from data/tessellations.bin");
+    let mut file = File::open("data/tessellations.bin")?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+    Vec::<Tess>::unpack_bytes(&data)
 }

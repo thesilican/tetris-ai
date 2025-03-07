@@ -76,7 +76,7 @@ pub enum SerializedEvaluation {
     Success {
         success: bool,
         actions: Vec<Action>,
-        score: Option<f64>,
+        score: f32,
     },
     Fail {
         success: bool,

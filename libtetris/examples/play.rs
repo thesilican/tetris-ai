@@ -29,12 +29,13 @@ fn main() -> Result<()> {
             }
             Key::Char(' ') => {
                 let info = game.hard_drop();
-                if let Some(LockInfo {
+                if let ActionInfo::Lock(LockInfo {
                     lines_cleared,
                     top_out,
+                    tspin,
                 }) = info
                 {
-                    println!("Drop: Lines cleared: {lines_cleared} Top out: {top_out}");
+                    println!("Cleared: {lines_cleared} T-Spin: {tspin} Top out: {top_out}");
                 }
             }
             Key::Char('a') => {

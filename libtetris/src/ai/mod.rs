@@ -1,6 +1,6 @@
 use crate::{
     model::{Bag, Game},
-    Action, LockInfo,
+    Action, ActionInfo, Fin, LockInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -13,13 +13,8 @@ use std::{
 #[serde(from = "crate::serde::SerializedEvaluation")]
 #[serde(into = "crate::serde::SerializedEvaluation")]
 pub enum Evaluation {
-    Success {
-        actions: Vec<Action>,
-        score: Option<f64>,
-    },
-    Fail {
-        message: String,
-    },
+    Success { actions: Vec<Action>, score: f32 },
+    Fail { message: String },
 }
 
 /// An object that can evaluate Tetris game states
@@ -43,7 +38,7 @@ pub trait Ai {
                     for &action in &actions {
                         if let Action::HardDrop = action {
                             let info = game.hard_drop();
-                            if let Some(LockInfo { top_out: true, .. }) = info {
+                            if let ActionInfo::Lock(LockInfo { top_out: true, .. }) = info {
                                 println!("TOP OUT");
                                 top_out = true;
                                 break;
@@ -52,15 +47,11 @@ pub trait Ai {
                             game.apply(action);
                         }
                     }
-                    let score = match score {
-                        Some(score) => &format!("{score:0.2}"),
-                        None => "-",
-                    };
                     println!();
                     println!("{game}");
                     println!("{actions:?}");
                     println!("Evaluated in {elapsed:?}");
-                    println!("Evaluation score: {score}");
+                    println!("Evaluation score: {score:0.2}");
                     if top_out {
                         break;
                     }
@@ -89,12 +80,12 @@ impl SimpleAi {
 
 impl Ai for SimpleAi {
     fn evaluate(&mut self, game: &Game) -> Evaluation {
-        let children = game.children_fast();
+        let children = game.children(Fin::None);
         if children.len() == 0 {
             // Immediately hard drop to reset the piece position
             return Evaluation::Success {
                 actions: vec![Action::HardDrop],
-                score: None,
+                score: 0.,
             };
         }
         let mut best_child = None;
@@ -121,7 +112,7 @@ impl Ai for SimpleAi {
         match best_child {
             Some(child) => Evaluation::Success {
                 actions: child.actions().collect(),
-                score: Some(children.len() as f64),
+                score: children.len() as f32,
             },
             None => Evaluation::Fail {
                 message: String::from("no valid game actions"),

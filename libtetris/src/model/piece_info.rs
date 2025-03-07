@@ -69,7 +69,6 @@ impl PieceInfo {
     }
 
     /// u16 bitmask of each shape, if shifting out of bounds, the shape will be cut-off
-    #[inline]
     pub fn bit_shape(piece_type: PieceType, rotation: i8, x: i8) -> [u16; 4] {
         let arr = match piece_type {
             PieceType::O => [[0, 6, 6, 0], [0, 6, 6, 0], [0, 6, 6, 0], [0, 6, 6, 0]],

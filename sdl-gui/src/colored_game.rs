@@ -93,7 +93,7 @@ impl ColoredGame {
         }
     }
 
-    pub fn apply(&mut self, action: Action) -> bool {
+    pub fn apply(&mut self, action: Action) -> ActionInfo {
         match action {
             Action::Lock => {
                 self.paint_active_piece();

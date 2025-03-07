@@ -1,9 +1,7 @@
 use crate::model::PieceType;
-use rand::{
-    distributions::{Distribution, Uniform},
-    rngs::StdRng,
-    SeedableRng,
-};
+use rand::seq::SliceRandom;
+use rand_core::SeedableRng;
+use rand_xorshift::XorShiftRng;
 use std::collections::VecDeque;
 
 /// A bag of Tetris pieces that can be pulled from
@@ -14,7 +12,7 @@ pub enum Bag {
         queue: VecDeque<PieceType>,
     },
     Rng7 {
-        rng: StdRng,
+        rng: XorShiftRng,
         queue: VecDeque<PieceType>,
     },
 }
@@ -31,7 +29,7 @@ impl Bag {
     /// Generate a new 7-bag
     pub fn new_rng7(seed: u64) -> Self {
         Bag::Rng7 {
-            rng: StdRng::seed_from_u64(seed),
+            rng: XorShiftRng::seed_from_u64(seed),
             queue: VecDeque::new(),
         }
     }
@@ -48,10 +46,7 @@ impl Bag {
             Bag::Rng7 { rng, queue } => {
                 if queue.is_empty() {
                     let mut arr = PieceType::ALL;
-                    for i in (1..arr.len()).rev() {
-                        let j = Uniform::new(0, i).sample(rng);
-                        arr.swap(i, j);
-                    }
+                    arr.shuffle(rng);
                     queue.extend(arr);
                 }
                 queue.pop_front().unwrap()

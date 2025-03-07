@@ -1,9 +1,9 @@
 mod explore;
 mod prune;
-mod output;
+mod table;
 mod tessellation;
 
 pub use explore::*;
 pub use prune::*;
-pub use output::*;
+pub use table::*;
 pub use tessellation::*;

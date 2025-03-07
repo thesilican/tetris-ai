@@ -50,16 +50,12 @@ fn prune_bfs(edges: Vec<(PcBoard, PcBoard)>) -> Vec<(PcBoard, PcBoard)> {
 }
 
 pub fn prune_graph(edges: Vec<(PcBoard, PcBoard)>) -> Result<Vec<(PcBoard, PcBoard)>> {
-    println!("Pruning graph edges");
-    let file = File::open("data/pruned.bin");
-    if let Ok(mut file) = file {
-        println!("Reading graph edges from data/pruned.bin");
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-        let output = Vec::<(PcBoard, PcBoard)>::unpack_bytes(&data)?;
-        return Ok(output);
+    match read_pruned() {
+        Ok(pruned) => return Ok(pruned),
+        Err(err) => println!("{err}"),
     }
 
+    println!("Pruning graph edges");
     let output = prune_bfs(edges);
 
     println!("Saving pruned edges to data/pruned.bin");
@@ -68,4 +64,12 @@ pub fn prune_graph(edges: Vec<(PcBoard, PcBoard)>) -> Result<Vec<(PcBoard, PcBoa
     file.write_all(&bytes)?;
 
     Ok(output)
+}
+
+pub fn read_pruned() -> Result<Vec<(PcBoard, PcBoard)>> {
+    println!("Reading graph edges from data/pruned.bin");
+    let mut file = File::open("data/pruned.bin")?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+    Vec::<(PcBoard, PcBoard)>::unpack_bytes(&data)
 }
