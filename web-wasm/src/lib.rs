@@ -1,6 +1,7 @@
 use libtetris::{Ai, Evaluation, Game, SimpleAi};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
+use tree_bot::{TreeAi, DEFAULT_PARAMS};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -41,6 +42,7 @@ impl ApiEvaluation {
 }
 
 static SIMPLE_AI: Lazy<Mutex<SimpleAi>> = Lazy::new(|| Mutex::new(SimpleAi::new()));
+static TREE_AI: Lazy<Mutex<TreeAi>> = Lazy::new(|| Mutex::new(TreeAi::new(5, 3, DEFAULT_PARAMS)));
 
 #[wasm_bindgen]
 pub fn evaluate(ai_type: String, game: String) -> ApiEvaluation {
@@ -56,6 +58,7 @@ pub fn evaluate(ai_type: String, game: String) -> ApiEvaluation {
     };
     let evaluation: Evaluation = match ai_type.as_str() {
         "simple-ai" => SIMPLE_AI.lock().unwrap().evaluate(&game),
+        "tree-ai" => TREE_AI.lock().unwrap().evaluate(&game),
         _ => {
             return ApiEvaluation {
                 success: false,

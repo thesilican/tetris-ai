@@ -45,9 +45,10 @@ impl Ai for TreeAi {
 
         let result = self.tree.extend_queue(self.step, game.queue);
         if result.is_err() {
-            return Evaluation::Fail {
-                message: "Failed to extend queue".to_string(),
-            };
+            // Queue is inconsistent, clear the existing tree
+            self.step = 0;
+            self.tree.clear();
+            self.tree.extend_queue(self.step, game.queue).unwrap();
         }
 
         let children = game.children(Fin::Simple1);

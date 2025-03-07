@@ -147,7 +147,7 @@ impl Optimizer {
         let mut ts2 = 0;
         let mut ts3 = 0;
 
-        let mut tree_ai = TreeAi::new(4, 4, params);
+        let mut tree_ai = TreeAi::new(5, 4, params);
         let mut bag = Bag::new_rng7(seed);
         let mut game = Game::from_bag(&mut bag);
         'outer: for _ in 0..800 {

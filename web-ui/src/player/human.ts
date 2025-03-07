@@ -15,6 +15,8 @@ export class HumanPlayer {
   downTimer = new DasTimer(0, 1);
   gravityTimer = new DasTimer(0, 60);
   interval: number | undefined;
+  statusTextCountdown = 0;
+  statusText = "";
 
   constructor(renderer: GameRenderer) {
     this.game = new Game();
@@ -83,7 +85,32 @@ export class HumanPlayer {
       this.downTimer.reset();
     } else if (e.code === "Space") {
       e.preventDefault();
-      this.game.apply("hard-drop");
+      const info = this.game.apply("hard-drop");
+      if (info) {
+        if (info.tspin) {
+          this.statusTextCountdown = 120;
+          if (info.linesCleared === 1) {
+            this.statusText = "T-Spin Single!";
+          } else if (info.linesCleared === 2) {
+            this.statusText = "T-Spin Double!";
+          } else if (info.linesCleared === 3) {
+            this.statusText = "T-Spin Triple!";
+          } else {
+            this.statusText = "T-Spin!";
+          }
+        } else if (info.linesCleared >= 1) {
+          this.statusTextCountdown = 120;
+          if (info.linesCleared === 1) {
+            this.statusText = "Single!";
+          } else if (info.linesCleared === 2) {
+            this.statusText = "Double!";
+          } else if (info.linesCleared === 3) {
+            this.statusText = "Triple!";
+          } else {
+            this.statusText = "Quad!";
+          }
+        }
+      }
       this.gravityTimer.reset();
       this.leftTimer.reset();
       this.rightTimer.reset();
@@ -148,8 +175,18 @@ export class HumanPlayer {
         this.game.gravityShift();
       }
     }
+    if (this.statusTextCountdown > 0) {
+      this.statusTextCountdown--;
+      if (this.statusTextCountdown === 0) {
+        this.statusText = "";
+      }
+    }
 
-    this.renderer.render({ game: this.game, paused: this.paused });
+    this.renderer.render({
+      game: this.game,
+      paused: this.paused,
+      statusText: this.statusText,
+    });
     this.interval = requestAnimationFrame(this.tick);
   };
 }

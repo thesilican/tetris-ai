@@ -113,6 +113,11 @@ impl Tree {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.edges.clear();
+        self.queue.clear();
+    }
+
     fn insert(&mut self, node: &Node) -> Result<()> {
         let game = node.to_game(&self.queue)?;
         let children = game.children(Fin::Simple1);

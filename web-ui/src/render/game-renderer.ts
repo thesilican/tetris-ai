@@ -43,6 +43,7 @@ type DrawSpriteOptions = {
 type RenderGameOptions = {
   game: Game;
   paused?: boolean;
+  statusText?: string;
 };
 
 const COLOR_BACKGROUND = "#1e1e1e";
@@ -124,7 +125,7 @@ export class GameRenderer {
     const justify = options.jusitfy ?? "left";
     const debug = options.debug ?? false;
 
-    this.ctx.font = `${fontSize}px Rubik`;
+    this.ctx.font = `${fontSize}px Arial`;
     const metrics = this.ctx.measureText(text);
     const width = metrics.width;
     const height =
@@ -361,10 +362,18 @@ export class GameRenderer {
 
     // Draw text
     this.drawScaledText({
-      position: new Vec2(0, 0),
-      text: `Score: ${game.score}`,
-      align: "top",
+      position: new Vec2(0, 24),
+      text: `Lines: ${game.score}`,
+      align: "bottom",
     });
+    if (options.statusText) {
+      this.drawScaledText({
+        position: new Vec2(2.5, 22),
+        text: options.statusText,
+        jusitfy: "center",
+        fontSize: 0.75,
+      });
+    }
     if (options.paused ?? false) {
       this.drawScaledRect({
         rect: new Rect(6, 10, 10, 1),

@@ -81,7 +81,7 @@ impl Params {
 }
 
 // Found using optimizer search
-pub static DEFAULT_SCORE_PARAMS: Params = Params {
+pub static DEFAULT_PARAMS: Params = Params {
     max_height: -4.8412785e-5,
     bumpiness: -0.13946371,
     holes: -1.4413329,

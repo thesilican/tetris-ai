@@ -21,6 +21,7 @@ export type Action =
 export type LockInfo = {
   linesCleared: number;
   topOut: boolean;
+  tspin: boolean;
 };
 
 export class Piece {
@@ -219,9 +220,36 @@ export class Board {
     return false;
   }
 
+  checkTspin(piece: Piece): boolean {
+    if (piece.pieceType !== "T") {
+      return false;
+    }
+    if (
+      piece.positionX < 0 ||
+      piece.positionX > BOARD_WIDTH - 3 ||
+      piece.positionY < 0 ||
+      piece.positionY > BOARD_HEIGHT - 3
+    ) {
+      return false;
+    }
+    const x = piece.positionX;
+    const y = piece.positionY;
+    const bl = this.get(x, y) !== " ";
+    const br = this.get(x + 2, y) !== " ";
+    const tl = this.get(x, y + 2) !== " ";
+    const tr = this.get(x + 2, y + 2) !== " ";
+    return (
+      (piece.rotation === 0 && tl && tr && (bl || br)) ||
+      (piece.rotation === 1 && tr && br && (tl || bl)) ||
+      (piece.rotation === 2 && bl && br && (tl || tr)) ||
+      (piece.rotation === 3 && tl && bl && (tr || br))
+    );
+  }
+
   lock(piece: Piece): LockInfo {
     const shape = PieceInfo.Shapes[piece.pieceType][piece.rotation];
     const topOut = this.intersectsWith(piece);
+    const tspin = this.checkTspin(piece);
 
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -259,6 +287,7 @@ export class Board {
     return {
       linesCleared,
       topOut,
+      tspin,
     };
   }
 
@@ -378,6 +407,7 @@ export class Game {
     if (this.queue.length < 6) {
       this.queue.push(this.bag.next());
     }
+    return info;
   }
 
   gravityShift() {
@@ -393,12 +423,12 @@ export class Game {
     }
 
     this.active.softDrop(this.board);
-    this.lock();
+    return this.lock();
   }
 
-  apply(action: Action) {
+  apply(action: Action): LockInfo | undefined {
     if (action === "hard-drop") {
-      this.hardDrop();
+      return this.hardDrop();
     } else if (action === "hold") {
       this.swapHold();
     } else if (action === "rotate-180") {

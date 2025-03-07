@@ -17,6 +17,8 @@ export class AiPlayer {
   requestId: number | undefined;
   actionsQueue: Action[] = [];
   interval: number | undefined;
+  statusTextCountdown = 0;
+  statusText = "";
 
   constructor(
     aiType: string,
@@ -92,7 +94,32 @@ export class AiPlayer {
       if (this.timer.tick()) {
         const action = this.actionsQueue.shift();
         if (action) {
-          this.game.apply(action);
+          const info = this.game.apply(action);
+          if (info) {
+            if (info.tspin) {
+              this.statusTextCountdown = 60;
+              if (info.linesCleared === 1) {
+                this.statusText = "T-Spin Single!";
+              } else if (info.linesCleared === 2) {
+                this.statusText = "T-Spin Double!";
+              } else if (info.linesCleared === 3) {
+                this.statusText = "T-Spin Triple!";
+              } else {
+                this.statusText = "T-Spin!";
+              }
+            } else if (info.linesCleared >= 1) {
+              this.statusTextCountdown = 60;
+              if (info.linesCleared === 1) {
+                this.statusText = "Single!";
+              } else if (info.linesCleared === 2) {
+                this.statusText = "Double!";
+              } else if (info.linesCleared === 3) {
+                this.statusText = "Triple!";
+              } else {
+                this.statusText = "Quad!";
+              }
+            }
+          }
         } else {
           if (!this.requestId) {
             this.requestId = idCounter++;
@@ -107,7 +134,18 @@ export class AiPlayer {
         }
       }
     }
-    this.renderer.render({ game: this.game, paused: this.paused });
+    if (this.statusTextCountdown > 0) {
+      this.statusTextCountdown--;
+      if (this.statusTextCountdown === 0) {
+        this.statusText = "";
+      }
+    }
+
+    this.renderer.render({
+      game: this.game,
+      paused: this.paused,
+      statusText: this.statusText,
+    });
     this.interval = requestAnimationFrame(this.tick);
   };
 }
