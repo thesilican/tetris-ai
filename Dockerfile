@@ -3,6 +3,7 @@ WORKDIR /app
 RUN cargo install wasm-pack
 COPY libtetris/ /app/libtetris/
 COPY web-wasm/ /app/web-wasm/
+COPY tree-bot/ /app/tree-bot/
 RUN wasm-pack build web-wasm
 
 FROM node:lts AS frontend
