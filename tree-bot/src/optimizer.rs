@@ -13,8 +13,8 @@ use crate::{Params, TreeAi, PARAMS_DIM};
 
 const POPULATION_KEEP: usize = 100;
 const POPULATION_NEW: usize = 100;
-const POPULATION_COMBINE_KEEP: usize = 700;
-const POPULATION_COMBINE_ALL: usize = 100;
+const POPULATION_COMBINE_KEEP: usize = 500;
+const POPULATION_COMBINE_ALL: usize = 300;
 const POPULATION_SIZE: usize =
     POPULATION_KEEP + POPULATION_NEW + POPULATION_COMBINE_KEEP + POPULATION_COMBINE_ALL;
 
@@ -147,7 +147,7 @@ impl Optimizer {
         let mut ts2 = 0;
         let mut ts3 = 0;
 
-        let mut tree_ai = TreeAi::new(5, 4, params);
+        let mut tree_ai = TreeAi::new(4, 10, params);
         let mut bag = Bag::new_rng7(seed);
         let mut game = Game::from_bag(&mut bag);
         'outer: for _ in 0..800 {
@@ -180,6 +180,6 @@ impl Optimizer {
             }
             game.refill_queue(&mut bag);
         }
-        ts1 * 5 + ts2 * 10 + ts3 * 15 + lc1 * 0 + lc2 * 1 + lc3 * 2 + lc4 * 10
+        ts1 * 2 + ts2 * 4 + ts3 * 6 + lc1 * 0 + lc2 * 1 + lc3 * 2 + lc4 * 4
     }
 }

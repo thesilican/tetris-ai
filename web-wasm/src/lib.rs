@@ -42,7 +42,7 @@ impl ApiEvaluation {
 }
 
 static SIMPLE_AI: Lazy<Mutex<SimpleAi>> = Lazy::new(|| Mutex::new(SimpleAi::new()));
-static TREE_AI: Lazy<Mutex<TreeAi>> = Lazy::new(|| Mutex::new(TreeAi::new(5, 3, DEFAULT_PARAMS)));
+static TREE_AI: Lazy<Mutex<TreeAi>> = Lazy::new(|| Mutex::new(TreeAi::new(4, 6, DEFAULT_PARAMS)));
 
 #[wasm_bindgen]
 pub fn evaluate(ai_type: String, game: String) -> ApiEvaluation {

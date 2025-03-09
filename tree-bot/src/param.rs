@@ -82,9 +82,15 @@ impl Params {
 
 // Found using optimizer search
 pub static DEFAULT_PARAMS: Params = Params {
-    max_height: -4.8412785e-5,
-    bumpiness: -0.13946371,
-    holes: -1.4413329,
-    normal_clear: [-0.5015993, -1.2004814, 1.1999483, -0.120569, -0.7330629],
-    tspin_clear: [-0.20565611, -0.44592947, 0.4023606, 0.8722384],
+    max_height: 0.007564539,
+    bumpiness: -0.119221255,
+    holes: -1.3969069,
+    normal_clear: [
+        0.081128635,
+        -0.22556686,
+        0.035156228,
+        0.43860132,
+        0.35975468,
+    ],
+    tspin_clear: [-0.23875281, 0.26708335, 0.6625228, -1.0724338],
 };

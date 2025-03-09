@@ -40,7 +40,7 @@ function updateControls(value: string) {
         "A simple bot that looks 1 move deep and greedily minimizes board height.";
     } else if (bot === "tree-ai") {
       description.innerText =
-        "A bot that looks 5 moves deep using a DFS tree search," +
+        "A bot that looks 4 moves deep using a DFS tree search," +
         " guided by a heuristic scoring algorithm." +
         " Occasionally able to perform t-spins.";
     }
