@@ -1,7 +1,0 @@
-[package]
-name = "c4w-bot"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-libtetris = { path = "../libtetris" }
