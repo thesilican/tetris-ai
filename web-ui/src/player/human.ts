@@ -2,6 +2,19 @@ import { Game } from "../model/model";
 import { DasTimer, generateSeed } from "../model/util";
 import { GameRenderer } from "../render/game-renderer";
 
+const capturedKeys = [
+  "KeyR",
+  "KeyP",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowDown",
+  "Space",
+  "KeyZ",
+  "KeyX",
+  "KeyA",
+  "KeyC",
+];
+
 export class HumanPlayer {
   game: Game;
   renderer: GameRenderer;
@@ -43,48 +56,48 @@ export class HumanPlayer {
   }
 
   handleKeyDown = (e: KeyboardEvent) => {
-    if (e.repeat || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) {
+    if (e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) {
+      return;
+    }
+    if (capturedKeys.includes(e.code)) {
+      e.preventDefault();
+    }
+    if (e.repeat) {
       return;
     }
     if (!this.started) {
       return;
     }
     if (e.code === "KeyR") {
-      e.preventDefault();
       this.game.start(generateSeed());
     }
     if (this.game.finished) {
       return;
     }
     if (e.code === "KeyP") {
-      e.preventDefault();
       this.paused = !this.paused;
     }
     if (this.paused) {
       return;
     }
     if (e.code === "ArrowLeft") {
-      e.preventDefault();
       this.game.apply("shift-left");
       this.gravityTimer.reset();
       this.rightPressed = false;
       this.leftPressed = true;
       this.leftTimer.reset();
     } else if (e.code === "ArrowRight") {
-      e.preventDefault();
       this.game.apply("shift-right");
       this.gravityTimer.reset();
       this.leftPressed = false;
       this.rightPressed = true;
       this.rightTimer.reset();
     } else if (e.code === "ArrowDown") {
-      e.preventDefault();
       this.game.apply("shift-down");
       this.gravityTimer.reset();
       this.downPressed = true;
       this.downTimer.reset();
     } else if (e.code === "Space") {
-      e.preventDefault();
       const info = this.game.apply("hard-drop");
       if (info) {
         if (info.tspin) {
@@ -115,42 +128,35 @@ export class HumanPlayer {
       this.leftTimer.reset();
       this.rightTimer.reset();
     } else if (e.code === "KeyZ") {
-      e.preventDefault();
       this.game.apply("rotate-ccw");
       this.gravityTimer.reset();
     } else if (e.code === "KeyX") {
-      e.preventDefault();
       this.game.apply("rotate-cw");
       this.gravityTimer.reset();
     } else if (e.code === "KeyA") {
-      e.preventDefault();
       this.game.apply("rotate-180");
       this.gravityTimer.reset();
     } else if (e.code === "KeyC") {
-      e.preventDefault();
       this.game.apply("hold");
       this.gravityTimer.reset();
     }
   };
 
-  handleKeyUp = (event: KeyboardEvent) => {
-    if (event.repeat) {
+  handleKeyUp = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) {
       return;
     }
-    if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
+    if (capturedKeys.includes(e.code)) {
+      e.preventDefault();
+    }
+    if (e.repeat || !this.started || this.game.finished || this.paused) {
       return;
     }
-    if (!this.started || this.game.finished || this.paused) {
-      return;
-    }
-    if (event.code === "ArrowLeft") {
-      event.preventDefault();
+    if (e.code === "ArrowLeft") {
       this.leftPressed = false;
-    } else if (event.code === "ArrowRight") {
-      event.preventDefault();
+    } else if (e.code === "ArrowRight") {
       this.rightPressed = false;
-    } else if (event.code === "ArrowDown") {
-      event.preventDefault();
+    } else if (e.code === "ArrowDown") {
       this.downPressed = false;
     }
   };
