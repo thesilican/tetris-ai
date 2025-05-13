@@ -407,8 +407,8 @@ impl PcTable {
             .chain(self.children(board, PieceType::Z))
     }
 
-    pub fn load(bytes: &[u8]) -> Self {
-        Self::unpack(&mut PackCursor::new(bytes)).unwrap()
+    pub fn load(bytes: &[u8]) -> Result<Self> {
+        Self::unpack(&mut PackCursor::new(bytes))
     }
 }
 

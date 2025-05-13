@@ -35,14 +35,20 @@ function updateControls(value: string) {
   } else if (value.startsWith("bot-")) {
     aiControls.style.display = "";
     const bot = value.slice(4);
-    if (bot === "simple-ai") {
+    if (bot === "simple") {
       description.innerText =
         "A simple bot that looks 1 move deep and greedily minimizes board height.";
-    } else if (bot === "tree-ai") {
+    } else if (bot === "tree") {
       description.innerText =
         "A bot that looks 4 moves deep using a DFS tree search," +
         " guided by a heuristic scoring algorithm." +
         " Occasionally able to perform t-spins.";
+    } else if (bot === "pc-finder") {
+      description.innerText =
+        "A bot that loops perfect clears by performing" +
+        " a tree search on a precomputed lookup table." +
+        " Defaults to greedy bot if a path to perfect clear" +
+        " is not found.";
     }
   }
 }

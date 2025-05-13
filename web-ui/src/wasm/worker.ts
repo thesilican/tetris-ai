@@ -1,6 +1,22 @@
-import { evaluate } from "web-wasm";
-import { RequestMessage, ResponseMessage } from "./types";
+import { evaluate, init_pc_finder } from "web-wasm";
 import { Action } from "../model/model";
+import { RequestMessage, ResponseMessage } from "./types";
+
+// Load PC Table
+(async () => {
+  const url = new URL(
+    import.meta.env.BASE_URL + "./pc-table.bin",
+    self.location.origin
+  );
+  const res = await fetch(url);
+  if (res.status === 200) {
+    const array = new Uint8Array(await res.arrayBuffer());
+    init_pc_finder(array);
+    console.log("Loaded PC Table");
+  } else {
+    throw new Error("Failed to fetch pc-table.bin");
+  }
+})();
 
 self.addEventListener("message", (e: MessageEvent<RequestMessage>) => {
   if (e.data.type === "evaluate") {
