@@ -148,7 +148,7 @@ impl Ai for PcFinderAi {
                 actions.extend(child.pc_moves);
                 Evaluation::Success {
                     actions,
-                    score: Some(0.0),
+                    score: 0.0,
                 }
             }
             None => self.simple_ai.evaluate(game),
