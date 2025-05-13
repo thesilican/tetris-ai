@@ -15,3 +15,5 @@ List of packages (last updated 2025-03-11)
 - Bots
   - `tree-bot` - Performs a dfs tree search on the game state to find the optimal move, guided by simple heuristics
   - `pc-finder` - Finds [perfect clear](https://harddrop.com/wiki/Perfect_clear) setups
+
+You may need to install git lfs to clone this repo properly.
