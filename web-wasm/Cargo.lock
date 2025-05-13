@@ -426,7 +426,6 @@ dependencies = [
  "console_error_panic_hook",
  "getrandom",
  "libtetris",
- "once_cell",
  "serde_json",
  "tree-bot",
  "wasm-bindgen",

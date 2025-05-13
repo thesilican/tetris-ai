@@ -82,7 +82,7 @@ fn explore_bfs(
 ) -> Vec<(PcBoard, PcBoard)> {
     let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
-    let mut edges = Vec::new();
+    let mut edges = HashSet::new();
     queue.push_back(PcBoard::new());
 
     while let Some(parent) = queue.pop_front() {
@@ -103,7 +103,7 @@ fn explore_bfs(
                 Piece::from_piece_type(piece),
                 None,
                 &[PieceType::O],
-                true,
+                false,
             );
             let children = game.children(Fin::Full3);
             for child in children {
@@ -124,10 +124,16 @@ fn explore_bfs(
                 if !visited.contains(&child) {
                     queue.push_back(child)
                 }
-                edges.push((parent, child));
+                let edge = (parent, child);
+                if !edges.contains(&edge) {
+                    edges.insert(edge);
+                }
             }
         }
     }
+    let mut edges = edges.into_iter().collect::<Vec<_>>();
+    // Make the output deterministic
+    edges.sort();
     edges
 }
 

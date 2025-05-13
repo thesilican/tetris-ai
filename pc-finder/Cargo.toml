@@ -5,18 +5,13 @@ authors = ["Bryan Chen <bryanchen74@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-redis = { version = "*" }
-fnv = "1.0"
 libtetris = { path = "../libtetris" }
-rand = "0.8.5"
-rayon = "1.5"
 tinyvec = { version = "1.6", features = ["alloc"] }
 anyhow = "1.0"
-
 
 [profile.release]
 debug = true
 
-[dev-dependencies]
-sdl-gui = { path = "../sdl-gui" }
-# lto = true
+[features]
+generate = []
+default = ["generate"]

@@ -192,49 +192,61 @@ impl Game {
         for hold in [false, true] {
             let mut game = self.clone();
             if hold {
-                game.apply(Action::Hold);
+                let result = game.apply(Action::Hold);
+                if let ActionInfo::Fail = result {
+                    continue;
+                }
             }
 
             for rotate in 0..4 {
                 let mut game = game.clone();
-                match rotate {
-                    0 => {}
-                    1 => {
-                        game.apply(Action::RotateCw);
-                    }
-                    2 => {
-                        game.apply(Action::Rotate180);
-                    }
-                    3 => {
-                        game.apply(Action::RotateCcw);
-                    }
+                let result = match rotate {
+                    0 => ActionInfo::Success,
+                    1 => game.apply(Action::RotateCw),
+                    2 => game.apply(Action::Rotate180),
+                    3 => game.apply(Action::RotateCcw),
                     _ => unreachable!(),
+                };
+                if let ActionInfo::Fail = result {
+                    continue;
                 }
 
                 let (min_x, max_x, _, _) =
                     PieceInfo::location_bound(game.active.piece_type, game.active.rotation);
 
                 // Piece shift
-                for position_x in min_x..=max_x {
+                'shift: for position_x in min_x..=max_x {
                     let mut game = game.clone();
                     let shift = position_x - game.active.position_x;
                     if shift < 0 {
                         for _ in 0..(-shift) {
-                            game.apply(Action::ShiftLeft);
+                            let result = game.apply(Action::ShiftLeft);
+                            if let ActionInfo::Fail = result {
+                                continue 'shift;
+                            }
                         }
                     } else {
                         for _ in 0..shift {
-                            game.apply(Action::ShiftRight);
+                            let result = game.apply(Action::ShiftRight);
+                            if let ActionInfo::Fail = result {
+                                continue 'shift;
+                            }
                         }
                     }
 
                     for (i, Perm(actions)) in fin.perm_set().0.iter().enumerate() {
                         let mut game = game.clone();
                         if actions.len() > 0 {
-                            game.apply(Action::SoftDrop);
+                            let result = game.apply(Action::SoftDrop);
+                            if let ActionInfo::Fail = result {
+                                continue;
+                            }
                         }
                         for &action in actions {
-                            game.apply(action);
+                            let result = game.apply(action);
+                            if let ActionInfo::Fail = result {
+                                continue;
+                            }
                         }
 
                         let action_info = game.apply(Action::HardDrop);

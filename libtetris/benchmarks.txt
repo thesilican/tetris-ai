@@ -44,3 +44,13 @@
 - gen_children_2: 223.424µs
 - gen_children_3: 1.241123ms
 - gen_children_4: 6.835378ms
+
+2025-05-12
+- dt_cannon_loop: 326.172µs
+- gen_children_none: 6.916µs
+- gen_children_simple_1: 40.561µs
+- gen_children_simple_2: 222.988µs
+- gen_children_simple_3: 990.573µs
+- gen_children_full_1: 44.923µs
+- gen_children_full_2: 271.011µs
+- gen_children_full_3: 1.737514ms

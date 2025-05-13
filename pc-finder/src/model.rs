@@ -262,11 +262,11 @@ impl Display for Tess {
             for x in 0..10 {
                 for p in self.pieces {
                     let text = match p.piece_type {
-                        PieceType::O => "\x1b[93m[]\x1b[0m",
-                        PieceType::I => "\x1b[96m[]\x1b[0m",
-                        PieceType::T => "\x1b[95m[]\x1b[0m",
-                        PieceType::L => "\x1b[33m[]\x1b[0m",
-                        PieceType::J => "\x1b[34m[]\x1b[0m",
+                        PieceType::O => "\x1b[33m[]\x1b[0m",
+                        PieceType::I => "\x1b[34m[]\x1b[0m",
+                        PieceType::T => "\x1b[35m[]\x1b[0m",
+                        PieceType::L => "\x1b[37m[]\x1b[0m",
+                        PieceType::J => "\x1b[36m[]\x1b[0m",
                         PieceType::S => "\x1b[32m[]\x1b[0m",
                         PieceType::Z => "\x1b[31m[]\x1b[0m",
                     };
@@ -285,9 +285,9 @@ impl Display for Tess {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct PcTableKey {
-    board: PcBoard,
-    piece: PieceType,
+pub struct PcTableKey {
+    pub board: PcBoard,
+    pub piece: PieceType,
 }
 
 impl Pack for PcTableKey {
@@ -307,9 +307,9 @@ impl Pack for PcTableKey {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PcTableChild {
-    board: PcBoard,
+    pub board: PcBoard,
     // Tiny vec because most sequences are less than 8 long, prevents heap fragmentation
-    actions: TinyVec<[Action; 8]>,
+    pub actions: TinyVec<[Action; 8]>,
 }
 
 impl PcTableChild {
@@ -360,7 +360,7 @@ impl Pack for PcTableChild {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PcTable {
-    map: HashMap<PcTableKey, TinyVec<[PcTableChild; 2]>>,
+    pub map: HashMap<PcTableKey, TinyVec<[PcTableChild; 2]>>,
 }
 
 impl PcTable {

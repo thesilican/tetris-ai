@@ -78,9 +78,9 @@ pub struct PcFinderAi {
 }
 
 impl PcFinderAi {
-    pub fn new(pc_table_data: &[u8]) -> Self {
+    pub fn new(pc_table: PcTable) -> Self {
         PcFinderAi {
-            table: PcTable::load(pc_table_data),
+            table: pc_table,
             simple_ai: SimpleAi::new(),
         }
     }

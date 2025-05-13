@@ -9,21 +9,24 @@ use std::{
 use tinyvec::TinyVec;
 
 fn construct_table(pruned: Vec<(PcBoard, PcBoard)>) -> PcTable {
-    let mut boards = HashSet::new();
+    let mut parents = HashSet::new();
     for (parent, _) in pruned {
-        boards.insert(parent);
+        parents.insert(parent);
     }
+    let mut parents = parents.into_iter().collect::<Vec<_>>();
+    // Sort so that output is deterministic
+    parents.sort();
 
     let mut table = PcTable::new();
     let mut visited = HashSet::new();
-    for (i, &parent) in boards.iter().enumerate() {
+    for (i, &parent) in parents.iter().enumerate() {
         for piece in PieceType::ALL {
             let game = Game::from_parts(
                 Board::from(parent),
                 Piece::from_piece_type(piece),
                 None,
                 &[PieceType::O],
-                true,
+                false,
             );
             let children = game.children(Fin::Full3);
             visited.clear();
@@ -31,7 +34,7 @@ fn construct_table(pruned: Vec<(PcBoard, PcBoard)>) -> PcTable {
                 let Ok(child) = PcBoard::try_from(child_state.game.board) else {
                     continue;
                 };
-                if !boards.contains(&child) || !visited.contains(&child) {
+                if !parents.contains(&child) || visited.contains(&child) {
                     continue;
                 }
                 visited.insert(child);
