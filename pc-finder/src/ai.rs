@@ -71,6 +71,17 @@ struct PcChild<'a> {
     pc_moves: &'a [Action],
 }
 
+impl<'a> PcChild<'a> {
+    pub fn actions(&self) -> Vec<Action> {
+        let mut actions = Vec::new();
+        if self.hold {
+            actions.push(Action::Hold);
+        }
+        actions.extend_from_slice(self.pc_moves);
+        actions
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct PcFinderAi {
     table: PcTable,
@@ -88,69 +99,79 @@ impl PcFinderAi {
 
 impl Ai for PcFinderAi {
     fn evaluate(&mut self, game: &Game) -> Evaluation {
-        fn rec(game: PcGame, table: &PcTable) -> Option<PcChild<'_>> {
-            let ancestors = game.children(table).collect::<Vec<_>>();
-            for &ancestor in ancestors.iter() {
-                if ancestor.game.board == PcBoard::default() {
-                    return Some(ancestor);
-                }
-            }
-            let mut counts = ancestors
-                .iter()
-                .enumerate()
-                .map(|(i, _)| i)
-                .collect::<Vec<_>>();
-            struct Frame {
-                game: PcGame,
-                depth: usize,
-                parent: usize,
-            }
-            let mut queue = ancestors
-                .iter()
-                .enumerate()
-                .map(|(i, child)| Frame {
-                    game: child.game,
-                    depth: 1,
-                    parent: i,
-                })
-                .collect::<VecDeque<_>>();
-            // BFS through children
-            while let Some(frame) = queue.pop_front() {
-                for child in frame.game.children(table) {
-                    counts[frame.parent] += 1;
-                    if child.game.board == PcBoard::default() {
-                        return Some(ancestors[frame.parent]);
-                    }
-                    queue.push_back(Frame {
-                        game: child.game,
-                        depth: frame.depth + 1,
-                        parent: frame.parent,
-                    })
-                }
-            }
-            counts
-                .iter()
-                .enumerate()
-                .max_by_key(|(_, &x)| x)
-                .map(|(i, _)| ancestors[i])
-        }
-        let pc_game = match PcGame::from_game(*game) {
+        let mut pc_game = match PcGame::from_game(*game) {
             Ok(pc_game) => pc_game,
             Err(_) => return self.simple_ai.evaluate(game),
         };
-        let res = rec(pc_game, &self.table);
-        match res {
-            Some(child) => {
-                let mut actions = Vec::new();
-                if child.hold {
-                    actions.push(Action::Hold);
-                }
-                actions.extend(child.pc_moves);
-                Evaluation::Success {
-                    actions,
-                    score: 0.0,
-                }
+
+        // Trick: slightly extend the queue with likely pieces to get more
+        // accurate results
+        for piece_type in PieceType::ALL {
+            let found = pc_game.queue.iter().find(|&p| p == piece_type).is_some();
+            if !found && pc_game.queue.len() != PIECE_QUEUE_MAX_LEN {
+                pc_game.queue.enqueue(piece_type);
             }
+        }
+
+        let children = pc_game.children(&self.table).collect::<Vec<_>>();
+        for &child in children.iter() {
+            if child.game.board == PcBoard::default() {
+                return Evaluation::Success {
+                    actions: child.actions(),
+                    score: 0.0,
+                };
+            }
+        }
+
+        // Determine child with most paths
+        let mut counts = children
+            .iter()
+            .enumerate()
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+
+        struct Frame {
+            game: PcGame,
+            depth: usize,
+            ancestor: usize,
+        }
+        let mut queue = children
+            .iter()
+            .enumerate()
+            .map(|(i, child)| Frame {
+                game: child.game,
+                depth: 1,
+                ancestor: i,
+            })
+            .collect::<VecDeque<_>>();
+
+        // BFS through children
+        while let Some(frame) = queue.pop_front() {
+            for child in frame.game.children(&self.table) {
+                counts[frame.ancestor] += 1;
+                if child.game.board == PcBoard::default() {
+                    return Evaluation::Success {
+                        actions: children[frame.ancestor].actions(),
+                        score: frame.depth as f32,
+                    };
+                }
+                queue.push_back(Frame {
+                    game: child.game,
+                    depth: frame.depth + 1,
+                    ancestor: frame.ancestor,
+                })
+            }
+        }
+        let best_child = counts
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, &x)| x)
+            .map(|(i, _)| children[i]);
+        match best_child {
+            Some(best_child) => Evaluation::Success {
+                actions: best_child.actions(),
+                score: 10.0,
+            },
             None => self.simple_ai.evaluate(game),
         }
     }

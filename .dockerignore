@@ -1,10 +1,8 @@
-.git/
-data/
-target/
-flamegraph.svg
+**/data/
+**/target/
+**/flamegraph.svg
 
-ml/
-ml-bot/data/
-web-ui/dist/
-web-ui/node_modules/
-web-wasm/pkg/
+/.git/
+/web-ui/dist/
+/web-ui/node_modules/
+/web-wasm/pkg/

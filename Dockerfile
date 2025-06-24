@@ -7,7 +7,7 @@ COPY tree-bot/ /app/tree-bot/
 COPY pc-finder/ /app/pc-finder
 RUN wasm-pack build web-wasm
 
-FROM node:lts AS frontend
+FROM node:22.16 AS frontend
 ARG BASE_URL /
 WORKDIR /app/web-ui
 COPY web-ui/package*.json /app/web-ui/
