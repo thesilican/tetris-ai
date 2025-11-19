@@ -165,7 +165,7 @@ impl Ai for PcFinderAi {
         let best_child = counts
             .iter()
             .enumerate()
-            .max_by_key(|(_, &x)| x)
+            .max_by_key(|&(_, x)| x)
             .map(|(i, _)| children[i]);
         match best_child {
             Some(best_child) => Evaluation::Success {

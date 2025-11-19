@@ -1,9 +1,9 @@
 [package]
 name = "sdl-gui"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 libtetris = { version = "0.1.0", path = "../libtetris" }
-sdl2 = { version = "0.37", features = ["bundled"] }
+sdl2 = { version = "0.38", features = ["bundled"] }
 anyhow = "1.0"
