@@ -1,0 +1,6 @@
+[workspace]
+members = ["libtetris", "pc-finder", "sdl-gui", "tree-bot", "web-wasm"]
+resolver = "3"
+
+[profile.release]
+debug = true

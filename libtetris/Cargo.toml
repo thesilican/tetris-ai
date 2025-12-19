@@ -16,6 +16,3 @@ fnv = "1.0"
 
 [dev-dependencies]
 termion = "4.0.2"
-
-[profile.release]
-debug = true

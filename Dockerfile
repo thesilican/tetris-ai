@@ -4,7 +4,9 @@ RUN cargo install wasm-pack
 COPY libtetris/ /app/libtetris/
 COPY web-wasm/ /app/web-wasm/
 COPY tree-bot/ /app/tree-bot/
-COPY pc-finder/ /app/pc-finder
+COPY pc-finder/ /app/pc-finder/
+COPY sdl-gui/ /app/sdl-gui/
+COPY Cargo.* /app/
 RUN wasm-pack build web-wasm
 
 FROM node:22.16 AS frontend

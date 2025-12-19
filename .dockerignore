@@ -1,6 +1,7 @@
 **/data/
 **/target/
 **/flamegraph.svg
+**/*.md
 
 /.git/
 /web-ui/dist/

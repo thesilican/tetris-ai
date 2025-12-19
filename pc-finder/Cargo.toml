@@ -9,9 +9,6 @@ libtetris = { path = "../libtetris" }
 tinyvec = { version = "1.6", features = ["alloc"] }
 anyhow = "1.0"
 
-[profile.release]
-debug = true
-
 [features]
 generate = []
 default = ["generate"]

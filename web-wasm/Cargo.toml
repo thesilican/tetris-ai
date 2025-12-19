@@ -15,6 +15,3 @@ serde_json = "1.0"
 libtetris = { version = "0.1.0", path = "../libtetris" }
 tree-bot = { version = "0.1.0", path = "../tree-bot" }
 pc-finder = { version = "0.1.0", path = "../pc-finder", default-features = false }
-
-[profile.release]
-opt-level = "s"
